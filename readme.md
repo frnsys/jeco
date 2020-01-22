@@ -1,0 +1,4 @@
+- Adjust config: `config.yaml`
+- Run simulation: `cargo run` (or `cargo run --release`)
+- Generate plots: `python plot.py`
+- View plots: `runs/latest/plots/index.html`
