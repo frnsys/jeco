@@ -74,7 +74,6 @@ impl Network {
     pub fn produce(&mut self) {
         for a in &self.agents {
             if let Some(to_share) = self.agent_to_share.get_mut(&a.id) {
-                // to_share.clear(); TODO
                 match a.produce() {
                     Some(body) => {
                         let content = Rc::new(Content {
