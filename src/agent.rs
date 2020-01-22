@@ -1,11 +1,15 @@
 use rand::prelude::*;
+use std::rc::Rc;
 use std::fmt::Debug;
-use nalgebra::{VectorN, U8};
-use super::content::Content;
+use nalgebra::{VectorN, U2};
+use super::content::{Content, ContentBody, SharedContent};
+use super::network::{Network};
 use rand_distr::StandardNormal;
 
-type Topics = VectorN<f32, U8>;
-type Values = VectorN<f32, U8>;
+// 2 so can be plotted in 2d
+static VECTOR_SIZE: u32 = 2;
+pub type Topics = VectorN<f32, U2>;
+pub type Values = VectorN<f32, U2>;
 
 #[derive(Debug)]
 pub struct Agent {
@@ -21,40 +25,85 @@ fn clamp(val: f32, min: f32, max: f32) -> f32 {
     else { val }
 }
 
+pub fn random_values() -> Values {
+    // Normal dist, -1 to 1
+    let v_vec = (0..VECTOR_SIZE).map(|_| {
+        let mut val = thread_rng().sample(StandardNormal);
+        val = (val - 0.5) * 2.;
+        clamp(val, -1., 1.)
+    }).collect();
+    Values::from_vec(v_vec).normalize()
+}
+
+pub fn random_topics() -> Topics {
+    // Normal dist, 0 to 1
+    let i_vec = (0..VECTOR_SIZE).map(|_| {
+        let val = thread_rng().sample(StandardNormal);
+        clamp(val, 0., 1.)
+    }).collect();
+    Topics::from_vec(i_vec).normalize()
+}
+
 impl Agent {
     pub fn new(id: usize) -> Agent {
-        // Normal dist, -1 to 1
-        let v_vec = (0..8).map(|_| {
-            let mut val = thread_rng().sample(StandardNormal);
-            val = (val - 0.5) * 2.;
-            clamp(val, -1., 1.)
-        }).collect();
-        let values = Values::from_vec(v_vec);
-
-        // Normal dist, 0 to 1
-        let i_vec = (0..8).map(|_| {
-            let val = thread_rng().sample(StandardNormal);
-            clamp(val, 0., 1.)
-        }).collect();
-        let interests = Topics::from_vec(i_vec);
-
         Agent {
             id: id,
-            interests: interests.normalize(),
-            values: values.normalize(),
+            interests: random_topics(),
+            values: random_values(),
             attention: 100.0,
         }
     }
 
     // Return content they create
-    pub fn produce(&self) -> Option<Content> {
-        None
+    pub fn produce(&self) -> Option<ContentBody> {
+        // TODO calculate
+        let p_produce = 0.25;
+        let roll: f32 = thread_rng().gen();
+        if roll < p_produce {
+            // TODO calculate cost
+            Some(ContentBody {
+                cost: 15.,
+                topics: random_topics(),
+                values: random_values(),
+            })
+        } else {
+            None
+        }
     }
 
     // Return content they decide to share
-    pub fn consume(&self, content: Vec<&Content>) -> Vec<&Content> {
-        // TODO gravity component
-        vec![]
+    pub fn consume<'a>(&'a self, content: Vec<&'a SharedContent>, network: &Network) -> Vec<Rc<Content>> {
+        let mut attention = self.attention;
+        let mut to_share = Vec::new();
+        for sc in content {
+            let c = &sc.content;
+            let affinity = self.interests.dot(&c.body.topics);
+            let alignment = (self.values.dot(&c.body.values) - 0.5) * 2.;
+
+            // TODO incorporate trust?
+            // let trust = network.trust(self, sc.sharer);
+
+            // Take the abs value
+            // So if something is very polar to the person's values,
+            // they "hateshare" it
+            let reactivity = affinity * alignment.abs();
+
+            // Do they share it?
+            let roll: f32 = thread_rng().gen();
+            if roll < reactivity {
+                to_share.push(c.clone());
+            }
+
+            // Assume that they fully consume
+            // the content, e.g. spend its
+            // total attention cost
+            attention -= c.body.cost;
+            if attention <= 0. {
+                break;
+            }
+        }
+
+        to_share
     }
 
     pub fn similarity(&self, other: &Agent) -> f32 {

@@ -1,29 +1,34 @@
 use rand::Rng;
+use std::rc::Rc;
 use fnv::FnvHashMap;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
-use petgraph::{Directed, Incoming};
+use petgraph::{Directed, Incoming, Outgoing};
 use petgraph::stable_graph::{StableGraph, NodeIndex};
 use super::agent::Agent;
+use super::content::{Content, SharedContent};
 
-pub struct Network<'a> {
-    agents: &'a Vec<Agent>,
+pub struct Network {
+    agents: Vec<Rc<Agent>>,
     graph: StableGraph<usize, f32, Directed>,
     agent_to_node: FnvHashMap<usize, NodeIndex>,
+    agent_to_share: FnvHashMap<usize, Vec<SharedContent>>,
 }
 
-impl<'a> Network<'a> {
-    pub fn new(agents: &Vec<Agent>) -> Network {
+impl Network {
+    pub fn new(agents: Vec<Agent>) -> Network {
         let sample_size = 10;
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
 
         // Network of agents, with trust as weight
         let mut graph = StableGraph::<usize, f32, Directed, u32>::default();
         let mut lookup = FnvHashMap::default();
+        let mut agent_to_share = FnvHashMap::default();
         for agent in agents.iter() {
             let idx = graph.add_node(agent.id);
             lookup.insert(agent.id, idx);
+            agent_to_share.insert(agent.id, Vec::new());
         }
 
         // Social network formation (preferential attachment)
@@ -46,8 +51,80 @@ impl<'a> Network<'a> {
 
         Network {
             graph: graph,
-            agents: agents,
-            agent_to_node: lookup
+            agents: agents.into_iter().map(|a| Rc::new(a)).collect(),
+            agent_to_node: lookup,
+            agent_to_share: agent_to_share,
+        }
+    }
+
+    pub fn trust(&self, a: &Agent, b: &Agent) -> f32 {
+        // Edge from A->B
+        let idx_a  = self.agent_to_node[&a.id];
+        let idx_b  = self.agent_to_node[&b.id];
+
+        match self.graph.find_edge(idx_a, idx_b) {
+            Some(edge) => match self.graph.edge_weight(edge) {
+                Some(weight) => *weight,
+                None => 0.
+            },
+            None => 0.
+        }
+    }
+
+    pub fn produce(&mut self) {
+        for a in &self.agents {
+            if let Some(to_share) = self.agent_to_share.get_mut(&a.id) {
+                // to_share.clear(); TODO
+                match a.produce() {
+                    Some(body) => {
+                        let content = Rc::new(Content {
+                            author: a.clone(),
+                            body: body
+                        });
+                        to_share.push(SharedContent {
+                            content: content.clone(),
+                            sharer: a.clone()
+                        });
+                    },
+                    None => {}
+                }
+            }
+        }
+    }
+
+    pub fn consume(&mut self) {
+        // TODO
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+
+        let mut new_to_share: FnvHashMap<usize, Vec<SharedContent>> = FnvHashMap::default();
+
+        for a in &self.agents {
+            let idx = self.agent_to_node[&a.id];
+            let neighbs = self.graph.neighbors_directed(idx, Outgoing).filter_map(|idx| self.graph.node_weight(idx));
+            let mut shared: Vec<&SharedContent> = neighbs.flat_map(|n_id| self.agent_to_share[n_id].iter()).collect();
+
+            shared.shuffle(&mut rng);
+            let will_share = a.consume(shared, &self);
+            let shareable = will_share.iter().map(|content| {
+                SharedContent {
+                    sharer: a.clone(),
+                    content: content.clone(),
+                }
+            }).collect();
+            new_to_share.insert(a.id, shareable);
+        }
+
+        // Update share lists
+        for (a_id, mut to_share_) in new_to_share {
+            match self.agent_to_share.get_mut(&a_id) {
+                Some(to_share) => {
+                    to_share.clear();
+                    to_share.append(&mut to_share_);
+                },
+                None => {
+                    self.agent_to_share.insert(a_id, to_share_);
+                }
+            }
         }
     }
 }
