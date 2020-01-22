@@ -2,11 +2,14 @@ mod agent;
 mod config;
 mod content;
 mod network;
+mod output;
 
 use self::agent::Agent;
 use self::network::Network;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
+use pbr::ProgressBar;
+use self::output::Recorder;
 
 fn main() {
     let conf = config::load_config();
@@ -20,10 +23,22 @@ fn main() {
 
     let mut network = Network::new(agents);
 
-    for step in 0..steps {
-        println!("Step {:?}", step);
-        network.produce();
-        network.consume();
+    if debug {
+        let mut recorder = Recorder::new(&network, &mut rng);
+        let mut pb = ProgressBar::new(steps as u64);
+        for _ in 0..steps {
+            network.produce();
+            network.consume();
+
+            recorder.record(&network);
+            pb.inc();
+        }
+        recorder.save(&conf);
+    } else {
+        for _ in 0..steps {
+            network.produce();
+            network.consume();
+        }
     }
 }
 

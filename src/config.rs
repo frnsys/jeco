@@ -31,7 +31,7 @@ pub fn load_config() -> Config {
 
     conf.debug = match env::var("DEBUG") {
         Ok(debug) => debug == "1",
-        Err(_) => false,
+        Err(_) => conf.debug,
     };
 
     let mut rng = rand::thread_rng();

@@ -11,7 +11,7 @@ use super::agent::Agent;
 use super::content::{Content, SharedContent};
 
 pub struct Network {
-    agents: Vec<Rc<RefCell<Agent>>>,
+    pub agents: Vec<Rc<RefCell<Agent>>>,
     graph: StableGraph<usize, f32, Directed>,
     agent_to_node: FnvHashMap<usize, NodeIndex>,
     agent_to_share: FnvHashMap<usize, Vec<SharedContent>>,
