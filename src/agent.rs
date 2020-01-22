@@ -25,12 +25,13 @@ fn clamp(val: f32, min: f32, max: f32) -> f32 {
     else { val }
 }
 
+static NORMAL_SCALE: f32 = 0.2;
+
 pub fn random_values() -> Values {
     // Normal dist, -1 to 1
     let v_vec = (0..VECTOR_SIZE).map(|_| {
-        let mut val = thread_rng().sample(StandardNormal);
-        val = (val - 0.5) * 2.;
-        clamp(val, -1., 1.)
+        let val: f32 = thread_rng().sample(StandardNormal);
+        clamp(val*NORMAL_SCALE, -1., 1.)
     }).collect();
     Values::from_vec(v_vec).normalize()
 }
@@ -38,7 +39,9 @@ pub fn random_values() -> Values {
 pub fn random_topics() -> Topics {
     // Normal dist, 0 to 1
     let i_vec = (0..VECTOR_SIZE).map(|_| {
-        let val = thread_rng().sample(StandardNormal);
+        let mut val = thread_rng().sample(StandardNormal);
+        val *= NORMAL_SCALE;
+        val = (val + 0.5) * 2.;
         clamp(val, 0., 1.)
     }).collect();
     Topics::from_vec(i_vec).normalize()

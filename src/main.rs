@@ -25,6 +25,8 @@ fn main() {
 
     if debug {
         let mut recorder = Recorder::new(&network, &mut rng);
+        recorder.record(&network);
+
         let mut pb = ProgressBar::new(steps as u64);
         for _ in 0..steps {
             network.produce();
