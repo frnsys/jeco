@@ -1,6 +1,8 @@
+use rand::prelude::*;
 use std::fmt::Debug;
 use nalgebra::{VectorN, U8};
 use super::content::Content;
+use rand_distr::StandardNormal;
 
 type Topics = VectorN<f32, U8>;
 type Values = VectorN<f32, U8>;
@@ -13,12 +15,33 @@ pub struct Agent {
     pub attention: f32,
 }
 
+fn clamp(val: f32, min: f32, max: f32) -> f32 {
+    if val < min { min }
+    else if val > max { max }
+    else { val }
+}
+
 impl Agent {
     pub fn new(id: usize) -> Agent {
+        // Normal dist, -1 to 1
+        let v_vec = (0..8).map(|_| {
+            let mut val = thread_rng().sample(StandardNormal);
+            val = (val - 0.5) * 2.;
+            clamp(val, -1., 1.)
+        }).collect();
+        let values = Values::from_vec(v_vec);
+
+        // Normal dist, 0 to 1
+        let i_vec = (0..8).map(|_| {
+            let val = thread_rng().sample(StandardNormal);
+            clamp(val, 0., 1.)
+        }).collect();
+        let interests = Topics::from_vec(i_vec);
+
         Agent {
             id: id,
-            interests: Topics::new_random().normalize(),
-            values: Values::new_random().normalize(),
+            interests: interests.normalize(),
+            values: values.normalize(),
             attention: 100.0,
         }
     }
