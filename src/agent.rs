@@ -102,9 +102,6 @@ impl Agent {
             let affinity = self.interests.dot(&c.body.topics);
             let alignment = (self.values.dot(&c.body.values) - 0.5) * 2.;
 
-            // TODO incorporate trust?
-            // let trust = network.trust(self, sc.sharer);
-
             // Take the abs value
             // So if something is very polar to the person's values,
             // they "hateshare" it
@@ -117,7 +114,8 @@ impl Agent {
             }
 
             // Influence
-            self.values.zip_apply(&c.body.values, |v, v_| v + gravity(v, v_) * affinity);
+            let trust = network.trust(self, &sc.sharer.borrow());
+            self.values.zip_apply(&c.body.values, |v, v_| v + gravity(v, v_) * affinity * trust);
 
             // Assume that they fully consume
             // the content, e.g. spend its
