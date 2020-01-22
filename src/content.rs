@@ -1,9 +1,10 @@
 use std::rc::Rc;
+use std::cell::RefCell;
 use super::agent::{Agent, Topics, Values};
 
 #[derive(Debug)]
 pub struct Content {
-    pub author: Rc<Agent>,
+    pub author: Rc<RefCell<Agent>>,
     pub body: ContentBody,
 }
 
@@ -18,5 +19,5 @@ pub struct ContentBody {
 #[derive(Debug)]
 pub struct SharedContent {
     pub content: Rc<Content>,
-    pub sharer: Rc<Agent>
+    pub sharer: Rc<RefCell<Agent>>
 }

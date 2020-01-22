@@ -44,6 +44,28 @@ pub fn random_topics() -> Topics {
     Topics::from_vec(i_vec).normalize()
 }
 
+// horizontal stretching of gravity function
+// higher values mean weaker influence at greater distances
+static GRAVITY_STRETCH: f32 = 100.;
+
+// maximum movement amount
+static MAX_INFLUENCE: f32 = 0.01;
+
+// Returns how much a moves towards b
+pub fn gravity(a: f32, b: f32) -> f32 {
+    let mut dist = a - b;
+    let sign = dist.signum();
+    dist = dist.abs();
+    if dist == 0. {
+        // Already here, no movement
+        0.
+    } else {
+        let strength = (1./dist)/GRAVITY_STRETCH;
+        let movement = strength/(strength + 1.) * MAX_INFLUENCE;
+        f32::min(movement, dist) * sign
+    }
+}
+
 impl Agent {
     pub fn new(id: usize) -> Agent {
         Agent {
@@ -72,7 +94,7 @@ impl Agent {
     }
 
     // Return content they decide to share
-    pub fn consume<'a>(&'a self, content: Vec<&'a SharedContent>, network: &Network) -> Vec<Rc<Content>> {
+    pub fn consume<'a>(&'a mut self, content: Vec<&'a SharedContent>, network: &Network) -> Vec<Rc<Content>> {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
         for sc in content {
@@ -93,6 +115,9 @@ impl Agent {
             if roll < reactivity {
                 to_share.push(c.clone());
             }
+
+            // Influence
+            self.values.zip_apply(&c.body.values, |v, v_| v + gravity(v, v_) * affinity);
 
             // Assume that they fully consume
             // the content, e.g. spend its
