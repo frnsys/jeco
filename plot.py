@@ -1,11 +1,74 @@
 import os
 import json
 import yaml
+import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.collections as mcoll
+import matplotlib.colors as mcolors
 from collections import defaultdict
 from datetime import datetime
 
 plt.style.use('ggplot')
+
+cmaps = []
+colors = [
+    (0.0, 0.6, 0.4),
+    (0.9, 0.0, 0.0),
+    (0.1, 0.4, 0.9),
+    (0.4, 0.1, 0.9),
+    (0.9, 0.3, 0.0),
+]
+
+for r, g, b in colors:
+    name = '{}_{}_{}'.format(r, g, b)
+    cdict = {
+        'red': [
+            (0., r, r),
+            (1., r, r)
+        ],
+        'green': [
+            (0., g, g),
+            (1., g, g)
+        ],
+        'blue':  [
+            (0., b, b),
+            (1., b, b)
+        ],
+        'alpha': [
+            (0., 0.0, 0.0),
+            (1., 1.0, 1.0)
+        ]
+    }
+    cmap = mcolors.LinearSegmentedColormap(name, cdict)
+    cmaps.append(cmap)
+
+def colorline(x, y, cmap, norm=plt.Normalize(0.0, 1.0), linewidth=2):
+    # Default colors equally spaced on [0,1]:
+    z = np.linspace(0.0, 1.0, len(x))
+    z = np.asarray(z)
+
+    segments = make_segments(x, y)
+    lc = mcoll.LineCollection(segments, array=z, cmap=cmap,
+                              norm=norm,
+                              linewidth=linewidth)
+
+    ax = plt.gca()
+    ax.add_collection(lc)
+
+    return lc
+
+
+def make_segments(x, y):
+    """
+    Create list of line segments from x and y coordinates, in the correct format
+    for LineCollection: an array of the form numlines x (points per line) x 2 (x
+    and y) array
+    """
+
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    return segments
+
 
 def make_plots(output_dir):
     try:
@@ -32,9 +95,13 @@ def make_plots(output_dir):
             values[s['id']].append(s['values'])
 
     plt.title('Agent Values')
-    for id, vals in values.items():
+    plt.ylim([-1, 1])
+    plt.xlim([-1, 1])
+    for i, (id, vals) in enumerate(values.items()):
         x, y = zip(*vals)
-        plt.plot(list(x), list(y), label=id, marker='o')
+
+        cmap = cmaps[i%len(cmaps)]
+        colorline(x, y, cmap=cmap)
     # plt.legend()
     plt.savefig(os.path.join(output_dir, 'plots/agent_values.png'))
     fnames.append('agent_values.png')
