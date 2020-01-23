@@ -94,6 +94,7 @@ def make_plots(output_dir):
         for s in month:
             values[s['id']].append(s['values'])
 
+    plt.figure(figsize=(10,8))
     plt.title('Agent Values')
     plt.ylim([-1, 1])
     plt.xlim([-1, 1])
@@ -124,7 +125,7 @@ def make_plots(output_dir):
             dt=datetime.now().isoformat(),
             config=json.dumps(config),
             meta=', '.join('{}: {}'.format(k, v) for k, v in meta.items()),
-            imgs='\n'.join(['<img style="width:400px;" src="{}">'.format(fname) for fname in fnames]))
+            imgs='\n'.join(['<img style="width:600px;" src="{}">'.format(fname) for fname in fnames]))
         f.write(html)
 
 

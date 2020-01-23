@@ -86,12 +86,29 @@ impl Agent {
         // TODO calculate
         let p_produce = 0.25;
         let roll: f32 = thread_rng().gen();
+
         if roll < p_produce {
+            let topics = self.interests.map(|v| {
+                let mut val = thread_rng().sample(StandardNormal);
+                val *= NORMAL_SCALE;
+                val /= 2.;
+                val += v;
+                clamp(val, 0., 1.)
+            });
+
+            let values = self.values.get().map(|v| {
+                let mut val = thread_rng().sample(StandardNormal);
+                val *= NORMAL_SCALE;
+                val /= 2.;
+                val += v;
+                clamp(val, -1., 1.)
+            });
+
             // TODO calculate cost
             Some(ContentBody {
                 cost: 15.,
-                topics: random_topics(),
-                values: random_values(),
+                topics: topics,
+                values: values,
             })
         } else {
             None
@@ -102,7 +119,6 @@ impl Agent {
     pub fn consume<'a>(&'a self, content: Vec<&'a SharedContent>, network: &Network) -> Vec<Rc<Content>> {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
-        // println!("CONSUMING: {:?}", content.len());
         for sc in content {
             let c = &sc.content;
             let mut values = self.values.get();
