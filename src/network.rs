@@ -14,11 +14,12 @@ pub struct Network {
     graph: StableGraph<usize, f32, Directed>,
     agent_to_node: FnvHashMap<usize, NodeIndex>,
     agent_to_share: FnvHashMap<usize, Vec<SharedContent>>,
+    content: Vec<Rc<Content>>,
 }
 
 impl Network {
     pub fn new(agents: Vec<Agent>) -> Network {
-        let sample_size = 10;
+        let sample_size = (0.1 * agents.len() as f32) as usize;
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
 
         // Network of agents, with trust as weight
@@ -52,6 +53,7 @@ impl Network {
 
         Network {
             graph: graph,
+            content: Vec::new(),
             agents: agents.into_iter().map(|a| Rc::new(a)).collect(),
             agent_to_node: lookup,
             agent_to_share: agent_to_share,
@@ -72,7 +74,8 @@ impl Network {
         }
     }
 
-    pub fn produce(&mut self) {
+    pub fn produce(&mut self) -> usize {
+        let mut n_produced = 0;
         for a in &self.agents {
             if let Some(to_share) = self.agent_to_share.get_mut(&a.id) {
                 match a.produce() {
@@ -85,11 +88,14 @@ impl Network {
                             content: content.clone(),
                             sharer: a.clone()
                         });
+                        self.content.push(content.clone());
+                        n_produced += 1;
                     },
                     None => {}
                 }
             }
         }
+        n_produced
     }
 
     pub fn consume(&mut self) {
@@ -126,5 +132,18 @@ impl Network {
                 }
             }
         }
+    }
+
+    pub fn n_will_share(&self) -> usize {
+        self.agent_to_share.values().fold(0, |acc, v| acc + v.len())
+    }
+
+    pub fn n_shares(&self) -> Vec<usize> {
+        // -1 to account for reference in self.content
+        self.content.iter().map(|c| Rc::strong_count(c) - 1).collect()
+    }
+
+    pub fn n_followers(&self) -> Vec<usize> {
+        self.graph.node_indices().map(|idx| self.graph.neighbors_directed(idx, Incoming).count()).collect()
     }
 }

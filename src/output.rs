@@ -9,6 +9,7 @@ use std::rc::Rc;
 use super::agent::Agent;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
+use fnv::FnvHashMap;
 
 pub struct Recorder {
     history: Vec<Value>,
@@ -17,14 +18,14 @@ pub struct Recorder {
 
 impl Recorder {
     pub fn new(network: &Network, mut rng: &mut StdRng) -> Recorder {
-        let sample_size = 40;
+        let sample_size = (0.2 * network.agents.len() as f32) as usize;
         Recorder {
             history: Vec::new(),
             sample: network.agents.choose_multiple(&mut rng, sample_size).map(|a| a.clone()).collect()
         }
     }
 
-    pub fn record(&mut self, network: &Network) {
+    pub fn record(&mut self, network: &Network, n_produced: usize) {
         let sample: Vec<Value> = self.sample.iter().map(|a| {
             json!({
                 "id": a.id,
@@ -32,8 +33,38 @@ impl Recorder {
                 "interests": a.interests,
             })
         }).collect();
+        let n_shares = network.n_shares();
+        let mean_shares = n_shares.iter().fold(0, |acc, v| acc + v) as f32/n_shares.len() as f32;
+        let mut share_dist: FnvHashMap<usize, usize> = FnvHashMap::default();
+        for shares in &n_shares {
+            let count = share_dist.entry(*shares).or_insert(0);
+            *count += 1;
+        }
+
+        let n_followers = network.n_followers();
+        let mean_followers = n_followers.iter().fold(0, |acc, v| acc + v) as f32/n_followers.len() as f32;
+        let mut follower_dist: FnvHashMap<usize, usize> = FnvHashMap::default();
+        for followers in &n_followers {
+            let count = follower_dist.entry(*followers).or_insert(0);
+            *count += 1;
+        }
+
         let value = json!({
-            "sample": sample
+            "shares": {
+                "max": n_shares.iter().max(),
+                "min": n_shares.iter().min(),
+                "mean": mean_shares,
+            },
+            "share_dist": share_dist,
+            "followers": {
+                "max": n_followers.iter().max(),
+                "min": n_followers.iter().min(),
+                "mean": mean_followers,
+            },
+            "follower_dist": follower_dist,
+            "sample": sample,
+            "p_produced": n_produced as f32/network.agents.len() as f32,
+            "to_share": network.n_will_share(),
         });
         self.history.push(value);
     }

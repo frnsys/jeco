@@ -18,6 +18,7 @@ pub struct Agent {
     pub interests: Topics,
     pub values: Cell<Values>,
     pub attention: f32,
+    pub resources: f32,
 }
 
 fn clamp(val: f32, min: f32, max: f32) -> f32 {
@@ -26,7 +27,7 @@ fn clamp(val: f32, min: f32, max: f32) -> f32 {
     else { val }
 }
 
-static NORMAL_SCALE: f32 = 0.2;
+static NORMAL_SCALE: f32 = 0.8;
 
 pub fn random_values() -> Values {
     // Normal dist, -1 to 1
@@ -42,8 +43,8 @@ pub fn random_topics() -> Topics {
     // Normal dist, 0 to 1
     let i_vec = (0..VECTOR_SIZE).map(|_| {
         let mut val = thread_rng().sample(StandardNormal);
-        val *= NORMAL_SCALE;
         val = (val + 0.5) * 2.;
+        val *= NORMAL_SCALE;
         clamp(val, 0., 1.)
     }).collect();
     Topics::from_vec(i_vec)
@@ -73,40 +74,47 @@ pub fn gravity(a: f32, b: f32) -> f32 {
 
 impl Agent {
     pub fn new(id: usize) -> Agent {
+        let mut resources = thread_rng().sample(StandardNormal);
+        resources = (resources + 0.5) * 2.;
+        resources = clamp(resources, 0., 1.);
+
         Agent {
             id: id,
             interests: random_topics(),
             values: Cell::new(random_values()),
             attention: 100.0,
+            resources: resources,
         }
     }
 
     // Return content they create
     pub fn produce(&self) -> Option<ContentBody> {
-        // TODO calculate
-        let p_produce = 0.25;
+        let p_produce = self.resources;
         let roll: f32 = thread_rng().gen();
 
         if roll < p_produce {
             let topics = self.interests.map(|v| {
                 let mut val = thread_rng().sample(StandardNormal);
-                val *= NORMAL_SCALE;
-                val /= 2.;
                 val += v;
+                val *= NORMAL_SCALE;
                 clamp(val, 0., 1.)
             });
 
             let values = self.values.get().map(|v| {
                 let mut val = thread_rng().sample(StandardNormal);
-                val *= NORMAL_SCALE;
-                val /= 2.;
                 val += v;
+                val *= NORMAL_SCALE;
                 clamp(val, -1., 1.)
             });
 
-            // TODO calculate cost
+            // Attention cost ranges from 0-100
+            let mut cost = thread_rng().sample(StandardNormal);
+            cost = (cost + 0.5) * 2.;
+            cost = clamp(cost, 0., 1.);
+            cost *= 100.;
+
             Some(ContentBody {
-                cost: 15.,
+                cost: cost,
                 topics: topics,
                 values: values,
             })

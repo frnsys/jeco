@@ -14,7 +14,6 @@ pub struct ContentBody {
     pub values: Values,
 }
 
-
 #[derive(Debug)]
 pub struct SharedContent {
     pub content: Rc<Content>,

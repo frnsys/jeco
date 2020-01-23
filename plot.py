@@ -10,6 +10,8 @@ from datetime import datetime
 
 plt.style.use('ggplot')
 
+figsize=(10, 8)
+
 cmaps = []
 colors = [
     (0.0, 0.6, 0.4),
@@ -94,7 +96,7 @@ def make_plots(output_dir):
         for s in month:
             values[s['id']].append(s['values'])
 
-    plt.figure(figsize=(10,8))
+    plt.figure(figsize=figsize)
     plt.title('Agent Values')
     plt.ylim([-1, 1])
     plt.xlim([-1, 1])
@@ -106,6 +108,48 @@ def make_plots(output_dir):
     # plt.legend()
     plt.savefig(os.path.join(output_dir, 'plots/agent_values.png'))
     fnames.append('agent_values.png')
+
+    for k in ['to_share', 'p_produced']:
+        fname = '{}.png'.format(k)
+        plt.figure(figsize=figsize)
+        plt.title(k)
+        vals = stats[k]
+        plt.plot(range(len(vals)), vals)
+        plt.savefig(os.path.join(output_dir, 'plots/{}'.format(fname)))
+        fnames.append(fname)
+
+    for k in ['shares', 'followers']:
+        fname = '{}.png'.format(k)
+        plt.figure(figsize=figsize)
+        plt.title(k)
+        grouped = defaultdict(list)
+        for month in stats[k]:
+            for k_, v_ in month.items():
+                grouped[k_].append(v_)
+        for k_, vals in grouped.items():
+            plt.plot(range(len(vals)), vals, label=k_)
+        plt.legend()
+        plt.savefig(os.path.join(output_dir, 'plots/{}'.format(fname)))
+        fnames.append(fname)
+
+    for k in ['share_dist', 'follower_dist']:
+        fname = '{}.png'.format(k)
+        plt.figure(figsize=figsize)
+        plt.title('mean {} 0-dropped'.format(k))
+        bins = defaultdict(int)
+        for month in stats[k]:
+            for bin, count in month.items():
+                bins[int(bin)] += count
+        x = []
+        mn = min(bins.keys())
+        mx = max(bins.keys())
+        for i in range(mn, mx):
+            v = bins.get(i, 0)/len(stats[k])
+            x.append(v)
+        plt.xticks(list(range(len(x)))[1:])
+        plt.bar(list(range(len(x)))[1:], x[1:])
+        plt.savefig(os.path.join(output_dir, 'plots/{}'.format(fname)))
+        fnames.append(fname)
 
     with open(os.path.join(output_dir, 'plots/index.html'), 'w') as f:
         html = '''

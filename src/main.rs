@@ -25,14 +25,14 @@ fn main() {
 
     if debug {
         let mut recorder = Recorder::new(&network, &mut rng);
-        recorder.record(&network);
+        recorder.record(&network, 0);
 
         let mut pb = ProgressBar::new(steps as u64);
         for _ in 0..steps {
-            network.produce();
+            let n_produced = network.produce();
             network.consume();
 
-            recorder.record(&network);
+            recorder.record(&network, n_produced);
             pb.inc();
         }
         recorder.save(&conf);
