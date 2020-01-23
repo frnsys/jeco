@@ -1,5 +1,4 @@
 use rand::Rng;
-use std::cell::RefCell;
 use std::rc::Rc;
 use fnv::FnvHashMap;
 use rand::rngs::StdRng;
@@ -11,7 +10,7 @@ use super::agent::Agent;
 use super::content::{Content, SharedContent};
 
 pub struct Network {
-    pub agents: Vec<Rc<RefCell<Agent>>>,
+    pub agents: Vec<Rc<Agent>>,
     graph: StableGraph<usize, f32, Directed>,
     agent_to_node: FnvHashMap<usize, NodeIndex>,
     agent_to_share: FnvHashMap<usize, Vec<SharedContent>>,
@@ -33,7 +32,7 @@ impl Network {
         }
 
         // Social network formation (preferential attachment)
-        let mut total_edges = 0.;
+        let mut total_edges = 1.;
         for agent in agents.iter() {
             let idx = lookup[&agent.id];
             let candidates = agents.choose_multiple(&mut rng, sample_size);
@@ -43,7 +42,8 @@ impl Network {
 
                 let sim = agent.similarity(&candidate);
                 let pref = (graph.neighbors_directed(c_idx, Incoming).count() as f32)/total_edges;
-                if roll < (sim + pref)/2. {
+                let p = (sim + pref)/2.;
+                if roll < p {
                     graph.add_edge(idx, c_idx, sim);
                     total_edges += 1.;
                 }
@@ -52,7 +52,7 @@ impl Network {
 
         Network {
             graph: graph,
-            agents: agents.into_iter().map(|a| Rc::new(RefCell::new(a))).collect(),
+            agents: agents.into_iter().map(|a| Rc::new(a)).collect(),
             agent_to_node: lookup,
             agent_to_share: agent_to_share,
         }
@@ -73,18 +73,17 @@ impl Network {
     }
 
     pub fn produce(&mut self) {
-        for ag in &self.agents {
-            let a = ag.borrow();
+        for a in &self.agents {
             if let Some(to_share) = self.agent_to_share.get_mut(&a.id) {
                 match a.produce() {
                     Some(body) => {
                         let content = Rc::new(Content {
-                            author: ag.clone(),
+                            author: a.clone(),
                             body: body
                         });
                         to_share.push(SharedContent {
                             content: content.clone(),
-                            sharer: ag.clone()
+                            sharer: a.clone()
                         });
                     },
                     None => {}
@@ -99,8 +98,7 @@ impl Network {
 
         let mut new_to_share: FnvHashMap<usize, Vec<SharedContent>> = FnvHashMap::default();
 
-        for ag in &self.agents {
-            let mut a = ag.borrow_mut();
+        for a in &self.agents {
             let idx = self.agent_to_node[&a.id];
             let neighbs = self.graph.neighbors_directed(idx, Outgoing).filter_map(|idx| self.graph.node_weight(idx));
             let mut shared: Vec<&SharedContent> = neighbs.flat_map(|n_id| self.agent_to_share[n_id].iter()).collect();
@@ -109,7 +107,7 @@ impl Network {
             let will_share = a.consume(shared, &self);
             let shareable = will_share.iter().map(|content| {
                 SharedContent {
-                    sharer: ag.clone(),
+                    sharer: a.clone(),
                     content: content.clone(),
                 }
             }).collect();

@@ -5,7 +5,6 @@ use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 use super::config::Config;
 use super::network::Network;
-use std::cell::RefCell;
 use std::rc::Rc;
 use super::agent::Agent;
 use rand::rngs::StdRng;
@@ -13,7 +12,7 @@ use rand::seq::SliceRandom;
 
 pub struct Recorder {
     history: Vec<Value>,
-    sample: Vec<Rc<RefCell<Agent>>>,
+    sample: Vec<Rc<Agent>>,
 }
 
 impl Recorder {
@@ -26,8 +25,7 @@ impl Recorder {
     }
 
     pub fn record(&mut self, network: &Network) {
-        let sample: Vec<Value> = self.sample.iter().map(|ag| {
-            let a = ag.borrow();
+        let sample: Vec<Value> = self.sample.iter().map(|a| {
             json!({
                 "id": a.id,
                 "values": a.values,

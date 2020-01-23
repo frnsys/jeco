@@ -1,5 +1,6 @@
 use rand::prelude::*;
 use std::rc::Rc;
+use std::cell::Cell;
 use std::fmt::Debug;
 use nalgebra::{VectorN, U2};
 use super::content::{Content, ContentBody, SharedContent};
@@ -15,7 +16,7 @@ pub type Values = VectorN<f32, U2>;
 pub struct Agent {
     pub id: usize,
     pub interests: Topics,
-    pub values: Values,
+    pub values: Cell<Values>,
     pub attention: f32,
 }
 
@@ -30,10 +31,11 @@ static NORMAL_SCALE: f32 = 0.2;
 pub fn random_values() -> Values {
     // Normal dist, -1 to 1
     let v_vec = (0..VECTOR_SIZE).map(|_| {
-        let val: f32 = thread_rng().sample(StandardNormal);
-        clamp(val*NORMAL_SCALE, -1., 1.)
+        let mut val: f32 = thread_rng().sample(StandardNormal);
+        val *= NORMAL_SCALE;
+        clamp(val, -1., 1.)
     }).collect();
-    Values::from_vec(v_vec).normalize()
+    Values::from_vec(v_vec)
 }
 
 pub fn random_topics() -> Topics {
@@ -44,7 +46,7 @@ pub fn random_topics() -> Topics {
         val = (val + 0.5) * 2.;
         clamp(val, 0., 1.)
     }).collect();
-    Topics::from_vec(i_vec).normalize()
+    Topics::from_vec(i_vec)
 }
 
 // horizontal stretching of gravity function
@@ -52,7 +54,7 @@ pub fn random_topics() -> Topics {
 static GRAVITY_STRETCH: f32 = 100.;
 
 // maximum movement amount
-static MAX_INFLUENCE: f32 = 0.01;
+static MAX_INFLUENCE: f32 = 0.1;
 
 // Returns how much a moves towards b
 pub fn gravity(a: f32, b: f32) -> f32 {
@@ -74,7 +76,7 @@ impl Agent {
         Agent {
             id: id,
             interests: random_topics(),
-            values: random_values(),
+            values: Cell::new(random_values()),
             attention: 100.0,
         }
     }
@@ -97,13 +99,15 @@ impl Agent {
     }
 
     // Return content they decide to share
-    pub fn consume<'a>(&'a mut self, content: Vec<&'a SharedContent>, network: &Network) -> Vec<Rc<Content>> {
+    pub fn consume<'a>(&'a self, content: Vec<&'a SharedContent>, network: &Network) -> Vec<Rc<Content>> {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
+        // println!("CONSUMING: {:?}", content.len());
         for sc in content {
             let c = &sc.content;
+            let mut values = self.values.get();
             let affinity = self.interests.dot(&c.body.topics);
-            let alignment = (self.values.dot(&c.body.values) - 0.5) * 2.;
+            let alignment = (values.dot(&c.body.values) - 0.5) * 2.;
 
             // Take the abs value
             // So if something is very polar to the person's values,
@@ -117,8 +121,9 @@ impl Agent {
             }
 
             // Influence
-            let trust = network.trust(self, &sc.sharer.borrow());
-            self.values.zip_apply(&c.body.values, |v, v_| v + gravity(v, v_) * affinity * trust);
+            let trust = network.trust(self, &sc.sharer);
+            values.zip_apply(&c.body.values, |v, v_| v + gravity(v, v_) * affinity * trust);
+            self.values.set(values);
 
             // Assume that they fully consume
             // the content, e.g. spend its
@@ -133,7 +138,7 @@ impl Agent {
     }
 
     pub fn similarity(&self, other: &Agent) -> f32 {
-        // Assume these are normalized
-        (self.interests.dot(&other.interests) + self.values.dot(&other.values))/2.
+        // TODO need to normalize?
+        (self.interests.dot(&other.interests) + self.values.get().dot(&other.values.get()))/2.
     }
 }
