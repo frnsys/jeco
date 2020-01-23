@@ -54,7 +54,7 @@ pub fn random_topics() -> Topics {
 static GRAVITY_STRETCH: f32 = 100.;
 
 // maximum movement amount
-static MAX_INFLUENCE: f32 = 0.1;
+static MAX_INFLUENCE: f32 = 0.01;
 
 // Returns how much a moves towards b
 pub fn gravity(a: f32, b: f32) -> f32 {

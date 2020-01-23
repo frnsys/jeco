@@ -17,7 +17,7 @@ pub struct Recorder {
 
 impl Recorder {
     pub fn new(network: &Network, mut rng: &mut StdRng) -> Recorder {
-        let sample_size = 20;
+        let sample_size = 40;
         Recorder {
             history: Vec::new(),
             sample: network.agents.choose_multiple(&mut rng, sample_size).map(|a| a.clone()).collect()
