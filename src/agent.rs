@@ -1,12 +1,12 @@
-use rand::Rng;
+use super::content::{Content, ContentBody, SharedContent};
+use super::network::Network;
+use nalgebra::{VectorN, U2};
 use rand::rngs::StdRng;
-use std::rc::Rc;
+use rand::Rng;
+use rand_distr::StandardNormal;
 use std::cell::Cell;
 use std::fmt::Debug;
-use nalgebra::{VectorN, U2};
-use super::content::{Content, ContentBody, SharedContent};
-use super::network::{Network};
-use rand_distr::StandardNormal;
+use std::rc::Rc;
 
 // 2 so can be plotted in 2d
 static VECTOR_SIZE: u32 = 2;
@@ -23,31 +23,39 @@ pub struct Agent {
 }
 
 fn clamp(val: f32, min: f32, max: f32) -> f32 {
-    if val < min { min }
-    else if val > max { max }
-    else { val }
+    if val < min {
+        min
+    } else if val > max {
+        max
+    } else {
+        val
+    }
 }
 
 static NORMAL_SCALE: f32 = 0.8;
 
 pub fn random_values(rng: &mut StdRng) -> Values {
     // Normal dist, -1 to 1
-    let v_vec = (0..VECTOR_SIZE).map(|_| {
-        let mut val: f32 = rng.sample(StandardNormal);
-        val *= NORMAL_SCALE;
-        clamp(val, -1., 1.)
-    }).collect();
+    let v_vec = (0..VECTOR_SIZE)
+        .map(|_| {
+            let mut val: f32 = rng.sample(StandardNormal);
+            val *= NORMAL_SCALE;
+            clamp(val, -1., 1.)
+        })
+        .collect();
     Values::from_vec(v_vec)
 }
 
 pub fn random_topics(rng: &mut StdRng) -> Topics {
     // Normal dist, 0 to 1
-    let i_vec = (0..VECTOR_SIZE).map(|_| {
-        let mut val = rng.sample(StandardNormal);
-        val = (val + 0.5) * 2.;
-        val *= NORMAL_SCALE;
-        clamp(val, 0., 1.)
-    }).collect();
+    let i_vec = (0..VECTOR_SIZE)
+        .map(|_| {
+            let mut val = rng.sample(StandardNormal);
+            val = (val + 0.5) * 2.;
+            val *= NORMAL_SCALE;
+            clamp(val, 0., 1.)
+        })
+        .collect();
     Topics::from_vec(i_vec)
 }
 
@@ -67,8 +75,8 @@ pub fn gravity(a: f32, b: f32) -> f32 {
         // Already here, no movement
         0.
     } else {
-        let strength = (1./dist)/GRAVITY_STRETCH;
-        let movement = strength/(strength + 1.) * MAX_INFLUENCE;
+        let strength = (1. / dist) / GRAVITY_STRETCH;
+        let movement = strength / (strength + 1.) * MAX_INFLUENCE;
         f32::min(movement, dist) * sign
     }
 }
@@ -125,7 +133,12 @@ impl Agent {
     }
 
     // Return content they decide to share
-    pub fn consume<'a>(&'a self, content: Vec<&'a SharedContent>, network: &Network, rng: &mut StdRng) -> Vec<Rc<Content>> {
+    pub fn consume<'a>(
+        &'a self,
+        content: Vec<&'a SharedContent>,
+        network: &Network,
+        rng: &mut StdRng,
+    ) -> Vec<Rc<Content>> {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
         for sc in content {
@@ -147,7 +160,9 @@ impl Agent {
 
             // Influence
             let trust = network.trust(self, &sc.sharer);
-            values.zip_apply(&c.body.values, |v, v_| v + gravity(v, v_) * affinity * trust);
+            values.zip_apply(&c.body.values, |v, v_| {
+                v + gravity(v, v_) * affinity * trust
+            });
             self.values.set(values);
 
             // Assume that they fully consume
@@ -164,6 +179,6 @@ impl Agent {
 
     pub fn similarity(&self, other: &Agent) -> f32 {
         // TODO need to normalize?
-        (self.interests.dot(&other.interests) + self.values.get().dot(&other.values.get()))/2.
+        (self.interests.dot(&other.interests) + self.values.get().dot(&other.values.get())) / 2.
     }
 }

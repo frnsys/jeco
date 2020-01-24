@@ -76,4 +76,10 @@ impl Network {
             .filter_map(|idx| self.graph.node_weight(idx))
             .collect()
     }
+
+    pub fn follow(&mut self, a: &Agent, b: &Agent, weight: f32) {
+        let idx_a = self.agent_to_node[&a.id];
+        let idx_b = self.agent_to_node[&b.id];
+        self.graph.add_edge(idx_a, idx_b, weight);
+    }
 }
