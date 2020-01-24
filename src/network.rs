@@ -1,35 +1,26 @@
-use rand::Rng;
-use std::rc::Rc;
+use super::agent::Agent;
 use fnv::FnvHashMap;
+use petgraph::stable_graph::{NodeIndex, StableGraph};
+use petgraph::{Directed, Incoming, Outgoing};
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
-use rand::SeedableRng;
-use petgraph::{Directed, Incoming, Outgoing};
-use petgraph::stable_graph::{StableGraph, NodeIndex};
-use super::agent::Agent;
-use super::content::{Content, SharedContent};
+use rand::Rng;
 
 pub struct Network {
-    pub agents: Vec<Rc<Agent>>,
     graph: StableGraph<usize, f32, Directed>,
     agent_to_node: FnvHashMap<usize, NodeIndex>,
-    agent_to_share: FnvHashMap<usize, Vec<SharedContent>>,
-    content: Vec<Rc<Content>>,
 }
 
 impl Network {
-    pub fn new(agents: Vec<Agent>) -> Network {
+    pub fn new(agents: &Vec<Agent>, mut rng: &mut StdRng) -> Network {
         let sample_size = (0.1 * agents.len() as f32) as usize;
-        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
 
         // Network of agents, with trust as weight
         let mut graph = StableGraph::<usize, f32, Directed, u32>::default();
         let mut lookup = FnvHashMap::default();
-        let mut agent_to_share = FnvHashMap::default();
         for agent in agents.iter() {
             let idx = graph.add_node(agent.id);
             lookup.insert(agent.id, idx);
-            agent_to_share.insert(agent.id, Vec::new());
         }
 
         // Social network formation (preferential attachment)
@@ -42,8 +33,8 @@ impl Network {
                 let c_idx = lookup[&candidate.id];
 
                 let sim = agent.similarity(&candidate);
-                let pref = (graph.neighbors_directed(c_idx, Incoming).count() as f32)/total_edges;
-                let p = (sim + pref)/2.;
+                let pref = (graph.neighbors_directed(c_idx, Incoming).count() as f32) / total_edges;
+                let p = (sim + pref) / 2.;
                 if roll < p {
                     graph.add_edge(idx, c_idx, sim);
                     total_edges += 1.;
@@ -53,97 +44,36 @@ impl Network {
 
         Network {
             graph: graph,
-            content: Vec::new(),
-            agents: agents.into_iter().map(|a| Rc::new(a)).collect(),
             agent_to_node: lookup,
-            agent_to_share: agent_to_share,
         }
     }
 
     pub fn trust(&self, a: &Agent, b: &Agent) -> f32 {
         // Edge from A->B
-        let idx_a  = self.agent_to_node[&a.id];
-        let idx_b  = self.agent_to_node[&b.id];
+        let idx_a = self.agent_to_node[&a.id];
+        let idx_b = self.agent_to_node[&b.id];
 
         match self.graph.find_edge(idx_a, idx_b) {
             Some(edge) => match self.graph.edge_weight(edge) {
                 Some(weight) => *weight,
-                None => 0.
+                None => 0.,
             },
-            None => 0.
+            None => 0.,
         }
-    }
-
-    pub fn produce(&mut self) -> usize {
-        let mut n_produced = 0;
-        for a in &self.agents {
-            if let Some(to_share) = self.agent_to_share.get_mut(&a.id) {
-                match a.produce() {
-                    Some(body) => {
-                        let content = Rc::new(Content {
-                            author: a.clone(),
-                            body: body
-                        });
-                        to_share.push(SharedContent {
-                            content: content.clone(),
-                            sharer: a.clone()
-                        });
-                        self.content.push(content.clone());
-                        n_produced += 1;
-                    },
-                    None => {}
-                }
-            }
-        }
-        n_produced
-    }
-
-    pub fn consume(&mut self) {
-        // TODO
-        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-
-        let mut new_to_share: FnvHashMap<usize, Vec<SharedContent>> = FnvHashMap::default();
-
-        for a in &self.agents {
-            let idx = self.agent_to_node[&a.id];
-            let neighbs = self.graph.neighbors_directed(idx, Outgoing).filter_map(|idx| self.graph.node_weight(idx));
-            let mut shared: Vec<&SharedContent> = neighbs.flat_map(|n_id| self.agent_to_share[n_id].iter()).collect();
-
-            shared.shuffle(&mut rng);
-            let will_share = a.consume(shared, &self);
-            let shareable = will_share.iter().map(|content| {
-                SharedContent {
-                    sharer: a.clone(),
-                    content: content.clone(),
-                }
-            }).collect();
-            new_to_share.insert(a.id, shareable);
-        }
-
-        // Update share lists
-        for (a_id, mut to_share_) in new_to_share {
-            match self.agent_to_share.get_mut(&a_id) {
-                Some(to_share) => {
-                    to_share.clear();
-                    to_share.append(&mut to_share_);
-                },
-                None => {
-                    self.agent_to_share.insert(a_id, to_share_);
-                }
-            }
-        }
-    }
-
-    pub fn n_will_share(&self) -> usize {
-        self.agent_to_share.values().fold(0, |acc, v| acc + v.len())
-    }
-
-    pub fn n_shares(&self) -> Vec<usize> {
-        // -1 to account for reference in self.content
-        self.content.iter().map(|c| Rc::strong_count(c) - 1).collect()
     }
 
     pub fn n_followers(&self) -> Vec<usize> {
-        self.graph.node_indices().map(|idx| self.graph.neighbors_directed(idx, Incoming).count()).collect()
+        self.graph
+            .node_indices()
+            .map(|idx| self.graph.neighbors_directed(idx, Incoming).count())
+            .collect()
+    }
+
+    pub fn follower_ids(&self, agent: &Agent) -> Vec<&usize> { //impl Iterator<Item=&usize> {
+        let idx = self.agent_to_node[&agent.id];
+        self.graph
+            .neighbors_directed(idx, Outgoing)
+            .filter_map(|idx| self.graph.node_weight(idx))
+            .collect()
     }
 }

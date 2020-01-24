@@ -1,4 +1,5 @@
-use rand::prelude::*;
+use rand::Rng;
+use rand::rngs::StdRng;
 use std::rc::Rc;
 use std::cell::Cell;
 use std::fmt::Debug;
@@ -29,20 +30,20 @@ fn clamp(val: f32, min: f32, max: f32) -> f32 {
 
 static NORMAL_SCALE: f32 = 0.8;
 
-pub fn random_values() -> Values {
+pub fn random_values(rng: &mut StdRng) -> Values {
     // Normal dist, -1 to 1
     let v_vec = (0..VECTOR_SIZE).map(|_| {
-        let mut val: f32 = thread_rng().sample(StandardNormal);
+        let mut val: f32 = rng.sample(StandardNormal);
         val *= NORMAL_SCALE;
         clamp(val, -1., 1.)
     }).collect();
     Values::from_vec(v_vec)
 }
 
-pub fn random_topics() -> Topics {
+pub fn random_topics(rng: &mut StdRng) -> Topics {
     // Normal dist, 0 to 1
     let i_vec = (0..VECTOR_SIZE).map(|_| {
-        let mut val = thread_rng().sample(StandardNormal);
+        let mut val = rng.sample(StandardNormal);
         val = (val + 0.5) * 2.;
         val *= NORMAL_SCALE;
         clamp(val, 0., 1.)
@@ -73,42 +74,42 @@ pub fn gravity(a: f32, b: f32) -> f32 {
 }
 
 impl Agent {
-    pub fn new(id: usize) -> Agent {
-        let mut resources = thread_rng().sample(StandardNormal);
+    pub fn new(id: usize, mut rng: &mut StdRng) -> Agent {
+        let mut resources = rng.sample(StandardNormal);
         resources = (resources + 0.5) * 2.;
         resources = clamp(resources, 0., 1.);
 
         Agent {
             id: id,
-            interests: random_topics(),
-            values: Cell::new(random_values()),
+            interests: random_topics(&mut rng),
+            values: Cell::new(random_values(&mut rng)),
             attention: 100.0,
             resources: resources,
         }
     }
 
     // Return content they create
-    pub fn produce(&self) -> Option<ContentBody> {
+    pub fn produce(&self, rng: &mut StdRng) -> Option<ContentBody> {
         let p_produce = self.resources;
-        let roll: f32 = thread_rng().gen();
+        let roll: f32 = rng.gen();
 
         if roll < p_produce {
             let topics = self.interests.map(|v| {
-                let mut val = thread_rng().sample(StandardNormal);
+                let mut val = rng.sample(StandardNormal);
                 val += v;
                 val *= NORMAL_SCALE;
                 clamp(val, 0., 1.)
             });
 
             let values = self.values.get().map(|v| {
-                let mut val = thread_rng().sample(StandardNormal);
+                let mut val = rng.sample(StandardNormal);
                 val += v;
                 val *= NORMAL_SCALE;
                 clamp(val, -1., 1.)
             });
 
             // Attention cost ranges from 0-100
-            let mut cost = thread_rng().sample(StandardNormal);
+            let mut cost = rng.sample(StandardNormal);
             cost = (cost + 0.5) * 2.;
             cost = clamp(cost, 0., 1.);
             cost *= 100.;
@@ -124,7 +125,7 @@ impl Agent {
     }
 
     // Return content they decide to share
-    pub fn consume<'a>(&'a self, content: Vec<&'a SharedContent>, network: &Network) -> Vec<Rc<Content>> {
+    pub fn consume<'a>(&'a self, content: Vec<&'a SharedContent>, network: &Network, rng: &mut StdRng) -> Vec<Rc<Content>> {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
         for sc in content {
@@ -139,7 +140,7 @@ impl Agent {
             let reactivity = affinity * alignment.abs();
 
             // Do they share it?
-            let roll: f32 = thread_rng().gen();
+            let roll: f32 = rng.gen();
             if roll < reactivity {
                 to_share.push(c.clone());
             }

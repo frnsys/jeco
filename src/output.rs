@@ -1,15 +1,15 @@
-use std::fs;
-use std::path::Path;
-use std::os::unix::fs::symlink;
-use chrono::{DateTime, Utc};
-use serde_json::{json, Value};
-use super::config::Config;
-use super::network::Network;
-use std::rc::Rc;
 use super::agent::Agent;
+use super::config::Config;
+use super::sim::Simulation;
+use chrono::{DateTime, Utc};
+use fnv::FnvHashMap;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
-use fnv::FnvHashMap;
+use serde_json::{json, Value};
+use std::fs;
+use std::os::unix::fs::symlink;
+use std::path::Path;
+use std::rc::Rc;
 
 pub struct Recorder {
     history: Vec<Value>,
@@ -17,32 +17,41 @@ pub struct Recorder {
 }
 
 impl Recorder {
-    pub fn new(network: &Network, mut rng: &mut StdRng) -> Recorder {
-        let sample_size = (0.2 * network.agents.len() as f32) as usize;
+    pub fn new(sim: &Simulation, mut rng: &mut StdRng) -> Recorder {
+        let sample_size = (0.2 * sim.agents.len() as f32) as usize;
         Recorder {
             history: Vec::new(),
-            sample: network.agents.choose_multiple(&mut rng, sample_size).map(|a| a.clone()).collect()
+            sample: sim
+                .agents
+                .choose_multiple(&mut rng, sample_size)
+                .map(|a| a.clone())
+                .collect(),
         }
     }
 
-    pub fn record(&mut self, network: &Network, n_produced: usize) {
-        let sample: Vec<Value> = self.sample.iter().map(|a| {
-            json!({
-                "id": a.id,
-                "values": a.values,
-                "interests": a.interests,
+    pub fn record(&mut self, sim: &Simulation, n_produced: usize) {
+        let sample: Vec<Value> = self
+            .sample
+            .iter()
+            .map(|a| {
+                json!({
+                    "id": a.id,
+                    "values": a.values,
+                    "interests": a.interests,
+                })
             })
-        }).collect();
-        let n_shares = network.n_shares();
-        let mean_shares = n_shares.iter().fold(0, |acc, v| acc + v) as f32/n_shares.len() as f32;
+            .collect();
+        let n_shares = sim.n_shares();
+        let mean_shares = n_shares.iter().fold(0, |acc, v| acc + v) as f32 / n_shares.len() as f32;
         let mut share_dist: FnvHashMap<usize, usize> = FnvHashMap::default();
         for shares in &n_shares {
             let count = share_dist.entry(*shares).or_insert(0);
             *count += 1;
         }
 
-        let n_followers = network.n_followers();
-        let mean_followers = n_followers.iter().fold(0, |acc, v| acc + v) as f32/n_followers.len() as f32;
+        let n_followers = sim.network.n_followers();
+        let mean_followers =
+            n_followers.iter().fold(0, |acc, v| acc + v) as f32 / n_followers.len() as f32;
         let mut follower_dist: FnvHashMap<usize, usize> = FnvHashMap::default();
         for followers in &n_followers {
             let count = follower_dist.entry(*followers).or_insert(0);
@@ -63,8 +72,8 @@ impl Recorder {
             },
             "follower_dist": follower_dist,
             "sample": sample,
-            "p_produced": n_produced as f32/network.agents.len() as f32,
-            "to_share": network.n_will_share(),
+            "p_produced": n_produced as f32/sim.agents.len() as f32,
+            "to_share": sim.n_will_share(),
         });
         self.history.push(value);
     }
