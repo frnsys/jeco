@@ -1,12 +1,9 @@
-mod agent;
+mod model;
 mod config;
-mod content;
-mod network;
 mod output;
-mod sim;
 
 use self::output::Recorder;
-use self::sim::Simulation;
+use self::model::Simulation;
 use pbr::ProgressBar;
 use rand::rngs::StdRng;
 use rand::SeedableRng;

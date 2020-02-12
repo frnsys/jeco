@@ -1,6 +1,5 @@
-use super::agent::Agent;
+use super::model::{Simulation, Agent};
 use super::config::Config;
-use super::sim::Simulation;
 use chrono::{DateTime, Utc};
 use fnv::FnvHashMap;
 use rand::rngs::StdRng;
