@@ -1,8 +1,8 @@
 mod model;
 mod config;
-mod output;
+mod rec;
 
-use self::output::Recorder;
+use self::rec::Recorder;
 use self::model::Simulation;
 use pbr::ProgressBar;
 use rand::rngs::StdRng;

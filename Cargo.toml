@@ -17,3 +17,5 @@ serde_yaml = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 pbr = "1.0.1"
 chrono = "0.4"
+redis = "0.10.0"
+md-5 = "0.8.0"

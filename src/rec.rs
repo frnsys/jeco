@@ -9,6 +9,8 @@ use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::Path;
 use std::rc::Rc;
+use md5::Digest;
+use redis::Commands;
 
 pub struct Recorder {
     history: Vec<Value>,
@@ -106,5 +108,27 @@ impl Recorder {
         let conf_path = Path::join(path, Path::new("config.yaml"));
         fs::copy(Path::new("config.yaml"), conf_path).unwrap();
         println!("Wrote output to {:?}", path);
+    }
+
+    pub fn snapshot(&self) -> Option<Value> {
+        self.history.last().cloned()
+    }
+
+    pub fn sync(&self, redis_host: &str) -> redis::RedisResult<()> {
+        match self.snapshot() {
+            None => (),
+            Some(snapshot) => {
+                let client = redis::Client::open(redis_host)?;
+                let con = client.get_connection()?;
+
+                let state_serialized = snapshot.to_string();
+                let hash = md5::Md5::digest(state_serialized.as_bytes());
+
+                con.set("state", state_serialized)?;
+                con.set("state:key", format!("{:X}", hash))?;
+
+            }
+        }
+        Ok(())
     }
 }
