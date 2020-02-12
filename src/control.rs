@@ -34,25 +34,27 @@ impl Commander {
         }
     }
 
-    fn set_status(&self, state: Status) -> redis::RedisResult<()> {
+    fn set_status(&mut self, state: Status) -> redis::RedisResult<()> {
         self.con.set("status", state.to_string().to_lowercase())?;
         Ok(())
     }
 
-    pub fn set_ready(&self) -> redis::RedisResult<()> {
+    pub fn set_ready(&mut self) -> redis::RedisResult<()> {
         self.set_status(Status::Ready)
     }
 
-    pub fn set_running(&self) -> redis::RedisResult<()> {
+    pub fn set_running(&mut self) -> redis::RedisResult<()> {
         self.set_status(Status::Running)
     }
 
-    pub fn set_loading(&self) -> redis::RedisResult<()> {
+    pub fn set_loading(&mut self) -> redis::RedisResult<()> {
         self.set_status(Status::Loading)
     }
 
     pub fn reset(&mut self) -> redis::RedisResult<()> {
-        self.con.del("cmds") // Clear queued commands
+        self.con.del("cmds")?;
+        self.con.del("state:history")?;
+        self.con.set("state:step", -1)
     }
 
     pub fn wait_for_command(&mut self) -> Command {

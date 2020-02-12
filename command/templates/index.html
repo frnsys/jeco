@@ -1,0 +1,17 @@
+{% extends 'layout.html' %}
+{% block content %}
+<main>
+<header>
+    <div id="status"></div>
+    <div id="reset">
+        <button>Reset</button>
+    </div>
+    <div id="step">
+        <input type="number" min="1" value="1">
+        <button>Step</button>
+    </div>
+</header>
+</main>
+<script src="{{ url_for('static', filename='lib.js') }}"></script>
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+{% endblock %}

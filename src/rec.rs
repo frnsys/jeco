@@ -9,7 +9,6 @@ use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::Path;
 use std::rc::Rc;
-use md5::Digest;
 use redis::Commands;
 
 pub struct Recorder {
@@ -30,7 +29,7 @@ impl Recorder {
         }
     }
 
-    pub fn record(&mut self, sim: &Simulation, n_produced: usize) {
+    pub fn record(&mut self, step: usize, sim: &Simulation, n_produced: usize) {
         let sample: Vec<Value> = self
             .sample
             .iter()
@@ -60,6 +59,7 @@ impl Recorder {
         }
 
         let value = json!({
+            "step": step,
             "shares": {
                 "max": n_shares.iter().max(),
                 "min": n_shares.iter().min(),
@@ -110,23 +110,16 @@ impl Recorder {
         println!("Wrote output to {:?}", path);
     }
 
-    pub fn snapshot(&self) -> Option<Value> {
-        self.history.last().cloned()
-    }
-
-    pub fn sync(&self, redis_host: &str) -> redis::RedisResult<()> {
-        match self.snapshot() {
+    pub fn sync(&self, step: usize, redis_host: &str) -> redis::RedisResult<()> {
+        match self.history.get(step) {
             None => (),
             Some(snapshot) => {
                 let client = redis::Client::open(redis_host)?;
-                let con = client.get_connection()?;
+                let mut con = client.get_connection()?;
 
                 let state_serialized = snapshot.to_string();
-                let hash = md5::Md5::digest(state_serialized.as_bytes());
-
-                con.set("state", state_serialized)?;
-                con.set("state:key", format!("{:X}", hash))?;
-
+                con.rpush("state:history", state_serialized)?;
+                con.set("state:step", format!("{:?}", step))?;
             }
         }
         Ok(())

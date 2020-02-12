@@ -27,25 +27,27 @@ fn main() {
             command.set_loading().unwrap();
             let mut sim = Simulation::new(conf.population, &mut rng);
             let mut recorder = Recorder::new(&sim, &mut rng);
-            recorder.record(&sim, 0);
             command.set_ready().unwrap();
 
-            // Blocks until a run command is received;
-            // will process other commands while waiting
-            match command.wait_for_command() {
-                Command::Run(steps) => {
-                    command.set_running().unwrap();
-                    for _ in 0..steps {
-                        let n_produced = sim.produce(&mut rng);
-                        sim.consume(&mut rng);
+            loop {
+                // Blocks until a run command is received;
+                // will process other commands while waiting
+                match command.wait_for_command() {
+                    Command::Run(steps) => {
+                        println!("Running for {:?} steps...", steps);
+                        command.set_running().unwrap();
+                        for step in 0..steps {
+                            let n_produced = sim.produce(&mut rng);
+                            sim.consume(&mut rng);
 
-                        recorder.record(&sim, n_produced);
-                        recorder.sync(redis_host).unwrap();
+                            recorder.record(step, &sim, n_produced);
+                            recorder.sync(step, redis_host).unwrap();
+                        }
+                        command.set_ready().unwrap();
+                    },
+                    Command::Reset => {
+                        break;
                     }
-                    command.set_ready().unwrap();
-                },
-                Command::Reset => {
-                    break;
                 }
             }
         }
@@ -55,14 +57,12 @@ fn main() {
         let mut sim = Simulation::new(conf.population, &mut rng);
         if debug {
             let mut recorder = Recorder::new(&sim, &mut rng);
-            recorder.record(&sim, 0);
-
             let mut pb = ProgressBar::new(steps as u64);
-            for _ in 0..steps {
+            for step in 0..steps {
                 let n_produced = sim.produce(&mut rng);
                 sim.consume(&mut rng);
 
-                recorder.record(&sim, n_produced);
+                recorder.record(step, &sim, n_produced);
                 pb.inc();
             }
             recorder.save(&conf);

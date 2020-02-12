@@ -1,0 +1,38 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: monospace;
+}
+
+header {
+  display: flex;
+  background: #eee;
+  justify-content: space-between;
+}
+
+#status {
+  color: #fff;
+  padding: 0.25em 1em;
+  line-height: 1.5;
+}
+
+#step input {
+  width: 3em;
+  border: none;
+  padding: 0.25em;
+}
+
+button {
+  border: none;
+  padding: 0.25em 1em;
+  background: blue;
+  color: #fff;
+  cursor: pointer;
+}
+button:hover {
+  background: #4a4aff;
+}
