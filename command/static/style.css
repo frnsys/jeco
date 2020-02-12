@@ -36,3 +36,15 @@ button {
 button:hover {
   background: #4a4aff;
 }
+
+#charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, 320px);
+}
+.chart {
+  max-width: 320px;
+  padding: 1em;
+}
+.chart-title {
+  text-align: center;
+}

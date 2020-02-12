@@ -29,6 +29,7 @@ fn main() {
             let mut recorder = Recorder::new(&sim, &mut rng);
             command.set_ready().unwrap();
 
+            let mut step = 0;
             loop {
                 // Blocks until a run command is received;
                 // will process other commands while waiting
@@ -36,16 +37,18 @@ fn main() {
                     Command::Run(steps) => {
                         println!("Running for {:?} steps...", steps);
                         command.set_running().unwrap();
-                        for step in 0..steps {
+                        for _ in 0..steps {
                             let n_produced = sim.produce(&mut rng);
                             sim.consume(&mut rng);
 
                             recorder.record(step, &sim, n_produced);
                             recorder.sync(step, redis_host).unwrap();
+                            step += 1;
                         }
                         command.set_ready().unwrap();
                     },
                     Command::Reset => {
+                        println!("Resetting...");
                         break;
                     }
                 }
