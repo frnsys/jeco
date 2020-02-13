@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use redis::{Commands, Connection};
 use super::config::Config;
+use super::model::Policy;
 use strum_macros::{Display};
 
 #[derive(Display, Debug)]
@@ -12,10 +13,11 @@ pub enum Status {
 
 #[derive(Display, PartialEq, Debug, Deserialize)]
 enum Message {
-    Run(usize),                     // steps
-    Reset(Config),
+    Command(Command),                     // steps
+    Policy(Policy),
 }
 
+#[derive(Display, PartialEq, Debug, Deserialize)]
 pub enum Command {
     Run(usize),
     Reset(Config)
@@ -24,6 +26,7 @@ pub enum Command {
 
 pub struct Commander {
     con: Connection,
+    pub policies: Vec<Policy>,
 }
 
 impl Commander {
@@ -33,6 +36,7 @@ impl Commander {
 
         Commander {
             con: con,
+            policies: Vec::new()
         }
     }
 
@@ -64,7 +68,7 @@ impl Commander {
 
     pub fn wait_for_command(&mut self) -> Command {
         loop {
-            let command = self.process_commands();
+            let command = self.process_messages();
             match command {
                 Some(ctrl) => return ctrl,
                 None => continue
@@ -72,7 +76,7 @@ impl Commander {
         }
     }
 
-    pub fn process_commands(&mut self) -> Option<Command> {
+    pub fn process_messages(&mut self) -> Option<Command> {
         let mut command = None;
         loop {
             let cmd_raw: Option<String> = self.con.lpop("cmds").unwrap();
@@ -80,11 +84,11 @@ impl Commander {
                 None => break,
                 Some(cmd) => {
                     match serde_json::from_str(&cmd).unwrap() {
-                        Message::Run(n) => {
-                            command = Some(Command::Run(n));
+                        Message::Command(c) => {
+                            command = Some(c)
                         },
-                        Message::Reset(overrides) => {
-                            command = Some(Command::Reset(overrides));
+                        Message::Policy(p) => {
+                            self.policies.push(p);
                         }
                     }
                 }

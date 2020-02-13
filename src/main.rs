@@ -38,6 +38,9 @@ fn main() {
                     Command::Run(steps) => {
                         println!("Running for {:?} steps...", steps);
                         command.set_running().unwrap();
+                        for policy in command.policies.drain(..) {
+                            sim.apply_policy(&policy);
+                        }
                         for _ in 0..steps {
                             let n_produced = sim.produce(&mut rng);
                             sim.consume(&mut rng);
