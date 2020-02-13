@@ -140,11 +140,11 @@ class Command {
 
   loadPolicies() {
     get('/policies', {}, ({policies}) => {
-      let args = [];
-      let invalid = new Set();
       let el = this.elements['policies'];
       el.innerHTML = '';
       Object.keys(POLICY_SPEC).forEach((k) => {
+        let args = [];
+        let invalid = new Set();
         let spec = POLICY_SPEC[k];
 
         let fields = spec.args.map((arg) => {
