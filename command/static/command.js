@@ -24,6 +24,7 @@ class Command {
     this.config = {};
 
     this.history = [];
+    this.policies = [];
     this.plotter = plotter;
     this.elements = Object.keys(elements).reduce((acc, k) => {
       acc[k] = document.querySelector(elements[k]);
@@ -129,6 +130,7 @@ class Command {
 
   loadPolicies() {
     get('/policies', {}, ({policies}) => {
+      let args = [];
       let invalid = new Set();
       let el = this.elements['policies'];
       el.innerHTML = '';
@@ -136,6 +138,10 @@ class Command {
         let spec = POLICY_SPEC[k];
 
         let fields = spec.args.map((arg) => {
+          args.push({
+            name: arg.name,
+            value: arg.default
+          });
           return `
             <div class="policy-item--field">
               <label>${arg.name}</label>
@@ -171,6 +177,7 @@ class Command {
               input.style.background = '#ff8b8b';
             } else {
               input.value = val;
+              args[i].value = val;
               invalid.delete(arg.name);
               input.style.background = '#eee';
             }
@@ -178,6 +185,37 @@ class Command {
         });
         child.querySelector('button').addEventListener('click', () => {
           if (invalid.size === 0) {
+            let step = this.history.length;
+            let current = this.policies[this.policies.length - 1];
+            if (!current || current.step !== step) {
+              current = {
+                step: step,
+                policies: []
+              };
+              this.policies.push(current);
+
+              let html = `<div>
+                <h3>Step ${step}</h3>
+                <ul></ul>
+              </div>`;
+              let child = htmlToElement(html);
+              this.elements['policyHistory'].prepend(child);
+            }
+
+            let policy = {
+              name: k,
+              args: args
+            }
+            current.policies.push(policy);
+
+            let html = `<li>
+              <h4>${k}</h4>
+              <div class="policy--args">${args.map((a) => `${a.name}=${a.value}`).join('; ')}</div>
+            </li>`;
+            this.elements['policyHistory']
+              .firstChild.querySelector('ul')
+              .appendChild(htmlToElement(html));
+            console.log(this.policies);
             // TODO SUBMIT
           }
         });

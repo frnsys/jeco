@@ -40,5 +40,6 @@ const command = new Command({
   step: '#step button',
   stepInput: '#step input',
   config: '#config ul',
-  policies: '#policy ul'
+  policies: '#policy ul',
+  policyHistory: '#policy-history div'
 }, plotter);
