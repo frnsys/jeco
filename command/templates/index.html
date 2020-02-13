@@ -7,8 +7,7 @@
         <button>Reset</button>
     </div>
     <div id="step">
-        <input type="number" min="1" value="1">
-        <button>Step</button>
+        <input type="number" min="1" value="1"><button>Step</button>
     </div>
 </header>
 <div id="config">
@@ -19,5 +18,7 @@
 </main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js"></script>
 <script src="{{ url_for('static', filename='lib.js') }}"></script>
+<script src="{{ url_for('static', filename='plotter.js') }}"></script>
+<script src="{{ url_for('static', filename='command.js') }}"></script>
 <script src="{{ url_for('static', filename='main.js') }}"></script>
 {% endblock %}

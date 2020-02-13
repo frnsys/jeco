@@ -8,6 +8,32 @@ html, body {
   font-family: monospace;
 }
 
+ul, li {
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+}
+
+input, button {
+  font-family: monospace;
+}
+button {
+  border: none;
+  padding: 0.25em 1em;
+  background: #4a4aff;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.5;
+}
+button:hover {
+  background: #3131e1;
+}
+button:disabled {
+  background: #aeaeae;
+  color: #686868;
+}
+
 header {
   display: flex;
   background: #eee;
@@ -20,21 +46,15 @@ header {
   line-height: 1.5;
 }
 
+#step {
+  background: #4343E1;
+}
 #step input {
   width: 3em;
   border: none;
   padding: 0.25em;
-}
-
-button {
-  border: none;
-  padding: 0.25em 1em;
-  background: blue;
   color: #fff;
-  cursor: pointer;
-}
-button:hover {
-  background: #4a4aff;
+  background: #4343e1;
 }
 
 #charts {
@@ -67,7 +87,6 @@ button:hover {
   display: none;
   border: none;
   text-align: right;
-  font-family: monospace;
   font-size: 12px;
   line-height: 1;
   padding: 0;
@@ -76,16 +95,9 @@ button:hover {
   color: #aaa;
 }
 .config-item--val-new {
-  color: blue;
+  color: #4a4aff;
 }
 #reset--new-config {
   display: none;
   width: 100%;
-}
-
-
-ul, li {
-  margin: 0;
-  padding: 0;
-  list-style-type: none;
 }
