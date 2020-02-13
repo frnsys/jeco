@@ -7,10 +7,21 @@ const CONFIG_SPEC = {
   }
 };
 
+const POLICY_SPEC = {
+  'PopulationChange': {
+    desc: 'Change the population by the specified amount.',
+    args: [{
+      min: 0,
+      type: 'int',
+      name: 'amount',
+      default: 100
+    }]
+  }
+};
+
 class Command {
   constructor(elements, plotter) {
     this.config = {};
-    this.loadConfig();
 
     this.history = [];
     this.plotter = plotter;
@@ -18,6 +29,9 @@ class Command {
       acc[k] = document.querySelector(elements[k]);
       return acc;
     }, {});
+
+    this.loadConfig();
+    this.loadPolicies();
 
     this.listeners = {
       ready: [],
@@ -67,10 +81,10 @@ class Command {
   queryStatus() {
     let el = this.elements['status'];
     get('/status', {}, ({status}) => {
-      let stepEnabled = false;
+      let enabled = false;
       switch (status) {
         case 'ready':
-          stepEnabled = true;
+          enabled = true;
           el.style.background = '#009966';
           break;
         case 'running':
@@ -81,7 +95,11 @@ class Command {
           break;
       }
       el.innerText = status.toUpperCase();
-      this.elements['step'].disabled = !stepEnabled;
+      this.elements['step'].disabled = !enabled;
+      [...this.elements['policies'].querySelectorAll('button')]
+        .forEach((b) => {
+          b.disabled = !enabled;
+        });
 
       // Trigger status event listeners
       this.listeners[status].forEach((fn) => fn());
@@ -105,6 +123,65 @@ class Command {
         this.loadConfig();
         this.history = [];
         this.plotter.reset();
+      });
+    });
+  }
+
+  loadPolicies() {
+    get('/policies', {}, ({policies}) => {
+      let invalid = new Set();
+      let el = this.elements['policies'];
+      el.innerHTML = '';
+      Object.keys(POLICY_SPEC).forEach((k) => {
+        let spec = POLICY_SPEC[k];
+
+        let fields = spec.args.map((arg) => {
+          return `
+            <div class="policy-item--field">
+              <label>${arg.name}</label>
+              <input class="policy-item--input" type="number" value="${arg.default}">
+            </div>
+            `;
+        });
+        let html = `<li class="policy-item">
+          <div class="policy-item--name">${k}</div>
+          <div class="policy-item--desc">${spec.desc}</div>
+          <div class="policy-item--form">
+            ${fields}
+            <button disabled=true>Implement &gt;&gt;</button>
+          </div>
+        </li>`;
+
+        // Setup editable inputs
+        let child = htmlToElement(html);
+        [...child.querySelectorAll('input')].forEach((input, i) => {
+          let arg = spec.args[i];
+          input.addEventListener('change', () => {
+            let val;
+            if (arg.type === 'int') {
+              val = parseInt(input.value);
+            } else if (arg.type == 'float') {
+              val = parseFloat(input.value);
+            }
+            let isInvalid = isNaN(val)
+              || (arg.min !== undefined && val < arg.min);
+
+            if (isInvalid) {
+              invalid.add(arg.name);
+              input.style.background = '#ff8b8b';
+            } else {
+              input.value = val;
+              invalid.delete(arg.name);
+              input.style.background = '#eee';
+            }
+          });
+        });
+        child.querySelector('button').addEventListener('click', () => {
+          if (invalid.size === 0) {
+            // TODO SUBMIT
+          }
+        });
+        el.appendChild(child);
       });
     });
   }

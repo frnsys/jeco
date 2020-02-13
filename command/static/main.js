@@ -39,5 +39,6 @@ const command = new Command({
   configReset: '#reset--new-config',
   step: '#step button',
   stepInput: '#step input',
-  config: '#config ul'
+  config: '#config ul',
+  policies: '#policy ul'
 }, plotter);

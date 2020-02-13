@@ -42,9 +42,16 @@ def state_step():
 
 @app.route('/config')
 def get_config():
-    """Reset the simulation"""
+    """Get current config"""
     conf = json.loads(redis.get('config').decode('utf8'))
     return jsonify(config=conf)
+
+
+@app.route('/policies')
+def get_policies():
+    """Get available policies"""
+    policies = json.loads(redis.get('policies').decode('utf8'))
+    return jsonify(policies=policies)
 
 
 @app.route('/step', methods=['POST'])

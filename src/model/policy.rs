@@ -1,7 +1,7 @@
-use serde::Deserialize;
-use strum_macros::{Display};
+use serde::{Serialize, Deserialize};
+use strum_macros::{Display, EnumIter};
 
-#[derive(Display, PartialEq, Debug, Deserialize)]
+#[derive(Display, EnumIter, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Policy {
-    Foo,
+    PopulationChange(isize),
 }

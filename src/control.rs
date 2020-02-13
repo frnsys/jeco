@@ -3,6 +3,7 @@ use redis::{Commands, Connection};
 use super::config::Config;
 use super::model::Policy;
 use strum_macros::{Display};
+use strum::IntoEnumIterator;
 
 #[derive(Display, Debug)]
 pub enum Status {
@@ -63,7 +64,11 @@ impl Commander {
         self.con.set("state:step", -1)?;
 
         let conf_serialized = serde_json::to_string(conf).unwrap();
-        self.con.set("config", conf_serialized)
+        self.con.set("config", conf_serialized)?;
+
+        let policies: Vec<String> = Policy::iter().map(|p| p.to_string()).collect();
+        let policies_serialized = serde_json::to_string(&policies).unwrap();
+        self.con.set("policies", policies_serialized)
     }
 
     pub fn wait_for_command(&mut self) -> Command {
