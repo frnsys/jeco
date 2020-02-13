@@ -39,6 +39,7 @@ fn main() {
                         println!("Running for {:?} steps...", steps);
                         command.set_running().unwrap();
                         for policy in command.policies.drain(..) {
+                            println!("Applying policy {:?}", policy);
                             sim.apply_policy(&policy);
                         }
                         for _ in 0..steps {

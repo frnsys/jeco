@@ -215,8 +215,11 @@ class Command {
             this.elements['policyHistory']
               .firstChild.querySelector('ul')
               .appendChild(htmlToElement(html));
-            console.log(this.policies);
-            // TODO SUBMIT
+
+            post('/policies', {
+              name: k,
+              args: args.map((a) => a.value),
+            }, () => {});
           }
         });
         el.appendChild(child);

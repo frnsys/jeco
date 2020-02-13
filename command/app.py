@@ -8,7 +8,23 @@ redis = redis.Redis(**config.REDIS)
 
 def send_command(cmd, data=None):
     redis.lpush('cmds', json.dumps({
-        cmd: data
+        'Command': {
+            cmd: data
+        }
+    }))
+
+
+def send_policy(policy, data=None):
+    # Wrangle arguments into correct format
+    args = None
+    if len(data) == 1:
+        args = data[0]
+    elif len(data) > 1:
+        args = data
+    redis.lpush('cmds', json.dumps({
+        'Policy': {
+            policy: args
+        }
     }))
 
 
@@ -47,11 +63,17 @@ def get_config():
     return jsonify(config=conf)
 
 
-@app.route('/policies')
-def get_policies():
-    """Get available policies"""
-    policies = json.loads(redis.get('policies').decode('utf8'))
-    return jsonify(policies=policies)
+@app.route('/policies', methods=['GET', 'POST'])
+def policies():
+    """Get available policies
+    or implement a policy"""
+    if request.method == 'GET':
+        policies = json.loads(redis.get('policies').decode('utf8'))
+        return jsonify(policies=policies)
+    else:
+        data = request.get_json()
+        send_policy(data['name'], data['args']);
+        return jsonify(success=True)
 
 
 @app.route('/step', methods=['POST'])
