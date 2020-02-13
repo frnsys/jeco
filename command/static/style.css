@@ -81,6 +81,7 @@ header {
 
 #config {
   max-width: 220px;
+  border-top: 1px solid transparent;
 }
 .config-item {
   margin: 1em;
@@ -100,6 +101,7 @@ header {
   font-size: 12px;
   line-height: 1;
   padding: 0;
+  background: #eee;
 }
 .config-item--val-original {
   color: #aaa;
