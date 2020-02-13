@@ -1,14 +1,18 @@
 const CONFIG_SPEC = {
   'POPULATION': {
+    type: 'int',
     desc: 'The number of agents to create. Higher numbers will run slower but can provide better results.'
   },
   'SEED': {
+    type: 'int',
     desc: 'Use a consistent seed value to control for randomness across runs. You probably don\'t need to change this.'
   },
   'MAX_INFLUENCE': {
+    type: 'float',
     desc: 'Maximum amount a piece of content can influence a person\'s values.'
   },
   'GRAVITY_STRETCH': {
+    type: 'float',
     desc: 'Horizontal stretching of gravity function. Higher values mean weaker influence at greater distances.'
   }
 };
@@ -270,7 +274,12 @@ class Command {
           inputEl.select();
         });
         inputEl.addEventListener('blur', () => {
-          let customVal = parseInt(inputEl.value);
+          let customVal;
+          if (spec.type == 'int') {
+            customVal = parseInt(inputEl.value);
+          } else if (spec.type == 'float') {
+            customVal = parseFloat(inputEl.value);
+          }
 
           // Reset if not valid number
           if (isNaN(customVal)) {

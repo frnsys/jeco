@@ -62,5 +62,7 @@ impl Config {
     pub fn apply_overrides(&mut self, other: &Config) {
         self.seed = other.seed;
         self.population = other.population;
+        self.max_influence = other.max_influence;
+        self.gravity_stretch = other.gravity_stretch;
     }
 }

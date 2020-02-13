@@ -22,6 +22,12 @@ const CHARTS = [{
     label: 'mean',
     key: 'followers.mean'
   }]
+}, {
+  title: 'p Producing',
+  datasets: [{
+    label: 'p',
+    key: 'p_produced'
+  }]
 }];
 
 const COLORS = [
