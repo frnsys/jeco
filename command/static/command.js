@@ -26,6 +26,24 @@ const POLICY_SPEC = {
       name: 'amount',
       default: 100
     }]
+  },
+  'SubsidizeProduction': {
+    desc: 'Increase the resources of all agents by the specified amount.',
+    args: [{
+      min: 0,
+      type: 'float',
+      name: 'resources',
+      default: 0.5
+    }]
+  },
+  'TaxAdvertising': {
+    desc: 'Implement a tax of the specified amount on all advertising.',
+    args: [{
+      min: 0,
+      type: 'float',
+      name: 'tax',
+      default: 0.1
+    }]
   }
 };
 
