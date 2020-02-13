@@ -4,16 +4,14 @@ Chart.defaults.global.tooltips.bodyFontFamily = 'monospace';
 Chart.defaults.global.tooltips.cornerRadius = 0;
 
 const POINT_RADIUS = 2;
-const AGENT_SAMPLE = 15;
-
 const stage = document.getElementById('charts');
 
 
 class Plotter {
-  constructor(specs, colors) {
+  constructor(specs, scatters, colors) {
     this.colors = colors;
     this.charts = specs.map((s) => this.createChart(s));
-    this.trajChart = this.createTrajectoriesChart();
+    this.scatters = scatters.map((s) => this.createTimeScatterChart(s));
   }
 
   createChart(spec) {
@@ -91,16 +89,22 @@ class Plotter {
       c.chart.update();
     });
 
-    this.trajChart.data.datasets.forEach((dataset, i) => {
-      states.forEach((s) => {
-        let pt = s.sample[i].values;
-        dataset.data.push({x: pt[0], y: pt[1]});
+    this.scatters.forEach((c) => {
+      c.chart.data.datasets.forEach((dataset, i) => {
+        states.forEach((s) => {
+          let pt = s[c.key][i][c.itemKey];
+          dataset.data.push({x: pt[0], y: pt[1]});
+        });
+        if (c.panel) {
+          dataset.pointRadius = dataset.data.map(() => POINT_RADIUS);
+          dataset.pointBackgroundColor = dataset.data.map((_, j) => this.color(i, j/dataset.data.length));
+        } else {
+          dataset.pointRadius = dataset.data.map((_, j) => j == (dataset.data.length-1) ? POINT_RADIUS : 0);
+        }
       });
-      dataset.pointBackgroundColor = dataset.data.map((_, j) => this.color(i, (j/dataset.data.length)**2));
-      dataset.pointRadius = dataset.data.map(() => POINT_RADIUS);
+      c.chart.update();
+      c.chart.sliderEl.value = 100;
     });
-    this.trajChart.update();
-    this.trajChart.sliderEl.value = 100;
   }
 
   reset() {
@@ -111,31 +115,33 @@ class Plotter {
       });
       c.chart.update();
     });
-    this.trajChart.data.datasets.forEach((dataset, i) => {
-      dataset.data = [];
+    this.scatters.forEach((c) => {
+      c.chart.data.datasets.forEach((dataset, i) => {
+        dataset.data = [];
+      });
+      c.chart.update();
     });
-    this.trajChart.update();
   }
 
   color(i, alpha) {
     let [r, g, b] = this.colors[i%this.colors.length];
-    alpha = alpha || 1;
+    alpha = alpha == undefined ? 1 : alpha;
     return `rgba(${r},${g},${b},${alpha})`
   }
 
-  createTrajectoriesChart() {
+  createTimeScatterChart(spec) {
     let chartEl = document.createElement('canvas');
     let chart = new Chart(chartEl, {
       type: 'scatter',
       data: {
-        datasets: [...Array(AGENT_SAMPLE).keys()].map((i) => ({
-          label: `Agent ${i}`,
+        datasets: spec.datasets.map((d, i) => ({
+          label: d.label,
           fill: false,
-          showLine: true,
+          showLine: spec.panel,
           borderWidth: 2,
           pointRadius: POINT_RADIUS,
           borderColor: this.color(i, 0.1),
-          pointBackgroundColor: [],
+          pointBackgroundColor: spec.panel ? [] : this.color(i),
           data: []
         }))
       },
@@ -175,7 +181,7 @@ class Plotter {
     });
 
     let titleEl = document.createElement('div');
-    titleEl.innerText = 'Agent Values';
+    titleEl.innerText = spec.title;
     titleEl.className = 'chart-title';
 
     let parentEl = document.createElement('div');
@@ -193,13 +199,22 @@ class Plotter {
       let steps = chart.data.datasets[0].data.length;
       let step = Math.floor(steps * (sliderEl.value/100));
       chart.data.datasets.forEach((d) => {
-        d.pointRadius = d.data.map((_, i) => i > step ? 0 : POINT_RADIUS);
+        if (spec.panel) {
+          d.pointRadius = d.data.map((_, i) => i > step ? 0 : POINT_RADIUS);
+        } else {
+          d.pointRadius = d.data.map((_, i) => i == step ? POINT_RADIUS : 0);
+        }
       });
       chart.update();
     });
 
     chart.sliderEl = sliderEl;
     stage.appendChild(parentEl);
-    return chart;
+    return {
+      key: spec.key,
+      itemKey: spec.itemKey,
+      panel: spec.panel,
+      chart: chart
+    };
   }
 }

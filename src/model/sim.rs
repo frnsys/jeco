@@ -6,6 +6,7 @@ use super::network::Network;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use super::content::{Content, SharedContent};
+use itertools::Itertools;
 
 pub struct Simulation {
     pub network: Network,
@@ -101,6 +102,10 @@ impl Simulation {
     pub fn n_shares(&self) -> Vec<usize> {
         // -1 to account for reference in self.content
         self.content.iter().map(|c| Rc::strong_count(c) - 1).collect()
+    }
+
+    pub fn content_by_popularity(&self) -> std::vec::IntoIter<&Rc<Content>> {
+        self.content.iter().sorted_by(|a, b| Rc::strong_count(b).cmp(&Rc::strong_count(a)))
     }
 
     pub fn apply_policy(&mut self, policy: &Policy) {

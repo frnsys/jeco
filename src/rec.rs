@@ -1,4 +1,4 @@
-use super::model::{Simulation, Agent};
+use super::model::{Simulation, Agent, Values};
 use super::config::Config;
 use chrono::{DateTime, Utc};
 use fnv::FnvHashMap;
@@ -14,18 +14,22 @@ use redis::Commands;
 pub struct Recorder {
     history: Vec<Value>,
     sample: Vec<Rc<Agent>>,
+    init_values: Vec<Values>,
 }
 
 impl Recorder {
     pub fn new(sim: &Simulation, mut rng: &mut StdRng) -> Recorder {
         let sample_size = (0.2 * sim.agents.len() as f32) as usize;
+        let sample: Vec<Rc<Agent>> = sim.agents
+            .choose_multiple(&mut rng, sample_size)
+            .map(|a| a.clone())
+            .collect();
+        let init_values = sample.iter().map(|a| a.values.get()).collect();
+
         Recorder {
             history: Vec::new(),
-            sample: sim
-                .agents
-                .choose_multiple(&mut rng, sample_size)
-                .map(|a| a.clone())
-                .collect(),
+            sample: sample,
+            init_values: init_values
         }
     }
 
@@ -41,6 +45,21 @@ impl Recorder {
                 })
             })
             .collect();
+
+        // Top 10
+        let content: Vec<Value> = sim.content_by_popularity().take(10).map(|c| {
+            json!({
+                "shares": Rc::strong_count(c) - 1,
+                "topics": c.body.topics,
+                "values": c.body.values
+            })
+        }).collect();
+
+        let value_shifts: Vec<f32> = self.sample.iter().zip(self.init_values.iter())
+            .map(|(a, b)| 1. - a.values.get().normalize().dot(&b.normalize())).collect();
+        let mean_value_shifts = value_shifts.iter()
+            .fold(0., |acc, v| acc + v) as f32 / value_shifts.len() as f32;
+
         let n_shares = sim.n_shares();
         let mean_shares = n_shares.iter().fold(0, |acc, v| acc + v) as f32 / n_shares.len() as f32;
         let mut share_dist: FnvHashMap<usize, usize> = FnvHashMap::default();
@@ -71,10 +90,16 @@ impl Recorder {
                 "min": n_followers.iter().min(),
                 "mean": mean_followers,
             },
+            "value_shifts": {
+                "max": value_shifts.iter().fold(-1./0., |a, &b| f32::max(a, b)),
+                "min": value_shifts.iter().fold(1./0., |a, &b| f32::min(a, b)),
+                "mean": mean_value_shifts,
+            },
             "follower_dist": follower_dist,
             "sample": sample,
             "p_produced": n_produced as f32/sim.agents.len() as f32,
             "to_share": sim.n_will_share(),
+            "top_content": content
         });
         self.history.push(value);
     }
