@@ -34,10 +34,17 @@ button:disabled {
   color: #686868;
 }
 
+main {
+  display: flex;
+}
+
 header {
   display: flex;
-  background: #eee;
-  justify-content: space-between;
+}
+
+#panel {
+  min-height: 100vh;
+  border-right: 1px solid #ddd;
 }
 
 #status {
@@ -47,7 +54,9 @@ header {
 }
 
 #step {
+  flex: 1;
   background: #4343E1;
+  text-align: right;
 }
 #step input {
   width: 3em;
@@ -58,6 +67,7 @@ header {
 }
 
 #charts {
+  flex: 1;
   display: grid;
   grid-template-columns: repeat(auto-fit, 320px);
 }

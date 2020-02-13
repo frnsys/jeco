@@ -1,18 +1,20 @@
 {% extends 'layout.html' %}
 {% block content %}
 <main>
-<header>
-    <div id="status"></div>
-    <div id="reset">
-        <button>Reset</button>
+<div id="panel">
+    <header>
+        <div id="status"></div>
+        <div id="reset">
+            <button>Reset</button>
+        </div>
+        <div id="step">
+            <input type="number" min="1" value="1"><button>Step</button>
+        </div>
+    </header>
+    <div id="config">
+        <button id="reset--new-config">Reset with Changes</button>
+        <ul></ul>
     </div>
-    <div id="step">
-        <input type="number" min="1" value="1"><button>Step</button>
-    </div>
-</header>
-<div id="config">
-    <button id="reset--new-config">Reset with Changes</button>
-    <ul></ul>
 </div>
 <div id="charts"></div>
 </main>
