@@ -14,6 +14,16 @@ ul, li {
   list-style-type: none;
 }
 
+h2 {
+  font-size: 1em;
+  font-weight: normal;
+  font-style: italic;
+  text-transform: uppercase;
+  margin: 1em;
+  border-bottom: 1px dotted black;
+  border-right: 1px dotted black;
+}
+
 input, button {
   font-family: monospace;
 }
@@ -45,6 +55,9 @@ header {
 #panel {
   min-height: 100vh;
   border-right: 1px solid #ddd;
+}
+#panel > div {
+  margin-bottom: 2.5em;
 }
 
 #status {
