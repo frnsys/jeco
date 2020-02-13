@@ -20,6 +20,13 @@ pub struct Config {
 
     #[serde(default)]
     pub seed: u64,
+
+    // horizontal stretching of gravity function
+    // higher values mean weaker influence at greater distances
+    pub gravity_stretch: f32,
+
+    // maximum movement amount
+    pub max_influence: f32,
 }
 
 pub fn load_config() -> Config {

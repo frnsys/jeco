@@ -59,15 +59,8 @@ pub fn random_topics(rng: &mut StdRng) -> Topics {
     Topics::from_vec(i_vec)
 }
 
-// horizontal stretching of gravity function
-// higher values mean weaker influence at greater distances
-static GRAVITY_STRETCH: f32 = 100.;
-
-// maximum movement amount
-static MAX_INFLUENCE: f32 = 0.01;
-
 // Returns how much a moves towards b
-pub fn gravity(a: f32, b: f32) -> f32 {
+pub fn gravity(a: f32, b: f32, gravity_stretch: f32, max_influence: f32) -> f32 {
     let mut dist = a - b;
     let sign = dist.signum();
     dist = dist.abs();
@@ -75,8 +68,8 @@ pub fn gravity(a: f32, b: f32) -> f32 {
         // Already here, no movement
         0.
     } else {
-        let strength = (1. / dist) / GRAVITY_STRETCH;
-        let movement = strength / (strength + 1.) * MAX_INFLUENCE;
+        let strength = (1. / dist) / gravity_stretch;
+        let movement = strength / (strength + 1.) * max_influence;
         f32::min(movement, dist) * sign
     }
 }
@@ -137,6 +130,8 @@ impl Agent {
         &'a self,
         content: Vec<&'a SharedContent>,
         network: &Network,
+        gravity_stretch: f32,
+        max_influence: f32,
         rng: &mut StdRng,
     ) -> Vec<Rc<Content>> {
         let mut attention = self.attention;
@@ -161,7 +156,7 @@ impl Agent {
             // Influence
             let trust = network.trust(self, &sc.sharer);
             values.zip_apply(&c.body.values, |v, v_| {
-                v + gravity(v, v_) * affinity * trust
+                v + gravity(v, v_, gravity_stretch, max_influence) * affinity * trust
             });
             self.values.set(values);
 

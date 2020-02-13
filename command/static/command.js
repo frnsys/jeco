@@ -4,6 +4,12 @@ const CONFIG_SPEC = {
   },
   'SEED': {
     desc: 'Use a consistent seed value to control for randomness across runs. You probably don\'t need to change this.'
+  },
+  'MAX_INFLUENCE': {
+    desc: 'Maximum amount a piece of content can influence a person\'s values.'
+  },
+  'GRAVITY_STRETCH': {
+    desc: 'Horizontal stretching of gravity function. Higher values mean weaker influence at greater distances.'
   }
 };
 

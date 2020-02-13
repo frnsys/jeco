@@ -44,7 +44,7 @@ fn main() {
                         }
                         for _ in 0..steps {
                             let n_produced = sim.produce(&mut rng);
-                            sim.consume(&mut rng);
+                            sim.consume(conf.gravity_stretch, conf.max_influence, &mut rng);
 
                             recorder.record(step, &sim, n_produced);
                             recorder.sync(step, redis_host).unwrap();
@@ -69,7 +69,7 @@ fn main() {
             let mut pb = ProgressBar::new(steps as u64);
             for step in 0..steps {
                 let n_produced = sim.produce(&mut rng);
-                sim.consume(&mut rng);
+                sim.consume(conf.gravity_stretch, conf.max_influence, &mut rng);
 
                 recorder.record(step, &sim, n_produced);
                 pb.inc();
@@ -78,7 +78,7 @@ fn main() {
         } else {
             for _ in 0..steps {
                 sim.produce(&mut rng);
-                sim.consume(&mut rng);
+                sim.consume(conf.gravity_stretch, conf.max_influence, &mut rng);
             }
         }
     }

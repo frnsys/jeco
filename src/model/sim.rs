@@ -59,7 +59,10 @@ impl Simulation {
         n_produced
     }
 
-    pub fn consume(&mut self, mut rng: &mut StdRng) {
+    pub fn consume(&mut self,
+                   gravity_stretch: f32,
+                   max_influence: f32,
+                   mut rng: &mut StdRng) {
         let mut new_to_share: FnvHashMap<usize, Vec<SharedContent>> = FnvHashMap::default();
 
         for a in &self.agents {
@@ -67,7 +70,7 @@ impl Simulation {
                 .flat_map(|n_id| self.share_queues[n_id].iter()).collect();
 
             shared.shuffle(&mut rng);
-            let will_share = a.consume(shared, &self.network, &mut rng);
+            let will_share = a.consume(shared, &self.network, gravity_stretch, max_influence, &mut rng);
             let shareable = will_share.iter().map(|content| {
                 SharedContent {
                     sharer: a.clone(),
