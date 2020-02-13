@@ -34,3 +34,10 @@ function post(url, data, onSuccess, onErr) {
     .then((data) => onSuccess && onSuccess(data))
     .catch(err => { throw err });
 }
+
+function htmlToElement(html) {
+  let template = document.createElement('template');
+  html = html.trim();
+  template.innerHTML = html;
+  return template.content.firstChild;
+}

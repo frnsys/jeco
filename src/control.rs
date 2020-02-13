@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use redis::{Commands, Connection};
+use super::config::Config;
 use strum_macros::{Display};
 
 #[derive(Display, Debug)]
@@ -12,13 +13,14 @@ pub enum Status {
 #[derive(Display, PartialEq, Debug, Deserialize)]
 enum Message {
     Run(usize),                     // steps
-    Reset,                          //
+    Reset(Config),
 }
 
 pub enum Command {
     Run(usize),
-    Reset
+    Reset(Config)
 }
+
 
 pub struct Commander {
     con: Connection,
@@ -51,10 +53,13 @@ impl Commander {
         self.set_status(Status::Loading)
     }
 
-    pub fn reset(&mut self) -> redis::RedisResult<()> {
+    pub fn reset(&mut self, conf: &Config) -> redis::RedisResult<()> {
         self.con.del("cmds")?;
         self.con.del("state:history")?;
-        self.con.set("state:step", -1)
+        self.con.set("state:step", -1)?;
+
+        let conf_serialized = serde_json::to_string(conf).unwrap();
+        self.con.set("config", conf_serialized)
     }
 
     pub fn wait_for_command(&mut self) -> Command {
@@ -78,8 +83,8 @@ impl Commander {
                         Message::Run(n) => {
                             command = Some(Command::Run(n));
                         },
-                        Message::Reset => {
-                            command = Some(Command::Reset);
+                        Message::Reset(overrides) => {
+                            command = Some(Command::Reset(overrides));
                         }
                     }
                 }

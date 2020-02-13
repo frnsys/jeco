@@ -30,7 +30,6 @@ def state_history():
     """Query state history range"""
     frm = request.args.get('from', 0)
     to = request.args.get('to', -1)
-    print(request.args)
     history = [json.loads(r.decode('utf8')) for r in redis.lrange('state:history', int(frm), int(to))]
     return jsonify(history=history)
 
@@ -39,6 +38,13 @@ def state_history():
 def state_step():
     """Query current state step"""
     return jsonify(step=redis.get('state:step').decode('utf8'))
+
+
+@app.route('/config')
+def get_config():
+    """Reset the simulation"""
+    conf = json.loads(redis.get('config').decode('utf8'))
+    return jsonify(config=conf)
 
 
 @app.route('/step', methods=['POST'])
@@ -52,7 +58,8 @@ def step():
 @app.route('/reset', methods=['POST'])
 def reset():
     """Reset the simulation"""
-    send_command('Reset')
+    config_overrides = request.get_json()
+    send_command('Reset', config_overrides)
     return jsonify(success=True)
 
 

@@ -11,7 +11,7 @@ use rand::rngs::StdRng;
 use rand::SeedableRng;
 
 fn main() {
-    let conf = config::load_config();
+    let mut conf = config::load_config();
     let mut rng: StdRng = SeedableRng::seed_from_u64(conf.seed);
 
     let steps = conf.steps;
@@ -23,7 +23,8 @@ fn main() {
         let mut command = Commander::new(redis_host);
 
         loop {
-            command.reset().unwrap();
+            println!("{:?}", conf);
+            command.reset(&conf).unwrap();
             command.set_loading().unwrap();
             let mut sim = Simulation::new(conf.population, &mut rng);
             let mut recorder = Recorder::new(&sim, &mut rng);
@@ -47,8 +48,9 @@ fn main() {
                         }
                         command.set_ready().unwrap();
                     },
-                    Command::Reset => {
+                    Command::Reset(overrides) => {
                         println!("Resetting...");
+                        conf.apply_overrides(&overrides);
                         break;
                     }
                 }

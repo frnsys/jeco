@@ -1,10 +1,10 @@
 use rand::Rng;
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 #[serde(rename_all = "UPPERCASE")]
 pub struct Config {
     pub population: usize,
@@ -48,7 +48,12 @@ pub fn load_config() -> Config {
         Err(_) => rng.gen(),
     };
 
-    println!("{:?}", conf);
-
     conf
+}
+
+impl Config {
+    pub fn apply_overrides(&mut self, other: &Config) {
+        self.seed = other.seed;
+        self.population = other.population;
+    }
 }

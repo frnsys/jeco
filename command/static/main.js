@@ -1,5 +1,78 @@
 const history = [];
 
+const CONFIG_SPEC = {
+  'POPULATION': {
+    desc: 'The number of agents to create. Higher numbers will run slower but can provide better results.'
+  },
+  'SEED': {
+    desc: 'Use a consistent seed value to control for randomness across runs. You probably don\'t need to change this.'
+  }
+};
+let currentConfig = {};
+
+function loadConfig() {
+  get('/config', {}, ({config}) => {
+    let changed = new Set();
+    let el = document.querySelector('#config ul');
+    let resetButton = document.getElementById('reset--new-config');
+    el.innerHTML = '';
+    resetButton.style.display = 'none';
+    Object.keys(CONFIG_SPEC).forEach((k) => {
+      let val = config[k];
+      let spec = CONFIG_SPEC[k];
+      currentConfig[k] = val;
+      let html = `<li class="config-item">
+        <div class="config-item--info">
+          <div class="config-item--key">${k}</div>
+          <div class="config-item--val">${val}</div>
+          <input class="config-item--input" type="text" value="${val}">
+        </div>
+        <div class="config-item--desc">${spec.desc}</div>
+      </li>`;
+
+      // Setup editable inputs
+      let child = htmlToElement(html);
+      let valEl = child.querySelector('.config-item--val');
+      let inputEl = child.querySelector('input');
+      valEl.addEventListener('click', () => {
+        inputEl.style.display = 'block';
+        valEl.style.display = 'none';
+        inputEl.select();
+      });
+      inputEl.addEventListener('blur', () => {
+        let customVal = parseInt(inputEl.value);
+
+        // Reset if not valid number
+        if (isNaN(customVal)) {
+          inputEl.value = val;
+          customVal = val;
+        }
+
+        // Show original value if changed
+        if (customVal !== val) {
+          valEl.innerHTML = `
+            <span class="config-item--val-original">${val}</span>
+            <span class="config-item--val-new">${customVal}</span>`;
+          changed.add(k);
+        } else {
+          valEl.innerText = val;
+          changed.delete(k);
+        }
+        inputEl.style.display = 'none';
+        valEl.style.display = 'block';
+        currentConfig[k] = customVal;
+
+        if (changed.size > 0) {
+          resetButton.style.display = 'block';
+        } else {
+          resetButton.style.display = 'none';
+        }
+      });
+      el.appendChild(child);
+    });
+  });
+}
+
 function updateStatus(cb) {
   let el = document.getElementById('status');
   get('/status', {}, ({status}) => {
@@ -43,11 +116,12 @@ function updateState() {
   }
 }
 
-function waitForReady() {
+function waitForReady(cb) {
   let interval = setInterval(() => {
     updateStatus((status) => {
       if (status == 'ready') {
         clearInterval(interval);
+        if (cb) cb();
       }
     });
   }, 500);
@@ -67,14 +141,20 @@ document.querySelector('#step button').addEventListener('click', () => {
   });
 });
 
-document.querySelector('#reset button').addEventListener('click', () => {
-  post('/reset', {}, () => {
-    waitForReady();
-    history.length = 0; // Clear history
+function reset() {
+  post('/reset', currentConfig, () => {
+    waitForReady(() => {
+      loadConfig();
+      resetCharts();
+      history.length = 0; // Clear history
+    });
   });
-});
+}
+document.querySelector('#reset button').addEventListener('click', reset);
+document.getElementById('reset--new-config').addEventListener('click', reset);
 
 updateStatus();
+loadConfig();
 
 // TODO what if we miss a state update?
 // i.e. multiple steps occur during this interval
@@ -188,6 +268,16 @@ function updateCharts(newStates) {
         let value = keyPath.slice(1).reduce((acc, k) => acc[k], s[keyPath[0]]);
         dataset.data.push(value);
       });
+    });
+    c.chart.update();
+  });
+}
+
+function resetCharts() {
+  CHARTS.forEach((c) => {
+    c.chart.data.labels = [];
+    c.chart.data.datasets.forEach((dataset, i) => {
+      dataset.data = [];
     });
     c.chart.update();
   });

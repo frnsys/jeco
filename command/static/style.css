@@ -48,3 +48,44 @@ button:hover {
 .chart-title {
   text-align: center;
 }
+
+#config {
+  max-width: 220px;
+}
+.config-item {
+  margin: 1em;
+}
+.config-item--info {
+  display: flex;
+  justify-content: space-between;
+}
+.config-item--desc {
+  color: #888;
+  text-align: justify;
+}
+.config-item--input {
+  display: none;
+  border: none;
+  text-align: right;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+}
+.config-item--val-original {
+  color: #aaa;
+}
+.config-item--val-new {
+  color: blue;
+}
+#reset--new-config {
+  display: none;
+  width: 100%;
+}
+
+
+ul, li {
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+}
