@@ -22,8 +22,8 @@ pub type Sample = Matrix<f32, Dynamic, U2, VecStorage<f32, Dynamic, U2>>;
 pub type SampleRow = RowVectorN<f32, U2>;
 pub fn bayes_update(prior: (Vector, Vector), sample: Sample) -> (Vector, Vector) {
     let (prior_mu, prior_var) = prior;
-    let sample_mu = sample.column_mean();
-    let sample_var = sample.column_variance();
+    let sample_mu = sample.row_mean().transpose();
+    let sample_var = sample.row_variance().transpose();
     let denom = prior_var + &sample_var;
     let post_mu = (sample_var.component_mul(&prior_mu) + prior_var.component_mul(&sample_mu)).component_div(&denom);
     let post_var = sample_var.component_mul(&prior_var).component_div(&denom);

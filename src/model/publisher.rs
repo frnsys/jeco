@@ -157,7 +157,6 @@ impl Publisher {
             i_rows.push(c.body.topics.transpose());
         }
         let mut sample = Sample::from_rows(v_rows.as_slice());
-        println!("{:?}", sample);
         self.audience_values = bayes_update(self.audience_values, sample);
 
         sample = Sample::from_rows(i_rows.as_slice());
