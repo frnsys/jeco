@@ -147,6 +147,8 @@ impl Publisher {
     // ENH: Can be smarter about how we pick the content
     // to look at. Ideally also weight content by shares.
     pub fn audience_survey(&mut self, sample_size: usize) {
+        if self.content.len() == 0 { return }
+
         // TODO should these be merged into one "audience" matrix?
         // Might be faster
         let mut v_rows: Vec<SampleRow> = Vec::with_capacity(sample_size);
@@ -174,7 +176,11 @@ impl Publisher {
 
     pub fn update_reach(&mut self) {
         let shares = self.n_shares();
-        let mean_shares = shares.iter().fold(0, |acc, v| acc + v) as f32 / shares.len() as f32;
-        self.reach = ewma(mean_shares, self.reach);
+        if shares.len() == 0 {
+            self.reach = 0.;
+        } else {
+            let mean_shares = shares.iter().fold(0, |acc, v| acc + v) as f32 / shares.len() as f32;
+            self.reach = ewma(mean_shares, self.reach);
+        }
     }
 }
