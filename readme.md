@@ -12,3 +12,7 @@ To implement a new policy option:
 1. Add it to the `Policy` enum in `src/model/policy.rs`
 2. Implement its effect in `src/model/policy.rs#Simulation.apply_policy`
 3. Add its spec to `command/static/command.js#POLICY_SPEC`
+
+---
+
+Search for `ENH` comments for possible enhancements.
