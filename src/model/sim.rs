@@ -17,6 +17,8 @@ pub struct Simulation {
     share_queues: FnvHashMap<usize, Vec<SharedContent>>,
 }
 
+static CONTENT_SAMPLE_SIZE: usize = 50;
+
 impl Simulation {
     pub fn new(population: usize, mut rng: &mut StdRng) -> Simulation {
         let agents: Vec<Agent> = (0..population)
@@ -100,6 +102,15 @@ impl Simulation {
                 }
             }
         }
+
+        // TODO
+        for p in &mut self.publishers {
+            p.audience_survey(CONTENT_SAMPLE_SIZE);
+
+            // ENH: Publisher pushes content
+            // for multiple steps?
+            p.outbox.clear();
+        }
     }
 
     pub fn n_will_share(&self) -> usize {
@@ -108,6 +119,9 @@ impl Simulation {
 
     pub fn n_shares(&self) -> Vec<usize> {
         // -1 to account for reference in self.content
+        // Note that content from Publishers will have an extra +1
+        // because of their publisher.content reference.
+        // But that should be negligible
         self.content.iter().map(|c| Rc::strong_count(c) - 1).collect()
     }
 

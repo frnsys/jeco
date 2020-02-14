@@ -11,8 +11,9 @@ use std::rc::Rc;
 
 // 2 so can be plotted in 2d
 static VECTOR_SIZE: u32 = 2;
-pub type Topics = VectorN<f32, U2>;
-pub type Values = VectorN<f32, U2>;
+pub type Vector = VectorN<f32, U2>;
+pub type Topics = Vector;
+pub type Values = Vector;
 
 pub type AgentId = usize;
 
