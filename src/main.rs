@@ -26,7 +26,7 @@ fn main() {
             println!("{:?}", conf);
             command.reset(&conf).unwrap();
             command.set_loading().unwrap();
-            let mut sim = Simulation::new(conf.population, &mut rng);
+            let mut sim = Simulation::new(conf.population, conf.n_publishers, &mut rng);
             let mut recorder = Recorder::new(&sim, &mut rng);
             command.set_ready().unwrap();
 
@@ -63,7 +63,7 @@ fn main() {
 
     // Single run mode
     } else {
-        let mut sim = Simulation::new(conf.population, &mut rng);
+        let mut sim = Simulation::new(conf.population, conf.n_publishers, &mut rng);
         if debug {
             let mut recorder = Recorder::new(&sim, &mut rng);
             let mut pb = ProgressBar::new(steps as u64);

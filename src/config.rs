@@ -8,6 +8,7 @@ use std::io::BufReader;
 #[serde(rename_all = "UPPERCASE")]
 pub struct Config {
     pub population: usize,
+    pub n_publishers: usize,
 
     #[serde(default)]
     pub steps: usize,

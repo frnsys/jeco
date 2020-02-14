@@ -100,8 +100,8 @@ impl Publisher {
 
     // An Agent pitches a piece
     // of content to the publisher
-    pub fn pitch(&mut self, body: &ContentBody, author: &Agent, rng: &mut StdRng) -> bool {
-        if self.budget < self.quality { return false }
+    pub fn pitch(&mut self, body: &ContentBody, author: &Agent, rng: &mut StdRng) -> Option<Rc<Content>> {
+        if self.budget < self.quality { return None }
 
         let z_ints = z_score(&body.topics, &self.audience_interests);
         let z_vals = z_score(&body.values, &self.audience_values);
@@ -128,8 +128,10 @@ impl Publisher {
 
             // Deduct from budget
             self.budget -= self.quality;
+            Some(content.clone())
+        } else {
+            None
         }
-        accepted
     }
 
     // An Agent subscribes to the publisher

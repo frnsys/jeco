@@ -21,7 +21,7 @@ pub struct Simulation {
 static CONTENT_SAMPLE_SIZE: usize = 50;
 
 impl Simulation {
-    pub fn new(population: usize, mut rng: &mut StdRng) -> Simulation {
+    pub fn new(population: usize, n_publishers: usize, mut rng: &mut StdRng) -> Simulation {
         let agents: Vec<Agent> = (0..population)
             .map(|i| Agent::new(i, &mut rng))
             .collect();
@@ -31,7 +31,9 @@ impl Simulation {
             share_queues.insert(agent.id, Vec::new());
         }
 
-        let publishers: Vec<Publisher> = Vec::new(); // TODO initialize publishers, with initial subscribers etc
+        let publishers: Vec<Publisher> = (0..n_publishers)
+            .map(|i| Publisher::new(i, &mut rng))
+            .collect();
 
         let network = Network::new(&agents, &mut rng);
 
@@ -64,13 +66,23 @@ impl Simulation {
                                 .filter(|(_, p, _)| *p >= 0.1) // Minimum probability
                                 .sorted_by(|(_, _, ev), (_, _, ev_)| ev_.partial_cmp(ev).unwrap());
                             for (pub_id, p, _) in publishers {
-                                published = self.publishers[pub_id].pitch(&body, &a, &mut rng);
-                                if published {
-                                    a.publishabilities.insert(pub_id, ewma(1., p));
-                                    a.publishability = ewma(1., a.publishability);
-                                    break;
-                                } else {
-                                    a.publishabilities.insert(pub_id, ewma(0., p));
+                                match self.publishers[pub_id].pitch(&body, &a, &mut rng) {
+                                    Some(content) => {
+                                        published = true;
+                                        a.publishabilities.insert(pub_id, ewma(1., p));
+                                        a.publishability = ewma(1., a.publishability);
+
+                                        // Share to own networks
+                                        to_share.push(SharedContent {
+                                            content: content.clone(),
+                                            sharer: (SharerType::Agent, a.id)
+                                        });
+                                        self.content.push(content.clone());
+                                        break;
+                                    },
+                                    None => {
+                                        a.publishabilities.insert(pub_id, ewma(0., p));
+                                    }
                                 }
                             }
                         }
@@ -133,7 +145,6 @@ impl Simulation {
             }
         }
 
-        // TODO
         for p in &mut self.publishers {
             p.audience_survey(CONTENT_SAMPLE_SIZE);
             p.update_reach();

@@ -188,11 +188,16 @@ impl Agent {
         // Decide on subscriptions
         // TODO consider costs of subscription
         for (p_id, affinity) in publishers.iter() {
-            let p = affinity * SUBSCRIPTION_PROB_WEIGHT;
+            let roll: f32 = rng.gen();
             if !subscriptions.contains(p_id) {
-                let roll: f32 = rng.gen();
+                let p = affinity * SUBSCRIPTION_PROB_WEIGHT;
                 if roll < p {
                     subscriptions.insert(*p_id);
+                }
+            } else {
+                let p = (1. - affinity) * SUBSCRIPTION_PROB_WEIGHT;
+                if roll < p {
+                    subscriptions.remove(p_id);
                 }
             }
         }
