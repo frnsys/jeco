@@ -105,10 +105,12 @@ impl Publisher {
 
         let z_ints = z_score(&body.topics, &self.audience_interests);
         let z_vals = z_score(&body.values, &self.audience_values);
-        let sim_to_perceived_reader = f32::max(1. - (z_ints.mean() + z_vals.mean())/8., 0.);
-        // 2 for the mean, 4 for the z-score
+        let sim_to_perceived_reader = f32::max(1. - (z_ints.mean() + z_vals.mean())/6., 0.);
+        // 2*3=6; 2 for the mean, max z-score of 3
 
         // Sigmoid
+        // TODO this doesn't necessarily need to be random?
+        // Could just be based on a threshold
         let p_accept = 1./(1.+E.powf(-sim_to_perceived_reader-0.5));
         let roll: f32 = rng.gen();
         let accepted = roll < p_accept;
