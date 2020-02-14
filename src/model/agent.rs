@@ -142,6 +142,8 @@ impl Agent {
     ) -> Vec<Rc<Content>> {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
+        // ENH: Can make sure agents don't consume
+        // content they've already consumed
         for sc in content {
             let c = &sc.content;
             let mut values = self.values.get();
