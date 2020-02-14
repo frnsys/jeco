@@ -1,10 +1,10 @@
 use rand::Rng;
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 #[serde(rename_all = "UPPERCASE")]
 pub struct Config {
     pub population: usize,
@@ -16,7 +16,17 @@ pub struct Config {
     pub debug: bool,
 
     #[serde(default)]
+    pub command: bool,
+
+    #[serde(default)]
     pub seed: u64,
+
+    // horizontal stretching of gravity function
+    // higher values mean weaker influence at greater distances
+    pub gravity_stretch: f32,
+
+    // maximum movement amount
+    pub max_influence: f32,
 }
 
 pub fn load_config() -> Config {
@@ -34,13 +44,25 @@ pub fn load_config() -> Config {
         Err(_) => conf.debug,
     };
 
+    conf.command = match env::var("COMMAND") {
+        Ok(command) => command == "1",
+        Err(_) => conf.command,
+    };
+
     let mut rng = rand::thread_rng();
     conf.seed = match env::var("SEED") {
         Ok(seed) => seed.parse().unwrap(),
         Err(_) => rng.gen(),
     };
 
-    println!("{:?}", conf);
-
     conf
+}
+
+impl Config {
+    pub fn apply_overrides(&mut self, other: &Config) {
+        self.seed = other.seed;
+        self.population = other.population;
+        self.max_influence = other.max_influence;
+        self.gravity_stretch = other.gravity_stretch;
+    }
 }

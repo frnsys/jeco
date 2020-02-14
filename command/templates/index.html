@@ -1,0 +1,35 @@
+{% extends 'layout.html' %}
+{% block content %}
+<main>
+<div id="panel">
+    <header>
+        <div id="status"></div>
+        <div id="reset">
+            <button>Reset</button>
+        </div>
+        <div id="step">
+            <input type="number" min="1" value="10"><button>Run</button>
+        </div>
+    </header>
+    <div id="config">
+        <h2>Configuration</h2>
+        <button id="reset--new-config">Reset with Changes</button>
+        <ul></ul>
+    </div>
+    <div id="policy">
+        <h2>Policies</h2>
+        <ul></ul>
+    </div>
+</div>
+<div id="charts"></div>
+<div id="policy-history">
+    <h2>Policy History</h2>
+    <div></div>
+</div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js"></script>
+<script src="{{ url_for('static', filename='lib.js') }}"></script>
+<script src="{{ url_for('static', filename='plotter.js') }}"></script>
+<script src="{{ url_for('static', filename='command.js') }}"></script>
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+{% endblock %}
