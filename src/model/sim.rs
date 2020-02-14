@@ -49,6 +49,8 @@ impl Simulation {
             if let Some(to_share) = self.share_queues.get_mut(&a.id) {
                 match a.produce(&mut rng) {
                     Some(body) => {
+                        // Decide to pitch to publisher
+                        self.publishers[0].pitch(&body, &a, &mut rng);
                         let content = Rc::new(Content {
                             publisher: None,
                             author: a.id,

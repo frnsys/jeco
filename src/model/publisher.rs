@@ -24,31 +24,13 @@ use std::rc::Rc;
 use rand::rngs::StdRng;
 use std::f32::consts::E;
 use itertools::Itertools;
-use super::agent::{Agent, AgentId, Vector};
+use super::agent::{Agent, AgentId};
 use super::content::{Content, ContentBody, SharedContent, SharerType};
+use super::util::{Vector, Sample, SampleRow, ewma, bayes_update, EWMA_ALPHA};
 
 static REVENUE_PER_SUBSCRIBER: f32 = 0.01;
-static EWMA_ALPHA: f32 = 0.7;
 
 pub type PublisherId = usize;
-
-// Bayesian normal update
-use nalgebra::{Matrix, Dynamic, U2, VecStorage, RowVectorN};
-type Sample = Matrix<f32, Dynamic, U2, VecStorage<f32, Dynamic, U2>>;
-pub fn bayes_update(prior: (Vector, Vector), sample: Sample) -> (Vector, Vector) {
-    let (prior_mu, prior_var) = prior;
-    let sample_mu = sample.column_mean();
-    let sample_var = sample.column_variance();
-    let denom = prior_var + &sample_var;
-    let post_mu = (sample_var.component_mul(&prior_mu) + prior_var.component_mul(&sample_mu)).component_div(&denom);
-    let post_var = sample_var.component_mul(&prior_var).component_div(&denom);
-    (post_mu, post_var)
-}
-
-// Exponentially weighted moving average
-pub fn ewma(mu: f32, prev: f32, alpha: f32) -> f32 {
-    alpha * mu + (1. - alpha) * prev
-}
 
 // A Publisher is a platform which
 // exercises discretion of what
@@ -159,8 +141,8 @@ impl Publisher {
     // ENH: Can be smarter about how we pick the content
     // to look at. Ideally also weight content by shares.
     pub fn audience_survey(&mut self, sample_size: usize) {
-        let mut v_rows: Vec<RowVectorN<f32, U2>> = Vec::with_capacity(sample_size);
-        let mut i_rows: Vec<RowVectorN<f32, U2>> = Vec::with_capacity(sample_size);
+        let mut v_rows: Vec<SampleRow> = Vec::with_capacity(sample_size);
+        let mut i_rows: Vec<SampleRow> = Vec::with_capacity(sample_size);
         for c in self.content_by_popularity().take(sample_size) {
             v_rows.push(c.body.values.transpose());
             i_rows.push(c.body.topics.transpose());

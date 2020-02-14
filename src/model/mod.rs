@@ -1,4 +1,5 @@
 mod sim;
+mod util;
 mod agent;
 mod policy;
 mod content;

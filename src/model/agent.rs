@@ -1,7 +1,7 @@
+use super::util::{Vector, VECTOR_SIZE};
 use super::publisher::PublisherId;
 use super::content::{Content, ContentBody, SharedContent, SharerType};
 use super::network::Network;
-use nalgebra::{VectorN, U2};
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand_distr::StandardNormal;
@@ -9,12 +9,8 @@ use std::cell::Cell;
 use std::fmt::Debug;
 use std::rc::Rc;
 
-// 2 so can be plotted in 2d
-static VECTOR_SIZE: u32 = 2;
-pub type Vector = VectorN<f32, U2>;
 pub type Topics = Vector;
 pub type Values = Vector;
-
 pub type AgentId = usize;
 
 #[derive(Debug)]
