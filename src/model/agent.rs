@@ -9,7 +9,7 @@ use rand_distr::StandardNormal;
 use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 use std::rc::Rc;
-use super::util::ewma;
+use super::util::{ewma, clamp, gravity};
 
 pub type Topics = Vector;
 pub type Values = Vector;
@@ -35,16 +35,6 @@ pub struct Agent {
     // Track trust/feelings towards Publishers
     // TODO would like to not use a RefCell if possible
     pub publishers: RefCell<FnvHashMap<PublisherId, f32>>,
-}
-
-fn clamp(val: f32, min: f32, max: f32) -> f32 {
-    if val < min {
-        min
-    } else if val > max {
-        max
-    } else {
-        val
-    }
 }
 
 static NORMAL_SCALE: f32 = 0.8;
@@ -73,21 +63,6 @@ pub fn random_topics(rng: &mut StdRng) -> Topics {
         })
         .collect();
     Topics::from_vec(i_vec)
-}
-
-// Returns how much a moves towards b
-pub fn gravity(a: f32, b: f32, gravity_stretch: f32, max_influence: f32) -> f32 {
-    let mut dist = a - b;
-    let sign = dist.signum();
-    dist = dist.abs();
-    if dist == 0. {
-        // Already here, no movement
-        0.
-    } else {
-        let strength = (1. / dist) / gravity_stretch;
-        let movement = strength / (strength + 1.) * max_influence;
-        f32::min(movement, dist) * sign
-    }
 }
 
 impl Agent {

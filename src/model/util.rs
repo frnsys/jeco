@@ -29,3 +29,27 @@ pub fn bayes_update(prior: (Vector, Vector), sample: Sample) -> (Vector, Vector)
     (post_mu, post_var)
 }
 
+pub fn clamp(val: f32, min: f32, max: f32) -> f32 {
+    if val < min {
+        min
+    } else if val > max {
+        max
+    } else {
+        val
+    }
+}
+
+// Returns how much a moves towards b
+pub fn gravity(a: f32, b: f32, gravity_stretch: f32, max_influence: f32) -> f32 {
+    let mut dist = a - b;
+    let sign = dist.signum();
+    dist = dist.abs();
+    if dist == 0. {
+        // Already here, no movement
+        0.
+    } else {
+        let strength = (1. / dist) / gravity_stretch;
+        let movement = strength / (strength + 1.) * max_influence;
+        f32::min(movement, dist) * sign
+    }
+}
