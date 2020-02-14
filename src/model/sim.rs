@@ -107,7 +107,7 @@ impl Simulation {
         for a in &self.agents {
             let mut shared: Vec<&SharedContent> = self.network.follower_ids(&a).iter()
                 .flat_map(|n_id| self.share_queues[n_id].iter()).collect();
-            shared.extend(a.subscriptions.iter().flat_map(|p_id| self.publishers[*p_id].outbox.iter()));
+            shared.extend(a.subscriptions.borrow().iter().flat_map(|p_id| self.publishers[*p_id].outbox.iter()));
             shared.shuffle(&mut rng);
 
             let will_share = a.consume(shared, &self.network, gravity_stretch, max_influence, &mut rng);

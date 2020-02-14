@@ -2,9 +2,9 @@
 // - implement pitching
 //  - [X] publisher deciding when to accept a pitch
 //  - [X] publisher deciding how much to invest in a pitch
-//  - agent deciding when and where to pitch
-//      - based on pitch topics/values
-//      - EV calculation of expected reach and prob of accepting
+//  - [X] agent deciding when and where to pitch
+//      - [X] based on pitch topics/values
+//      - [X] EV calculation of expected reach and prob of accepting
 // - [X] implement publishing
 //  - [X] add content to all subscriber inboxes
 // - [X] implement audience interest/value tracking (EWMAs et al)

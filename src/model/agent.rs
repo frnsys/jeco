@@ -1,4 +1,4 @@
-use fnv::FnvHashMap;
+use fnv::{FnvHashMap, FnvHashSet};
 use super::util::{Vector, VECTOR_SIZE};
 use super::publisher::PublisherId;
 use super::content::{Content, ContentBody, SharedContent, SharerType};
@@ -6,9 +6,10 @@ use super::network::Network;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand_distr::StandardNormal;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 use std::rc::Rc;
+use super::util::ewma;
 
 pub type Topics = Vector;
 pub type Values = Vector;
@@ -21,12 +22,19 @@ pub struct Agent {
     pub values: Cell<Values>,
     pub attention: f32,
     pub resources: f32,
-    pub subscriptions: Vec<PublisherId>,
+
+    // Publishers the Agent is subscribed to
+    // TODO would like to not use a RefCell if possible
+    pub subscriptions: RefCell<FnvHashSet<PublisherId>>,
 
     // Agent's estimate of how likely
     // a Publisher is to publish their content
     pub publishability: f32,
     pub publishabilities: FnvHashMap<PublisherId, f32>,
+
+    // Track trust/feelings towards Publishers
+    // TODO would like to not use a RefCell if possible
+    pub publishers: RefCell<FnvHashMap<PublisherId, f32>>,
 }
 
 fn clamp(val: f32, min: f32, max: f32) -> f32 {
@@ -40,6 +48,7 @@ fn clamp(val: f32, min: f32, max: f32) -> f32 {
 }
 
 static NORMAL_SCALE: f32 = 0.8;
+static SUBSCRIPTION_PROB_WEIGHT: f32 = 0.1;
 
 pub fn random_values(rng: &mut StdRng) -> Values {
     // Normal dist, -1 to 1
@@ -91,11 +100,12 @@ impl Agent {
             id: id,
             interests: random_topics(&mut rng),
             values: Cell::new(random_values(&mut rng)),
-            attention: 100.0,
+            attention: 100.0, // TODO
             resources: resources,
             publishability: 1.,
             publishabilities: FnvHashMap::default(),
-            subscriptions: Vec::new()
+            publishers: RefCell::new(FnvHashMap::default()),
+            subscriptions: RefCell::new(FnvHashSet::default())
         }
     }
 
@@ -146,11 +156,14 @@ impl Agent {
     ) -> Vec<Rc<Content>> {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
+        let mut values = self.values.get();
+        let mut publishers = self.publishers.borrow_mut();
+        let mut subscriptions = self.subscriptions.borrow_mut();
+
         // ENH: Can make sure agents don't consume
         // content they've already consumed
         for sc in content {
             let c = &sc.content;
-            let mut values = self.values.get();
             let affinity = self.interests.dot(&c.body.topics);
             let alignment = (values.dot(&c.body.values) - 0.5) * 2.;
 
@@ -165,7 +178,16 @@ impl Agent {
                 to_share.push(c.clone());
             }
 
-            // Influence
+            // Update publisher feeling/reputation
+            match c.publisher {
+                Some(p_id) => {
+                    let v = publishers.entry(p_id).or_insert(0.5);
+                    *v = ewma(affinity, *v);
+                },
+                None => {}
+            }
+
+            // Influence on Agent's values
             let trust = match sc.sharer {
                 (SharerType::Agent, id) => {
                     network.trust(&self.id, &id)
@@ -185,6 +207,18 @@ impl Agent {
             attention -= c.body.cost;
             if attention <= 0. {
                 break;
+            }
+        }
+
+        // Decide on subscriptions
+        // TODO consider costs of subscription
+        for (p_id, affinity) in publishers.iter() {
+            let p = affinity * SUBSCRIPTION_PROB_WEIGHT;
+            if !subscriptions.contains(p_id) {
+                let roll: f32 = rng.gen();
+                if roll < p {
+                    subscriptions.insert(*p_id);
+                }
             }
         }
 
