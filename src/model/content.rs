@@ -1,13 +1,15 @@
 use std::rc::Rc;
+use super::publisher::Publisher;
 use super::agent::{Agent, Topics, Values};
 
 #[derive(Debug)]
 pub struct Content {
+    pub publisher: Option<Rc<Publisher>>,
     pub author: Rc<Agent>,
     pub body: ContentBody,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct ContentBody {
     pub cost: f32,
     pub topics: Topics,

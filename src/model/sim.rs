@@ -43,6 +43,7 @@ impl Simulation {
                 match a.produce(&mut rng) {
                     Some(body) => {
                         let content = Rc::new(Content {
+                            publisher: None,
                             author: a.clone(),
                             body: body
                         });
