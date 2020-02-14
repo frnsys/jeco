@@ -1,4 +1,4 @@
-use super::model::{Simulation, Agent, Values};
+use super::model::{Simulation, Agent, AgentId, Values};
 use super::config::Config;
 use chrono::{DateTime, Utc};
 use fnv::FnvHashMap;
@@ -13,18 +13,18 @@ use redis::Commands;
 
 pub struct Recorder {
     history: Vec<Value>,
-    sample: Vec<Rc<Agent>>,
+    sample: Vec<AgentId>,
     init_values: Vec<Values>,
 }
 
 impl Recorder {
     pub fn new(sim: &Simulation, mut rng: &mut StdRng) -> Recorder {
         let sample_size = (0.2 * sim.agents.len() as f32) as usize;
-        let sample: Vec<Rc<Agent>> = sim.agents
+        let sample: Vec<AgentId> = sim.agents
             .choose_multiple(&mut rng, sample_size)
-            .map(|a| a.clone())
+            .map(|a| a.id)
             .collect();
-        let init_values = sample.iter().map(|a| a.values.get()).collect();
+        let init_values = sample.iter().map(|id| sim.agents[*id].values.get()).collect();
 
         Recorder {
             history: Vec::new(),
@@ -34,8 +34,8 @@ impl Recorder {
     }
 
     pub fn record(&mut self, step: usize, sim: &Simulation, n_produced: usize) {
-        let sample: Vec<Value> = self
-            .sample
+        let agents: Vec<&Agent> = self.sample.iter().map(|id| &sim.agents[*id]).collect();
+        let sample: Vec<Value> = agents
             .iter()
             .map(|a| {
                 json!({
@@ -55,7 +55,7 @@ impl Recorder {
             })
         }).collect();
 
-        let value_shifts: Vec<f32> = self.sample.iter().zip(self.init_values.iter())
+        let value_shifts: Vec<f32> = agents.iter().zip(self.init_values.iter())
             .map(|(a, b)| 1. - a.values.get().normalize().dot(&b.normalize())).collect();
         let mean_value_shifts = value_shifts.iter()
             .fold(0., |acc, v| acc + v) as f32 / value_shifts.len() as f32;

@@ -11,7 +11,7 @@ use itertools::Itertools;
 
 pub struct Simulation {
     pub network: Network,
-    pub agents: Vec<Rc<Agent>>,
+    pub agents: Vec<Agent>,
     content: Vec<Rc<Content>>,
     publishers: Vec<Publisher>,
     share_queues: FnvHashMap<usize, Vec<SharedContent>>,
@@ -35,7 +35,7 @@ impl Simulation {
             content: Vec::new(),
             share_queues: share_queues,
             publishers: Vec::new(), // TODO initialize publishers, with initial subscribers etc
-            agents: agents.into_iter().map(|a| Rc::new(a)).collect(),
+            agents: agents
         }
     }
 
