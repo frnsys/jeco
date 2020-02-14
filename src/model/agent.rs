@@ -1,3 +1,4 @@
+use fnv::FnvHashMap;
 use super::util::{Vector, VECTOR_SIZE};
 use super::publisher::PublisherId;
 use super::content::{Content, ContentBody, SharedContent, SharerType};
@@ -21,6 +22,11 @@ pub struct Agent {
     pub attention: f32,
     pub resources: f32,
     pub subscriptions: Vec<PublisherId>,
+
+    // Agent's estimate of how likely
+    // a Publisher is to publish their content
+    pub publishability: f32,
+    pub publishabilities: FnvHashMap<PublisherId, f32>,
 }
 
 fn clamp(val: f32, min: f32, max: f32) -> f32 {
@@ -87,6 +93,8 @@ impl Agent {
             values: Cell::new(random_values(&mut rng)),
             attention: 100.0,
             resources: resources,
+            publishability: 1.,
+            publishabilities: FnvHashMap::default(),
             subscriptions: Vec::new()
         }
     }

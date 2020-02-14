@@ -6,8 +6,8 @@ pub type Vector = VectorN<f32, U2>;
 
 // Exponentially weighted moving average
 pub static EWMA_ALPHA: f32 = 0.7;
-pub fn ewma(mu: f32, prev: f32, alpha: f32) -> f32 {
-    alpha * mu + (1. - alpha) * prev
+pub fn ewma(mu: f32, prev: f32) -> f32 {
+    EWMA_ALPHA * mu + (1. - EWMA_ALPHA) * prev
 }
 
 pub fn z_score(a: &Vector, params: &(Vector, Vector)) -> Vector {

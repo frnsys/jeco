@@ -26,7 +26,7 @@ use std::f32::consts::E;
 use itertools::Itertools;
 use super::agent::{Agent, AgentId};
 use super::content::{Content, ContentBody, SharedContent, SharerType};
-use super::util::{Vector, Sample, SampleRow, ewma, bayes_update, z_score, EWMA_ALPHA};
+use super::util::{Vector, Sample, SampleRow, ewma, bayes_update, z_score};
 
 static REVENUE_PER_SUBSCRIBER: f32 = 0.01;
 
@@ -171,6 +171,6 @@ impl Publisher {
     pub fn update_reach(&mut self) {
         let shares = self.n_shares();
         let mean_shares = shares.iter().fold(0, |acc, v| acc + v) as f32 / shares.len() as f32;
-        self.reach = ewma(mean_shares, self.reach, EWMA_ALPHA);
+        self.reach = ewma(mean_shares, self.reach);
     }
 }

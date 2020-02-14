@@ -7,6 +7,7 @@ use super::publisher::Publisher;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use super::content::{Content, SharedContent, SharerType};
+use super::util::ewma;
 use itertools::Itertools;
 
 pub struct Simulation {
@@ -44,30 +45,57 @@ impl Simulation {
     }
 
     pub fn produce(&mut self, mut rng: &mut StdRng) -> usize {
-        let mut n_produced = 0;
-        for a in &self.agents {
+        let n_content_start = self.content.len();
+        for a in &mut self.agents {
             if let Some(to_share) = self.share_queues.get_mut(&a.id) {
                 match a.produce(&mut rng) {
                     Some(body) => {
-                        // Decide to pitch to publisher
-                        self.publishers[0].pitch(&body, &a, &mut rng);
-                        let content = Rc::new(Content {
-                            publisher: None,
-                            author: a.id,
-                            body: body
-                        });
-                        to_share.push(SharedContent {
-                            content: content.clone(),
-                            sharer: (SharerType::Agent, a.id)
-                        });
-                        self.content.push(content.clone());
-                        n_produced += 1;
+                        // People give up after not getting anything
+                        // published
+                        let mut published = false;
+                        if a.publishability > 0.1 {
+                            // Decide to pitch to publisher
+                            let publishers = self.publishers.iter()
+                                .map(|p| {
+                                    let prob = a.publishabilities.entry(p.id).or_insert(1.).clone();
+                                    // Publisher id, probability of acceptance, expected value
+                                    (p.id, prob, prob*p.reach)
+                                })
+                                .filter(|(_, p, _)| *p >= 0.1) // Minimum probability
+                                .sorted_by(|(_, _, ev), (_, _, ev_)| ev_.partial_cmp(ev).unwrap());
+                            for (pub_id, p, _) in publishers {
+                                published = self.publishers[pub_id].pitch(&body, &a, &mut rng);
+                                if published {
+                                    a.publishabilities.insert(pub_id, ewma(1., p));
+                                    a.publishability = ewma(1., a.publishability);
+                                    break;
+                                } else {
+                                    a.publishabilities.insert(pub_id, ewma(0., p));
+                                }
+                            }
+                        }
+
+                        // Self-publish
+                        if !published {
+                            a.publishability = ewma(0., a.publishability);
+
+                            let content = Rc::new(Content {
+                                publisher: None,
+                                author: a.id,
+                                body: body
+                            });
+                            to_share.push(SharedContent {
+                                content: content.clone(),
+                                sharer: (SharerType::Agent, a.id)
+                            });
+                            self.content.push(content.clone());
+                        }
                     },
                     None => {}
                 }
             }
         }
-        n_produced
+        self.content.len() - n_content_start
     }
 
     pub fn consume(&mut self,
