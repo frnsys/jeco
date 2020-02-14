@@ -26,7 +26,7 @@ use std::f32::consts::E;
 use itertools::Itertools;
 use super::agent::{Agent, AgentId};
 use super::content::{Content, ContentBody, SharedContent, SharerType};
-use super::util::{Vector, Sample, SampleRow, ewma, bayes_update, EWMA_ALPHA};
+use super::util::{Vector, Sample, SampleRow, ewma, bayes_update, z_score, EWMA_ALPHA};
 
 static REVENUE_PER_SUBSCRIBER: f32 = 0.01;
 
@@ -103,8 +103,10 @@ impl Publisher {
     pub fn pitch(&mut self, body: &ContentBody, author: &Agent, rng: &mut StdRng) -> bool {
         if self.budget < self.quality { return false }
 
-        // TODO
-        let sim_to_perceived_reader = 0.5;
+        let z_ints = z_score(&body.topics, &self.audience_interests);
+        let z_vals = z_score(&body.values, &self.audience_values);
+        let sim_to_perceived_reader = f32::max(1. - (z_ints.mean() + z_vals.mean())/8., 0.);
+        // 2 for the mean, 4 for the z-score
 
         // Sigmoid
         let p_accept = 1./(1.+E.powf(-sim_to_perceived_reader-0.5));
@@ -141,6 +143,8 @@ impl Publisher {
     // ENH: Can be smarter about how we pick the content
     // to look at. Ideally also weight content by shares.
     pub fn audience_survey(&mut self, sample_size: usize) {
+        // TODO should these be merged into one "audience" matrix?
+        // Might be faster
         let mut v_rows: Vec<SampleRow> = Vec::with_capacity(sample_size);
         let mut i_rows: Vec<SampleRow> = Vec::with_capacity(sample_size);
         for c in self.content_by_popularity().take(sample_size) {
