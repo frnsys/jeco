@@ -112,7 +112,7 @@ impl Recorder {
             "meta": {
                 "seed": conf.seed,
                 "steps": conf.steps,
-                "population": conf.population,
+                "population": conf.simulation.population,
             }
         })
         .to_string();

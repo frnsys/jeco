@@ -8,6 +8,7 @@ use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use super::content::{Content, SharedContent, SharerType};
 use super::util::ewma;
+use super::config::SimulationConfig;
 use itertools::Itertools;
 
 pub struct Simulation {
@@ -20,9 +21,10 @@ pub struct Simulation {
 
 static CONTENT_SAMPLE_SIZE: usize = 50;
 
+
 impl Simulation {
-    pub fn new(population: usize, n_publishers: usize, mut rng: &mut StdRng) -> Simulation {
-        let agents: Vec<Agent> = (0..population)
+    pub fn new(conf: &SimulationConfig, mut rng: &mut StdRng) -> Simulation {
+        let agents: Vec<Agent> = (0..conf.population)
             .map(|i| Agent::new(i, &mut rng))
             .collect();
 
@@ -31,8 +33,8 @@ impl Simulation {
             share_queues.insert(agent.id, Vec::new());
         }
 
-        let publishers: Vec<Publisher> = (0..n_publishers)
-            .map(|i| Publisher::new(i, &mut rng))
+        let publishers: Vec<Publisher> = (0..conf.n_publishers)
+            .map(|i| Publisher::new(i, &conf.publisher, &mut rng))
             .collect();
 
         let network = Network::new(&agents, &mut rng);
@@ -111,8 +113,7 @@ impl Simulation {
     }
 
     pub fn consume(&mut self,
-                   gravity_stretch: f32,
-                   max_influence: f32,
+                   conf: &SimulationConfig,
                    mut rng: &mut StdRng) {
         let mut new_to_share: FnvHashMap<usize, Vec<SharedContent>> = FnvHashMap::default();
 
@@ -122,7 +123,7 @@ impl Simulation {
             shared.extend(a.subscriptions.borrow().iter().flat_map(|p_id| self.publishers[*p_id].outbox.iter()));
             shared.shuffle(&mut rng);
 
-            let will_share = a.consume(shared, &self.network, gravity_stretch, max_influence, &mut rng);
+            let will_share = a.consume(shared, &self.network, &conf, &mut rng);
             let shareable = will_share.iter().map(|content| {
                 SharedContent {
                     sharer: (SharerType::Agent, a.id),

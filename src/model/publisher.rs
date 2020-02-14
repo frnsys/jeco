@@ -22,13 +22,11 @@
 use rand::Rng;
 use std::rc::Rc;
 use rand::rngs::StdRng;
-use std::f32::consts::E;
 use itertools::Itertools;
 use super::agent::{Agent, AgentId};
 use super::content::{Content, ContentBody, SharedContent, SharerType};
-use super::util::{Vector, Sample, SampleRow, ewma, bayes_update, z_score};
-
-static REVENUE_PER_SUBSCRIBER: f32 = 0.01;
+use super::util::{Vector, Sample, SampleRow, ewma, bayes_update, z_score, sigmoid};
+use super::config::PublisherConfig;
 
 pub type PublisherId = usize;
 
@@ -48,6 +46,7 @@ pub struct Publisher {
     // can be published per step
     // and at what quality.
     budget: f32,
+    revenue_per_subscriber: f32,
 
     // The content quality the Publisher
     // aims for. Could be replaced with something
@@ -79,13 +78,14 @@ pub struct Publisher {
 }
 
 impl Publisher {
-    pub fn new(id: PublisherId, rng: &mut StdRng) -> Publisher {
+    pub fn new(id: PublisherId, conf: &PublisherConfig, rng: &mut StdRng) -> Publisher {
         let mu = Vector::from_vec(vec![0., 0.]);
         let var = Vector::from_vec(vec![1., 1.]);
 
         Publisher {
             id: id,
-            budget: 0.,
+            budget: conf.base_budget,
+            revenue_per_subscriber: conf.revenue_per_subscriber,
             reach: 0.,
             quality: rng.gen(),
             outbox: Vec::new(),
@@ -108,10 +108,9 @@ impl Publisher {
         let sim_to_perceived_reader = f32::max(1. - (z_ints.mean() + z_vals.mean())/6., 0.);
         // 2*3=6; 2 for the mean, max z-score of 3
 
-        // Sigmoid
         // TODO this doesn't necessarily need to be random?
         // Could just be based on a threshold
-        let p_accept = 1./(1.+E.powf(-sim_to_perceived_reader-0.5));
+        let p_accept = sigmoid(sim_to_perceived_reader-0.5);
         let roll: f32 = rng.gen();
         let accepted = roll < p_accept;
         if accepted {
@@ -140,7 +139,7 @@ impl Publisher {
     }
 
     fn operating_budget(&self) -> f32 {
-        self.subscribers.len() as f32 * REVENUE_PER_SUBSCRIBER
+        self.subscribers.len() as f32 * self.revenue_per_subscriber
     }
 
     // Update understanding of audience values/interests
@@ -158,6 +157,7 @@ impl Publisher {
             i_rows.push(c.body.topics.transpose());
         }
         let mut sample = Sample::from_rows(v_rows.as_slice());
+        println!("{:?}", sample);
         self.audience_values = bayes_update(self.audience_values, sample);
 
         sample = Sample::from_rows(i_rows.as_slice());

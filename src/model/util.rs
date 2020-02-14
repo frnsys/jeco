@@ -1,3 +1,4 @@
+use std::f32::consts::E;
 use nalgebra::{Matrix, Dynamic, U2, VecStorage, VectorN, RowVectorN};
 
 // 2 so can be plotted in 2d
@@ -52,4 +53,8 @@ pub fn gravity(a: f32, b: f32, gravity_stretch: f32, max_influence: f32) -> f32 
         let movement = strength / (strength + 1.) * max_influence;
         f32::min(movement, dist) * sign
     }
+}
+
+pub fn sigmoid(x: f32) -> f32 {
+    1./(1.+E.powf(-x))
 }

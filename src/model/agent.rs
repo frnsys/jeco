@@ -3,6 +3,7 @@ use super::util::{Vector, VECTOR_SIZE};
 use super::publisher::PublisherId;
 use super::content::{Content, ContentBody, SharedContent, SharerType};
 use super::network::Network;
+use super::config::SimulationConfig;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand_distr::StandardNormal;
@@ -38,7 +39,6 @@ pub struct Agent {
 }
 
 static NORMAL_SCALE: f32 = 0.8;
-static SUBSCRIPTION_PROB_WEIGHT: f32 = 0.1;
 
 pub fn random_values(rng: &mut StdRng) -> Values {
     // Normal dist, -1 to 1
@@ -125,8 +125,7 @@ impl Agent {
         &'a self,
         content: Vec<&'a SharedContent>,
         network: &Network,
-        gravity_stretch: f32,
-        max_influence: f32,
+        conf: &SimulationConfig,
         rng: &mut StdRng,
     ) -> Vec<Rc<Content>> {
         let mut attention = self.attention;
@@ -172,7 +171,7 @@ impl Agent {
                 }
             };
             values.zip_apply(&c.body.values, |v, v_| {
-                v + gravity(v, v_, gravity_stretch, max_influence) * affinity * trust
+                v + gravity(v, v_, conf.gravity_stretch, conf.max_influence) * affinity * trust
             });
             self.values.set(values);
 
@@ -190,12 +189,12 @@ impl Agent {
         for (p_id, affinity) in publishers.iter() {
             let roll: f32 = rng.gen();
             if !subscriptions.contains(p_id) {
-                let p = affinity * SUBSCRIPTION_PROB_WEIGHT;
+                let p = affinity * conf.subscription_prob_weight;
                 if roll < p {
                     subscriptions.insert(*p_id);
                 }
             } else {
-                let p = (1. - affinity) * SUBSCRIPTION_PROB_WEIGHT;
+                let p = (1. - affinity) * conf.subscription_prob_weight;
                 if roll < p {
                     subscriptions.remove(p_id);
                 }
