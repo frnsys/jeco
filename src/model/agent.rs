@@ -1,4 +1,5 @@
 use super::content::{Content, ContentBody, SharedContent};
+use super::publisher::PublisherId;
 use super::network::Network;
 use nalgebra::{VectorN, U2};
 use rand::rngs::StdRng;
@@ -13,13 +14,16 @@ static VECTOR_SIZE: u32 = 2;
 pub type Topics = VectorN<f32, U2>;
 pub type Values = VectorN<f32, U2>;
 
+pub type AgentId = usize;
+
 #[derive(Debug)]
 pub struct Agent {
-    pub id: usize,
+    pub id: AgentId,
     pub interests: Topics,
     pub values: Cell<Values>,
     pub attention: f32,
     pub resources: f32,
+    pub subscriptions: Vec<PublisherId>,
 }
 
 fn clamp(val: f32, min: f32, max: f32) -> f32 {
@@ -75,7 +79,7 @@ pub fn gravity(a: f32, b: f32, gravity_stretch: f32, max_influence: f32) -> f32 
 }
 
 impl Agent {
-    pub fn new(id: usize, mut rng: &mut StdRng) -> Agent {
+    pub fn new(id: AgentId, mut rng: &mut StdRng) -> Agent {
         let mut resources = rng.sample(StandardNormal);
         resources = (resources + 0.5) * 2.;
         resources = clamp(resources, 0., 1.);
@@ -86,6 +90,7 @@ impl Agent {
             values: Cell::new(random_values(&mut rng)),
             attention: 100.0,
             resources: resources,
+            subscriptions: Vec::new(),
         }
     }
 
@@ -154,7 +159,7 @@ impl Agent {
             }
 
             // Influence
-            let trust = network.trust(self, &sc.sharer);
+            let trust = network.trust(&self.id, &sc.sharer);
             values.zip_apply(&c.body.values, |v, v_| {
                 v + gravity(v, v_, gravity_stretch, max_influence) * affinity * trust
             });

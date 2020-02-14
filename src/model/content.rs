@@ -1,11 +1,11 @@
 use std::rc::Rc;
-use super::publisher::Publisher;
-use super::agent::{Agent, Topics, Values};
+use super::agent::{Topics, Values, AgentId};
+use super::publisher::PublisherId;
 
 #[derive(Debug)]
 pub struct Content {
-    pub publisher: Option<Rc<Publisher>>,
-    pub author: Rc<Agent>,
+    pub publisher: Option<PublisherId>,
+    pub author: AgentId,
     pub body: ContentBody,
 }
 
@@ -19,5 +19,5 @@ pub struct ContentBody {
 #[derive(Debug)]
 pub struct SharedContent {
     pub content: Rc<Content>,
-    pub sharer: Rc<Agent>
+    pub sharer: AgentId
 }

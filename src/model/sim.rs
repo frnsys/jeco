@@ -3,6 +3,7 @@ use fnv::FnvHashMap;
 use super::agent::Agent;
 use super::policy::Policy;
 use super::network::Network;
+use super::publisher::Publisher;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use super::content::{Content, SharedContent};
@@ -12,6 +13,7 @@ pub struct Simulation {
     pub network: Network,
     pub agents: Vec<Rc<Agent>>,
     content: Vec<Rc<Content>>,
+    publishers: Vec<Publisher>,
     share_queues: FnvHashMap<usize, Vec<SharedContent>>,
 }
 
@@ -32,6 +34,7 @@ impl Simulation {
             network: network,
             content: Vec::new(),
             share_queues: share_queues,
+            publishers: Vec::new(), // TODO initialize publishers, with initial subscribers etc
             agents: agents.into_iter().map(|a| Rc::new(a)).collect(),
         }
     }
@@ -44,12 +47,12 @@ impl Simulation {
                     Some(body) => {
                         let content = Rc::new(Content {
                             publisher: None,
-                            author: a.clone(),
+                            author: a.id,
                             body: body
                         });
                         to_share.push(SharedContent {
                             content: content.clone(),
-                            sharer: a.clone()
+                            sharer: a.id
                         });
                         self.content.push(content.clone());
                         n_produced += 1;
@@ -59,6 +62,10 @@ impl Simulation {
             }
         }
         n_produced
+    }
+
+    pub fn publish(&mut self) {
+        // TODO
     }
 
     pub fn consume(&mut self,
@@ -75,7 +82,7 @@ impl Simulation {
             let will_share = a.consume(shared, &self.network, gravity_stretch, max_influence, &mut rng);
             let shareable = will_share.iter().map(|content| {
                 SharedContent {
-                    sharer: a.clone(),
+                    sharer: a.id,
                     content: content.clone(),
                 }
             }).collect();

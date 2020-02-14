@@ -25,6 +25,8 @@ use super::content::{Content, ContentBody};
 
 static REVENUE_PER_SUBSCRIBER: f32 = 0.01;
 
+pub type PublisherId = usize;
+
 // A Publisher is a platform which
 // exercises discretion of what
 // content circulates through it.
@@ -35,6 +37,8 @@ static REVENUE_PER_SUBSCRIBER: f32 = 0.01;
 // the reputation of the sender)
 #[derive(Debug)]
 pub struct Publisher {
+    id: PublisherId,
+
     // Budget determines how much content
     // can be published per step
     // and at what quality.
@@ -52,12 +56,13 @@ pub struct Publisher {
 
     // Store content the Publisher will
     // publish in the next step. Emptied each step.
-    outbox: Vec<Rc<Content>>,
+    pub outbox: Vec<Rc<Content>>,
 }
 
 impl Publisher {
-    pub fn new(rng: &mut StdRng) -> Publisher {
+    pub fn new(id: PublisherId, rng: &mut StdRng) -> Publisher {
         Publisher {
+            id: id,
             budget: 0.,
             quality: rng.gen(),
             outbox: Vec::new(),
@@ -79,9 +84,9 @@ impl Publisher {
         let accepted = roll < p_accept;
         if accepted {
             let content = Content {
-                publisher: None, // Assigned elsewhere
+                publisher: Some(self.id),
                 body: *body,
-                author: author.clone(),
+                author: author.id,
             };
             self.outbox.push(Rc::new(content));
 

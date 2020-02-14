@@ -1,4 +1,4 @@
-use super::agent::Agent;
+use super::agent::{Agent, AgentId};
 use fnv::FnvHashMap;
 use petgraph::stable_graph::{NodeIndex, StableGraph};
 use petgraph::{Directed, Incoming, Outgoing};
@@ -48,10 +48,10 @@ impl Network {
         }
     }
 
-    pub fn trust(&self, a: &Agent, b: &Agent) -> f32 {
+    pub fn trust(&self, a: &AgentId, b: &AgentId) -> f32 {
         // Edge from A->B
-        let idx_a = self.agent_to_node[&a.id];
-        let idx_b = self.agent_to_node[&b.id];
+        let idx_a = self.agent_to_node[a];
+        let idx_b = self.agent_to_node[b];
 
         match self.graph.find_edge(idx_a, idx_b) {
             Some(edge) => match self.graph.edge_weight(edge) {
