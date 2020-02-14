@@ -106,6 +106,7 @@ impl Simulation {
         // TODO
         for p in &mut self.publishers {
             p.audience_survey(CONTENT_SAMPLE_SIZE);
+            p.update_reach();
 
             // ENH: Publisher pushes content
             // for multiple steps?

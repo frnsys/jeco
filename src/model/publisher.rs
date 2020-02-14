@@ -5,9 +5,8 @@
 //  - agent deciding when and where to pitch
 //      - based on pitch topics/values
 //      - EV calculation of expected reach and prob of accepting
-// - implement publishing
+// - [X] implement publishing
 //  - [X] add content to all subscriber inboxes
-//  - add content through agent networks/non-subscriber readers
 // - [X] implement audience interest/value tracking (EWMAs et al)
 // - implement subscribing
 //  - agents deciding when to subscribe
@@ -16,6 +15,9 @@
 // After ads are implemented
 // - deciding on how many ads to include
 //  - civic vs profit-driven utility mixture
+//
+// After social networks are implemented
+// - circulate content through agent networks/non-subscriber readers
 
 use rand::Rng;
 use std::rc::Rc;
@@ -26,6 +28,7 @@ use super::agent::{Agent, AgentId, Vector};
 use super::content::{Content, ContentBody, SharedContent, SharerType};
 
 static REVENUE_PER_SUBSCRIBER: f32 = 0.01;
+static EWMA_ALPHA: f32 = 0.7;
 
 pub type PublisherId = usize;
 
@@ -42,6 +45,10 @@ pub fn bayes_update(prior: (Vector, Vector), sample: Sample) -> (Vector, Vector)
     (post_mu, post_var)
 }
 
+// Exponentially weighted moving average
+pub fn ewma(mu: f32, prev: f32, alpha: f32) -> f32 {
+    alpha * mu + (1. - alpha) * prev
+}
 
 // A Publisher is a platform which
 // exercises discretion of what
@@ -64,6 +71,10 @@ pub struct Publisher {
     // aims for. Could be replaced with something
     // more sophisticated.
     quality: f32,
+
+    // A Publisher's "reach" is the mean shared
+    // count of its content per step
+    pub reach: f32,
 
     // Agents subscribed to the publication.
     // These count towards the Publisher's overall budget
@@ -93,6 +104,7 @@ impl Publisher {
         Publisher {
             id: id,
             budget: 0.,
+            reach: 0.,
             quality: rng.gen(),
             outbox: Vec::new(),
             content: Vec::new(),
@@ -162,5 +174,17 @@ impl Publisher {
 
     pub fn content_by_popularity(&self) -> std::vec::IntoIter<&Rc<Content>> {
         self.content.iter().sorted_by(|a, b| Rc::strong_count(b).cmp(&Rc::strong_count(a)))
+    }
+
+    pub fn n_shares(&self) -> Vec<usize> {
+        // -1 to account for reference in self.content
+        // -1 to account for reference in Sim's self.content
+        self.content.iter().map(|c| Rc::strong_count(c) - 2).collect()
+    }
+
+    pub fn update_reach(&mut self) {
+        let shares = self.n_shares();
+        let mean_shares = shares.iter().fold(0, |acc, v| acc + v) as f32 / shares.len() as f32;
+        self.reach = ewma(mean_shares, self.reach, EWMA_ALPHA);
     }
 }
