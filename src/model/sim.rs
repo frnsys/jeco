@@ -19,8 +19,6 @@ pub struct Simulation {
     share_queues: FnvHashMap<usize, Vec<SharedContent>>,
 }
 
-static CONTENT_SAMPLE_SIZE: usize = 50;
-
 
 impl Simulation {
     pub fn new(conf: &SimulationConfig, mut rng: &mut StdRng) -> Simulation {
@@ -147,7 +145,7 @@ impl Simulation {
         }
 
         for p in &mut self.publishers {
-            p.audience_survey(CONTENT_SAMPLE_SIZE);
+            p.audience_survey(conf.content_sample_size);
             p.update_reach();
 
             // ENH: Publisher pushes content

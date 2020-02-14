@@ -17,6 +17,11 @@ pub struct SimulationConfig {
     // to dampen subscription rates
     pub subscription_prob_weight: f32,
 
+    // How much content a Publisher
+    // surveys to understand their audience
+    pub content_sample_size: usize,
+
+    // See below
     pub publisher: PublisherConfig
 }
 
