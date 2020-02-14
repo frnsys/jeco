@@ -1,5 +1,5 @@
-use super::content::{Content, ContentBody, SharedContent};
 use super::publisher::PublisherId;
+use super::content::{Content, ContentBody, SharedContent, SharerType};
 use super::network::Network;
 use nalgebra::{VectorN, U2};
 use rand::rngs::StdRng;
@@ -90,7 +90,7 @@ impl Agent {
             values: Cell::new(random_values(&mut rng)),
             attention: 100.0,
             resources: resources,
-            subscriptions: Vec::new(),
+            subscriptions: Vec::new()
         }
     }
 
@@ -159,7 +159,14 @@ impl Agent {
             }
 
             // Influence
-            let trust = network.trust(&self.id, &sc.sharer);
+            let trust = match sc.sharer {
+                (SharerType::Agent, id) => {
+                    network.trust(&self.id, &id)
+                },
+                (SharerType::Publisher, id) => {
+                    1. // TODO
+                }
+            };
             values.zip_apply(&c.body.values, |v, v_| {
                 v + gravity(v, v_, gravity_stretch, max_influence) * affinity * trust
             });

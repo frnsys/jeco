@@ -6,7 +6,7 @@ use super::network::Network;
 use super::publisher::Publisher;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
-use super::content::{Content, SharedContent};
+use super::content::{Content, SharedContent, SharerType};
 use itertools::Itertools;
 
 pub struct Simulation {
@@ -28,14 +28,16 @@ impl Simulation {
             share_queues.insert(agent.id, Vec::new());
         }
 
+        let publishers: Vec<Publisher> = Vec::new(); // TODO initialize publishers, with initial subscribers etc
+
         let network = Network::new(&agents, &mut rng);
 
         Simulation {
             network: network,
             content: Vec::new(),
+            agents: agents,
             share_queues: share_queues,
-            publishers: Vec::new(), // TODO initialize publishers, with initial subscribers etc
-            agents: agents
+            publishers: publishers,
         }
     }
 
@@ -52,7 +54,7 @@ impl Simulation {
                         });
                         to_share.push(SharedContent {
                             content: content.clone(),
-                            sharer: a.id
+                            sharer: (SharerType::Agent, a.id)
                         });
                         self.content.push(content.clone());
                         n_produced += 1;
@@ -64,10 +66,6 @@ impl Simulation {
         n_produced
     }
 
-    pub fn publish(&mut self) {
-        // TODO
-    }
-
     pub fn consume(&mut self,
                    gravity_stretch: f32,
                    max_influence: f32,
@@ -77,12 +75,13 @@ impl Simulation {
         for a in &self.agents {
             let mut shared: Vec<&SharedContent> = self.network.follower_ids(&a).iter()
                 .flat_map(|n_id| self.share_queues[n_id].iter()).collect();
-
+            shared.extend(a.subscriptions.iter().flat_map(|p_id| self.publishers[*p_id].outbox.iter()));
             shared.shuffle(&mut rng);
+
             let will_share = a.consume(shared, &self.network, gravity_stretch, max_influence, &mut rng);
             let shareable = will_share.iter().map(|content| {
                 SharedContent {
-                    sharer: a.id,
+                    sharer: (SharerType::Agent, a.id),
                     content: content.clone(),
                 }
             }).collect();

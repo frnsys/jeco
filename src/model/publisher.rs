@@ -11,6 +11,7 @@
 // - implement audience interest/value tracking (EWMAs et al)
 // - implement subscribing
 //  - agents deciding when to subscribe
+//      - need to consider getting content for free vs paying
 //
 // After ads are implemented
 // - deciding on how many ads to include
@@ -20,8 +21,8 @@ use rand::Rng;
 use std::rc::Rc;
 use rand::rngs::StdRng;
 use std::f32::consts::E;
-use super::agent::Agent;
-use super::content::{Content, ContentBody};
+use super::agent::{Agent, AgentId};
+use super::content::{Content, ContentBody, SharedContent, SharerType};
 
 static REVENUE_PER_SUBSCRIBER: f32 = 0.01;
 
@@ -37,7 +38,7 @@ pub type PublisherId = usize;
 // the reputation of the sender)
 #[derive(Debug)]
 pub struct Publisher {
-    id: PublisherId,
+    pub id: PublisherId,
 
     // Budget determines how much content
     // can be published per step
@@ -52,11 +53,11 @@ pub struct Publisher {
     // Agents subscribed to the publication.
     // These count towards the Publisher's overall budget
     // and directly received the Publisher's content
-    subscribers: Vec<Rc<Agent>>,
+    pub subscribers: Vec<AgentId>,
 
     // Store content the Publisher will
     // publish in the next step. Emptied each step.
-    pub outbox: Vec<Rc<Content>>,
+    pub outbox: Vec<SharedContent>,
 }
 
 impl Publisher {
@@ -72,7 +73,7 @@ impl Publisher {
 
     // An Agent pitches a piece
     // of content to the publisher
-    pub fn pitch(&mut self, body: &ContentBody, author: Rc<Agent>, rng: &mut StdRng) -> bool {
+    pub fn pitch(&mut self, body: &ContentBody, author: &Agent, rng: &mut StdRng) -> bool {
         if self.budget < self.quality { return false }
 
         // TODO
@@ -88,7 +89,10 @@ impl Publisher {
                 body: *body,
                 author: author.id,
             };
-            self.outbox.push(Rc::new(content));
+            self.outbox.push(SharedContent {
+                content: Rc::new(content),
+                sharer: (SharerType::Publisher, self.id)
+            });
 
             // Deduct from budget
             self.budget -= self.quality;
@@ -97,8 +101,8 @@ impl Publisher {
     }
 
     // An Agent subscribes to the publisher
-    pub fn subscribe(&mut self, agent: Rc<Agent>) {
-        self.subscribers.push(agent.clone());
+    pub fn subscribe(&mut self, agent: &Agent) {
+        self.subscribers.push(agent.id);
     }
 
     fn operating_budget(&self) -> f32 {
