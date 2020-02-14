@@ -81,8 +81,7 @@ class Plotter {
         let spec = c.datasets[i];
         let keyPath = spec.key.split('.');
         states.forEach((s) => {
-          let value = keyPath.slice(1)
-            .reduce((acc, k) => acc[k], s[keyPath[0]]);
+          let value = valueFromKeyPath(s, spec.key);
           dataset.data.push(value);
         });
       });

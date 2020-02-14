@@ -41,3 +41,23 @@ function htmlToElement(html) {
   template.innerHTML = html;
   return template.content.firstChild;
 }
+
+function valueFromKeyPath(obj, keyPath) {
+  keyPath = keyPath.split('.');
+  return keyPath.slice(1)
+    .reduce((acc, k) => acc[k], obj[keyPath[0]]);
+}
+
+function setValueFromKeyPath(obj, keyPath, val) {
+  keyPath = keyPath.split('.');
+  lastKey = keyPath.pop();
+  if (keyPath.length > 0) {
+    let curr = obj[keyPath[0]];
+    keyPath.slice(1).forEach((k) => {
+      curr = curr[k];
+    });
+    curr[lastKey] = val;
+  } else {
+    obj[lastKey] = val;
+  }
+}
