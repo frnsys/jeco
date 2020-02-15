@@ -53,6 +53,9 @@ pub struct Publisher {
     // publish in the next step. Emptied each step.
     pub outbox: Vec<SharedContent>,
 
+    // How much was published in the last step
+    pub n_last_published: usize,
+
     // Archive of content the Publisher
     // has published
     pub content: Vec<Rc<Content>>,
@@ -78,6 +81,7 @@ impl Publisher {
             outbox: Vec::new(),
             content: Vec::new(),
             subscribers: 0,
+            n_last_published: 0,
 
             // Priors
             audience_values: (mu.clone(), var.clone()),

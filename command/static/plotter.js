@@ -95,7 +95,7 @@ class Plotter {
           dataset.data.push({x: pt[0], y: pt[1]});
         });
         if (c.panel) {
-          dataset.pointRadius = dataset.data.map(() => POINT_RADIUS);
+          dataset.pointRadius = dataset.data.map(() => POINT_RADIUS/4);
           dataset.pointBackgroundColor = dataset.data.map((_, j) => this.color(i, j/dataset.data.length));
         } else {
           dataset.pointRadius = dataset.data.map((_, j) => j == (dataset.data.length-1) ? POINT_RADIUS : 0);
@@ -199,7 +199,7 @@ class Plotter {
       let step = Math.floor(steps * (sliderEl.value/100));
       chart.data.datasets.forEach((d) => {
         if (spec.panel) {
-          d.pointRadius = d.data.map((_, i) => i > step ? 0 : POINT_RADIUS);
+          d.pointRadius = d.data.map((_, i) => i > step ? 0 : POINT_RADIUS/4);
         } else {
           d.pointRadius = d.data.map((_, i) => i == step ? POINT_RADIUS : 0);
         }

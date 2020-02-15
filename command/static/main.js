@@ -40,12 +40,73 @@ const CHARTS = [{
     label: 'p',
     key: 'p_produced'
   }]
+}, {
+  title: 'Subscribers',
+  datasets: [{
+    label: 'max',
+    key: 'subscribers.max'
+  }, {
+    label: 'min',
+    key: 'subscribers.min'
+  }, {
+    label: 'mean',
+    key: 'subscribers.mean'
+  }]
+}, {
+  title: 'Reach',
+  datasets: [{
+    label: 'max',
+    key: 'reach.max'
+  }, {
+    label: 'min',
+    key: 'reach.min'
+  }, {
+    label: 'mean',
+    key: 'reach.mean'
+  }]
+}, {
+  title: 'Budget',
+  datasets: [{
+    label: 'max',
+    key: 'budget.max'
+  }, {
+    label: 'min',
+    key: 'budget.min'
+  }, {
+    label: 'mean',
+    key: 'budget.mean'
+  }]
+}, {
+  title: 'Published',
+  datasets: [{
+    label: 'max',
+    key: 'published.max'
+  }, {
+    label: 'min',
+    key: 'published.min'
+  }, {
+    label: 'mean',
+    key: 'published.mean'
+  }]
+}, {
+  title: 'Publishability',
+  datasets: [{
+    label: 'max',
+    key: 'publishability.max'
+  }, {
+    label: 'min',
+    key: 'publishability.min'
+  }, {
+    label: 'mean',
+    key: 'publishability.mean'
+  }]
+
 }];
 
 const AGENT_SAMPLE = 15;
 const SCATTERS = [{
   title: 'Agent Values',
-  key: 'sample',
+  key: 'agents',
   itemKey: 'values',
   panel: true,
   datasets: [...Array(AGENT_SAMPLE).keys()].map((i) => ({
@@ -58,6 +119,14 @@ const SCATTERS = [{
   panel: false,
   datasets: [...Array(10).keys()].map((i) => ({
     label: `Content ${i}`,
+  }))
+}, {
+  title: 'Publisher Audience Understanding',
+  key: 'publishers',
+  itemKey: 'values',
+  panel: true,
+  datasets: [...Array(10).keys()].map((i) => ({
+    label: `Publisher ${i}`,
   }))
 }]
 

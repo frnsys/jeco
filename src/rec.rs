@@ -1,4 +1,4 @@
-use super::model::{Simulation, Agent, AgentId, Values};
+use super::model::{Simulation, Agent, AgentId, Publisher, PublisherId, Values};
 use super::config::Config;
 use chrono::{DateTime, Utc};
 use fnv::FnvHashMap;
@@ -13,35 +13,71 @@ use redis::Commands;
 
 pub struct Recorder {
     history: Vec<Value>,
-    sample: Vec<AgentId>,
+    agents: Vec<AgentId>,
+    publishers: Vec<PublisherId>,
     init_values: Vec<Values>,
 }
 
+pub fn mean_usize(vec: &Vec<usize>) -> f32 {
+    vec.iter()
+        .fold(0, |acc, v| acc + v) as f32 / vec.len() as f32
+}
+pub fn mean_f32(vec: &Vec<f32>) -> f32 {
+    vec.iter()
+        .fold(0., |acc, v| acc + v) / vec.len() as f32
+}
+pub fn max_f32(vec: &Vec<f32>) -> f32 {
+    vec.iter().fold(-1./0., |a, &b| f32::max(a, b))
+}
+pub fn min_f32(vec: &Vec<f32>) -> f32 {
+    vec.iter().fold(1./0., |a, &b| f32::min(a, b))
+}
+
+
 impl Recorder {
     pub fn new(sim: &Simulation, mut rng: &mut StdRng) -> Recorder {
-        let sample_size = (0.2 * sim.agents.len() as f32) as usize;
-        let sample: Vec<AgentId> = sim.agents
-            .choose_multiple(&mut rng, sample_size)
+        let a_sample_size = (0.2 * sim.agents.len() as f32) as usize;
+        let agents: Vec<AgentId> = sim.agents
+            .choose_multiple(&mut rng, a_sample_size)
             .map(|a| a.id)
             .collect();
-        let init_values = sample.iter().map(|id| sim.agents[*id].values.get()).collect();
+        let init_values = agents.iter().map(|id| sim.agents[*id].values.get()).collect();
+
+        let p_sample_size = 10;
+        let publishers: Vec<PublisherId> = sim.publishers
+            .choose_multiple(&mut rng, p_sample_size)
+            .map(|p| p.id)
+            .collect();
 
         Recorder {
             history: Vec::new(),
-            sample: sample,
+            agents: agents,
+            publishers: publishers,
             init_values: init_values
         }
     }
 
     pub fn record(&mut self, step: usize, sim: &Simulation, n_produced: usize) {
-        let agents: Vec<&Agent> = self.sample.iter().map(|id| &sim.agents[*id]).collect();
-        let sample: Vec<Value> = agents
+        let agents: Vec<&Agent> = self.agents.iter().map(|id| &sim.agents[*id]).collect();
+        let a_sample: Vec<Value> = agents
             .iter()
             .map(|a| {
                 json!({
                     "id": a.id,
                     "values": a.values,
                     "interests": a.interests,
+                })
+            })
+            .collect();
+
+        let publishers: Vec<&Publisher> = self.publishers.iter().map(|id| &sim.publishers[*id]).collect();
+        let p_sample: Vec<Value> = publishers
+            .iter()
+            .map(|p| {
+                json!({
+                    "id": p.id,
+                    "values": p.audience_values.0, // mean only
+                    "interests": p.audience_interests.0, // ditto
                 })
             })
             .collect();
@@ -57,11 +93,8 @@ impl Recorder {
 
         let value_shifts: Vec<f32> = agents.iter().zip(self.init_values.iter())
             .map(|(a, b)| 1. - a.values.get().normalize().dot(&b.normalize())).collect();
-        let mean_value_shifts = value_shifts.iter()
-            .fold(0., |acc, v| acc + v) as f32 / value_shifts.len() as f32;
 
         let n_shares = sim.n_shares();
-        let mean_shares = n_shares.iter().fold(0, |acc, v| acc + v) as f32 / n_shares.len() as f32;
         let mut share_dist: FnvHashMap<usize, usize> = FnvHashMap::default();
         for shares in &n_shares {
             let count = share_dist.entry(*shares).or_insert(0);
@@ -69,34 +102,64 @@ impl Recorder {
         }
 
         let n_followers = sim.network.n_followers();
-        let mean_followers =
-            n_followers.iter().fold(0, |acc, v| acc + v) as f32 / n_followers.len() as f32;
         let mut follower_dist: FnvHashMap<usize, usize> = FnvHashMap::default();
         for followers in &n_followers {
             let count = follower_dist.entry(*followers).or_insert(0);
             *count += 1;
         }
 
+        let n_subscribers: Vec<usize> = sim.publishers.iter().map(|p| p.subscribers).collect();
+        let n_published: Vec<usize> = sim.publishers.iter().map(|p| p.n_last_published).collect();
+        let reach: Vec<f32> = sim.publishers.iter().map(|p| p.reach).collect();
+        let budget: Vec<f32> = sim.publishers.iter().map(|p| p.budget).collect();
+        let publishability: Vec<f32> = agents.iter().map(|a| a.publishability).collect();
+
         let value = json!({
             "step": step,
             "shares": {
                 "max": n_shares.iter().max(),
                 "min": n_shares.iter().min(),
-                "mean": mean_shares,
+                "mean": mean_usize(&n_shares),
             },
             "share_dist": share_dist,
             "followers": {
                 "max": n_followers.iter().max(),
                 "min": n_followers.iter().min(),
-                "mean": mean_followers,
-            },
-            "value_shifts": {
-                "max": value_shifts.iter().fold(-1./0., |a, &b| f32::max(a, b)),
-                "min": value_shifts.iter().fold(1./0., |a, &b| f32::min(a, b)),
-                "mean": mean_value_shifts,
+                "mean": mean_usize(&n_followers),
             },
             "follower_dist": follower_dist,
-            "sample": sample,
+            "value_shifts": {
+                "max": max_f32(&value_shifts),
+                "min": min_f32(&value_shifts),
+                "mean": mean_f32(&value_shifts),
+            },
+            "subscribers": {
+                "max": n_subscribers.iter().max(),
+                "min": n_subscribers.iter().min(),
+                "mean": mean_usize(&n_subscribers),
+            },
+            "published": {
+                "max": n_published.iter().max(),
+                "min": n_published.iter().min(),
+                "mean": mean_usize(&n_published),
+            },
+            "reach": {
+                "max": max_f32(&reach),
+                "min": min_f32(&reach),
+                "mean": mean_f32(&reach),
+            },
+            "budget": {
+                "max": max_f32(&budget),
+                "min": min_f32(&budget),
+                "mean": mean_f32(&budget),
+            },
+            "publishability": {
+                "max": max_f32(&publishability),
+                "min": min_f32(&publishability),
+                "mean": mean_f32(&publishability),
+            },
+            "agents": a_sample,
+            "publishers": p_sample,
             "p_produced": n_produced as f32/sim.agents.len() as f32,
             "to_share": sim.n_will_share(),
             "top_content": content
@@ -112,7 +175,7 @@ impl Recorder {
             "meta": {
                 "seed": conf.seed,
                 "steps": conf.steps,
-                "population": conf.simulation.population,
+                "conf": conf.simulation,
             }
         })
         .to_string();

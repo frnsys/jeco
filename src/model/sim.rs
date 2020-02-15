@@ -15,7 +15,7 @@ pub struct Simulation {
     pub network: Network,
     pub agents: Vec<Agent>,
     content: Vec<Rc<Content>>,
-    publishers: Vec<Publisher>,
+    pub publishers: Vec<Publisher>,
     share_queues: FnvHashMap<AgentId, Vec<SharedContent>>,
 }
 
@@ -159,10 +159,12 @@ impl Simulation {
             // Update subscribers
             p.subscribers = std::cmp::max(0, p.subscribers as isize + sub_changes[p.id]) as usize;
 
+            p.n_last_published = p.outbox.len();
+            p.budget = conf.publisher.base_budget + p.operating_budget();
+
             // ENH: Publisher pushes content
             // for multiple steps?
             p.outbox.clear();
-            p.budget = conf.publisher.base_budget + p.operating_budget();
         }
     }
 
