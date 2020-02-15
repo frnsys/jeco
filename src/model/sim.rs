@@ -1,3 +1,4 @@
+use rand::Rng;
 use std::rc::Rc;
 use fnv::FnvHashMap;
 use super::agent::{Agent, AgentId};
@@ -118,6 +119,7 @@ impl Simulation {
 
         for a in &self.agents {
             let mut shared: Vec<&SharedContent> = self.network.follower_ids(&a).iter()
+                .filter(|_| rng.gen::<f32>() < conf.contact_rate)
                 .flat_map(|n_id| self.share_queues[n_id].iter()).collect();
             shared.extend(a.subscriptions.borrow().iter().flat_map(|p_id| self.publishers[*p_id].outbox.iter()));
             shared.shuffle(&mut rng);

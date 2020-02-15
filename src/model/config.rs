@@ -6,6 +6,9 @@ pub struct SimulationConfig {
     pub population: usize,
     pub n_publishers: usize,
 
+    // Base offline contact rate
+    pub contact_rate: f32,
+
     // Horizontal stretching of gravity function,
     // higher values mean weaker influence at greater distances
     pub gravity_stretch: f32,

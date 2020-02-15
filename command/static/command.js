@@ -9,6 +9,11 @@ const CONFIG_SPEC = {
     type: 'int',
     desc: 'The number of publishers to create. Higher numbers will run slower but can provide better results.'
   },
+  'CONTACT_RATE': {
+    key: 'SIMULATION',
+    type: 'float',
+    desc: 'The base offline contact rate, i.e. probability that two agents share content in a step (without platforms).'
+  },
   'MAX_INFLUENCE': {
     key: 'SIMULATION',
     type: 'float',
