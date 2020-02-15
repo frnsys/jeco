@@ -1,13 +1,21 @@
 use std::rc::Rc;
-use super::agent::{Agent, Topics, Values};
+use super::agent::{Topics, Values, AgentId};
+use super::publisher::PublisherId;
 
 #[derive(Debug)]
-pub struct Content {
-    pub author: Rc<Agent>,
-    pub body: ContentBody,
+pub enum SharerType {
+    Agent,
+    Publisher
 }
 
 #[derive(Debug)]
+pub struct Content {
+    pub publisher: Option<PublisherId>,
+    pub author: AgentId,
+    pub body: ContentBody,
+}
+
+#[derive(Debug, Copy, Clone)]
 pub struct ContentBody {
     pub cost: f32,
     pub topics: Topics,
@@ -17,5 +25,5 @@ pub struct ContentBody {
 #[derive(Debug)]
 pub struct SharedContent {
     pub content: Rc<Content>,
-    pub sharer: Rc<Agent>
+    pub sharer: (SharerType, usize)
 }

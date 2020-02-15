@@ -1,10 +1,12 @@
-use super::agent::Agent;
+use super::agent::{Agent, AgentId};
 use fnv::FnvHashMap;
 use petgraph::stable_graph::{NodeIndex, StableGraph};
 use petgraph::{Directed, Incoming, Outgoing};
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::Rng;
+
+static NETWORK_SAMPLE_SIZE: usize = 100;
 
 pub struct Network {
     graph: StableGraph<usize, f32, Directed>,
@@ -13,8 +15,6 @@ pub struct Network {
 
 impl Network {
     pub fn new(agents: &Vec<Agent>, mut rng: &mut StdRng) -> Network {
-        let sample_size = (0.1 * agents.len() as f32) as usize;
-
         // Network of agents, with trust as weight
         let mut graph = StableGraph::<usize, f32, Directed, u32>::default();
         let mut lookup = FnvHashMap::default();
@@ -27,7 +27,7 @@ impl Network {
         let mut total_edges = 1.;
         for agent in agents.iter() {
             let idx = lookup[&agent.id];
-            let candidates = agents.choose_multiple(&mut rng, sample_size);
+            let candidates = agents.choose_multiple(&mut rng, NETWORK_SAMPLE_SIZE);
             for candidate in candidates {
                 let roll: f32 = rng.gen();
                 let c_idx = lookup[&candidate.id];
@@ -48,10 +48,10 @@ impl Network {
         }
     }
 
-    pub fn trust(&self, a: &Agent, b: &Agent) -> f32 {
+    pub fn trust(&self, a: &AgentId, b: &AgentId) -> f32 {
         // Edge from A->B
-        let idx_a = self.agent_to_node[&a.id];
-        let idx_b = self.agent_to_node[&b.id];
+        let idx_a = self.agent_to_node[a];
+        let idx_b = self.agent_to_node[b];
 
         match self.graph.find_edge(idx_a, idx_b) {
             Some(edge) => match self.graph.edge_weight(edge) {

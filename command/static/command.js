@@ -1,19 +1,48 @@
 const CONFIG_SPEC = {
   'POPULATION': {
+    key: 'SIMULATION',
     type: 'int',
     desc: 'The number of agents to create. Higher numbers will run slower but can provide better results.'
   },
-  'SEED': {
+  'N_PUBLISHERS': {
+    key: 'SIMULATION',
     type: 'int',
-    desc: 'Use a consistent seed value to control for randomness across runs. You probably don\'t need to change this.'
+    desc: 'The number of publishers to create. Higher numbers will run slower but can provide better results.'
   },
   'MAX_INFLUENCE': {
+    key: 'SIMULATION',
     type: 'float',
     desc: 'Maximum amount a piece of content can influence a person\'s values.'
   },
   'GRAVITY_STRETCH': {
+    key: 'SIMULATION',
     type: 'float',
     desc: 'Horizontal stretching of gravity function. Higher values mean weaker influence at greater distances.'
+  },
+  'SUBSCRIPTION_PROB_WEIGHT': {
+    key: 'SIMULATION',
+    type: 'float',
+    desc: 'Multiplier for subscription probabilities to dampen subscription rates.'
+  },
+  'CONTENT_SAMPLE_SIZE': {
+    key: 'SIMULATION',
+    type: 'int',
+    desc: 'How much content a publisher looks at to understand its audience.'
+  },
+  'BASE_BUDGET': {
+    key: 'SIMULATION.PUBLISHER',
+    type: 'float',
+    desc: 'Base budget for publishers. Determines how much content they can produce per step.',
+  },
+  'REVENUE_PER_SUBSCRIBER': {
+    key: 'SIMULATION.PUBLISHER',
+    type: 'float',
+    desc: 'How much each subscriber adds to the publisher\'s budget.',
+  },
+  'SEED': {
+    key: null,
+    type: 'int',
+    desc: 'Use a consistent seed value to control for randomness across runs. You probably don\'t need to change this.'
   }
 };
 
@@ -268,14 +297,16 @@ class Command {
 
       // Display only config items specified
       // in the spec
-      Object.keys(CONFIG_SPEC).forEach((k) => {
-        let val = config[k];
-        let spec = CONFIG_SPEC[k];
-        this.config[k] = val;
+      console.log(config);
+      Object.keys(CONFIG_SPEC).forEach((name) => {
+        let spec = CONFIG_SPEC[name];
+        let k = spec.key ? `${spec.key}.${name}` : name;
+        let val = valueFromKeyPath(config, k);
+        this.config = JSON.parse(JSON.stringify(config));
 
         let html = `<li class="config-item">
           <div class="config-item--info">
-            <div class="config-item--key">${k}</div>
+            <div class="config-item--key">${name}</div>
             <div class="config-item--val">${val}</div>
             <input class="config-item--input" type="text" value="${val}">
           </div>
@@ -317,7 +348,7 @@ class Command {
           }
           inputEl.style.display = 'none';
           valEl.style.display = 'block';
-          this.config[k] = customVal;
+          setValueFromKeyPath(this.config, k, customVal);
 
           if (changed.size > 0) {
             resetButton.style.display = 'block';

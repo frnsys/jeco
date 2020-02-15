@@ -92,7 +92,7 @@ def make_plots(output_dir):
 
     # Group sample
     values = defaultdict(list)
-    for month in stats['sample']:
+    for month in stats['agent']:
         for s in month:
             values[s['id']].append(s['values'])
 

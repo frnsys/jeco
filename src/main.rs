@@ -26,7 +26,7 @@ fn main() {
             println!("{:?}", conf);
             command.reset(&conf).unwrap();
             command.set_loading().unwrap();
-            let mut sim = Simulation::new(conf.population, &mut rng);
+            let mut sim = Simulation::new(&conf.simulation, &mut rng);
             let mut recorder = Recorder::new(&sim, &mut rng);
             command.set_ready().unwrap();
 
@@ -44,7 +44,7 @@ fn main() {
                         }
                         for _ in 0..steps {
                             let n_produced = sim.produce(&mut rng);
-                            sim.consume(conf.gravity_stretch, conf.max_influence, &mut rng);
+                            sim.consume(&conf.simulation, &mut rng);
 
                             recorder.record(step, &sim, n_produced);
                             recorder.sync(step, redis_host).unwrap();
@@ -63,13 +63,13 @@ fn main() {
 
     // Single run mode
     } else {
-        let mut sim = Simulation::new(conf.population, &mut rng);
+        let mut sim = Simulation::new(&conf.simulation, &mut rng);
         if debug {
             let mut recorder = Recorder::new(&sim, &mut rng);
             let mut pb = ProgressBar::new(steps as u64);
             for step in 0..steps {
                 let n_produced = sim.produce(&mut rng);
-                sim.consume(conf.gravity_stretch, conf.max_influence, &mut rng);
+                sim.consume(&conf.simulation, &mut rng);
 
                 recorder.record(step, &sim, n_produced);
                 pb.inc();
@@ -78,7 +78,7 @@ fn main() {
         } else {
             for _ in 0..steps {
                 sim.produce(&mut rng);
-                sim.consume(conf.gravity_stretch, conf.max_influence, &mut rng);
+                sim.consume(&conf.simulation, &mut rng);
             }
         }
     }

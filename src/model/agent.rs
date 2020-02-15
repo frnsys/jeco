@@ -1,35 +1,41 @@
-use super::content::{Content, ContentBody, SharedContent};
+use fnv::{FnvHashMap, FnvHashSet};
+use super::util::{Vector, VECTOR_SIZE};
+use super::publisher::PublisherId;
+use super::content::{Content, ContentBody, SharedContent, SharerType};
 use super::network::Network;
-use nalgebra::{VectorN, U2};
+use super::config::SimulationConfig;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand_distr::StandardNormal;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 use std::rc::Rc;
+use super::util::{ewma, clamp, gravity};
 
-// 2 so can be plotted in 2d
-static VECTOR_SIZE: u32 = 2;
-pub type Topics = VectorN<f32, U2>;
-pub type Values = VectorN<f32, U2>;
+pub type Topics = Vector;
+pub type Values = Vector;
+pub type AgentId = usize;
 
 #[derive(Debug)]
 pub struct Agent {
-    pub id: usize,
+    pub id: AgentId,
     pub interests: Topics,
     pub values: Cell<Values>,
     pub attention: f32,
     pub resources: f32,
-}
 
-fn clamp(val: f32, min: f32, max: f32) -> f32 {
-    if val < min {
-        min
-    } else if val > max {
-        max
-    } else {
-        val
-    }
+    // Publishers the Agent is subscribed to
+    // TODO would like to not use a RefCell if possible
+    pub subscriptions: RefCell<FnvHashSet<PublisherId>>,
+
+    // Agent's estimate of how likely
+    // a Publisher is to publish their content
+    pub publishability: f32,
+    pub publishabilities: FnvHashMap<PublisherId, f32>,
+
+    // Track trust/feelings towards Publishers
+    // TODO would like to not use a RefCell if possible
+    pub publishers: RefCell<FnvHashMap<PublisherId, f32>>,
 }
 
 static NORMAL_SCALE: f32 = 0.8;
@@ -59,23 +65,8 @@ pub fn random_topics(rng: &mut StdRng) -> Topics {
     Topics::from_vec(i_vec)
 }
 
-// Returns how much a moves towards b
-pub fn gravity(a: f32, b: f32, gravity_stretch: f32, max_influence: f32) -> f32 {
-    let mut dist = a - b;
-    let sign = dist.signum();
-    dist = dist.abs();
-    if dist == 0. {
-        // Already here, no movement
-        0.
-    } else {
-        let strength = (1. / dist) / gravity_stretch;
-        let movement = strength / (strength + 1.) * max_influence;
-        f32::min(movement, dist) * sign
-    }
-}
-
 impl Agent {
-    pub fn new(id: usize, mut rng: &mut StdRng) -> Agent {
+    pub fn new(id: AgentId, mut rng: &mut StdRng) -> Agent {
         let mut resources = rng.sample(StandardNormal);
         resources = (resources + 0.5) * 2.;
         resources = clamp(resources, 0., 1.);
@@ -84,8 +75,12 @@ impl Agent {
             id: id,
             interests: random_topics(&mut rng),
             values: Cell::new(random_values(&mut rng)),
-            attention: 100.0,
+            attention: 100.0, // TODO
             resources: resources,
+            publishability: 1.,
+            publishabilities: FnvHashMap::default(),
+            publishers: RefCell::new(FnvHashMap::default()),
+            subscriptions: RefCell::new(FnvHashSet::default())
         }
     }
 
@@ -130,15 +125,21 @@ impl Agent {
         &'a self,
         content: Vec<&'a SharedContent>,
         network: &Network,
-        gravity_stretch: f32,
-        max_influence: f32,
+        conf: &SimulationConfig,
         rng: &mut StdRng,
-    ) -> Vec<Rc<Content>> {
+    ) -> (Vec<Rc<Content>>, (Vec<PublisherId>, Vec<PublisherId>)) {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
+        let mut values = self.values.get();
+        let mut publishers = self.publishers.borrow_mut();
+        let mut subscriptions = self.subscriptions.borrow_mut();
+        let mut new_subs = Vec::new();
+        let mut unsubs = Vec::new();
+
+        // ENH: Can make sure agents don't consume
+        // content they've already consumed
         for sc in content {
             let c = &sc.content;
-            let mut values = self.values.get();
             let affinity = self.interests.dot(&c.body.topics);
             let alignment = (values.dot(&c.body.values) - 0.5) * 2.;
 
@@ -153,10 +154,26 @@ impl Agent {
                 to_share.push(c.clone());
             }
 
-            // Influence
-            let trust = network.trust(self, &sc.sharer);
+            // Update publisher feeling/reputation
+            match c.publisher {
+                Some(p_id) => {
+                    let v = publishers.entry(p_id).or_insert(0.5);
+                    *v = ewma(affinity, *v);
+                },
+                None => {}
+            }
+
+            // Influence on Agent's values
+            let trust = match sc.sharer {
+                (SharerType::Agent, id) => {
+                    network.trust(&self.id, &id)
+                },
+                (SharerType::Publisher, id) => {
+                    1. // TODO
+                }
+            };
             values.zip_apply(&c.body.values, |v, v_| {
-                v + gravity(v, v_, gravity_stretch, max_influence) * affinity * trust
+                v + gravity(v, v_, conf.gravity_stretch, conf.max_influence) * affinity * trust
             });
             self.values.set(values);
 
@@ -169,7 +186,26 @@ impl Agent {
             }
         }
 
-        to_share
+        // Decide on subscriptions
+        // TODO consider costs of subscription
+        for (p_id, affinity) in publishers.iter() {
+            let roll: f32 = rng.gen();
+            if !subscriptions.contains(p_id) {
+                let p = affinity * conf.subscription_prob_weight;
+                if roll < p {
+                    subscriptions.insert(*p_id);
+                    new_subs.push(*p_id);
+                }
+            } else {
+                let p = (1. - affinity) * conf.subscription_prob_weight;
+                if roll < p {
+                    subscriptions.remove(p_id);
+                    unsubs.push(*p_id);
+                }
+            }
+        }
+
+        (to_share, (new_subs, unsubs))
     }
 
     pub fn similarity(&self, other: &Agent) -> f32 {
