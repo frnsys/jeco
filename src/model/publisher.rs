@@ -10,7 +10,7 @@ use rand::Rng;
 use std::rc::Rc;
 use rand::rngs::StdRng;
 use itertools::Itertools;
-use super::agent::{Agent, AgentId};
+use super::agent::Agent;
 use super::content::{Content, ContentBody, SharedContent, SharerType};
 use super::util::{Vector, Sample, SampleRow, ewma, bayes_update, z_score, sigmoid};
 use super::config::PublisherConfig;
@@ -32,7 +32,7 @@ pub struct Publisher {
     // Budget determines how much content
     // can be published per step
     // and at what quality.
-    budget: f32,
+    pub budget: f32,
     revenue_per_subscriber: f32,
 
     // The content quality the Publisher
@@ -44,10 +44,10 @@ pub struct Publisher {
     // count of its content per step
     pub reach: f32,
 
-    // Agents subscribed to the publication.
+    // Number of agents subscribed to the publication.
     // These count towards the Publisher's overall budget
     // and directly received the Publisher's content
-    pub subscribers: Vec<AgentId>,
+    pub subscribers: usize,
 
     // Store content the Publisher will
     // publish in the next step. Emptied each step.
@@ -77,7 +77,7 @@ impl Publisher {
             quality: rng.gen(),
             outbox: Vec::new(),
             content: Vec::new(),
-            subscribers: Vec::new(),
+            subscribers: 0,
 
             // Priors
             audience_values: (mu.clone(), var.clone()),
@@ -120,13 +120,8 @@ impl Publisher {
         }
     }
 
-    // An Agent subscribes to the publisher
-    pub fn subscribe(&mut self, agent: &Agent) {
-        self.subscribers.push(agent.id);
-    }
-
-    fn operating_budget(&self) -> f32 {
-        self.subscribers.len() as f32 * self.revenue_per_subscriber
+    pub fn operating_budget(&self) -> f32 {
+        self.subscribers as f32 * self.revenue_per_subscriber
     }
 
     // Update understanding of audience values/interests

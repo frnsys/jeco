@@ -127,12 +127,14 @@ impl Agent {
         network: &Network,
         conf: &SimulationConfig,
         rng: &mut StdRng,
-    ) -> Vec<Rc<Content>> {
+    ) -> (Vec<Rc<Content>>, (Vec<PublisherId>, Vec<PublisherId>)) {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
         let mut values = self.values.get();
         let mut publishers = self.publishers.borrow_mut();
         let mut subscriptions = self.subscriptions.borrow_mut();
+        let mut new_subs = Vec::new();
+        let mut unsubs = Vec::new();
 
         // ENH: Can make sure agents don't consume
         // content they've already consumed
@@ -192,16 +194,18 @@ impl Agent {
                 let p = affinity * conf.subscription_prob_weight;
                 if roll < p {
                     subscriptions.insert(*p_id);
+                    new_subs.push(*p_id);
                 }
             } else {
                 let p = (1. - affinity) * conf.subscription_prob_weight;
                 if roll < p {
                     subscriptions.remove(p_id);
+                    unsubs.push(*p_id);
                 }
             }
         }
 
-        to_share
+        (to_share, (new_subs, unsubs))
     }
 
     pub fn similarity(&self, other: &Agent) -> f32 {

@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use fnv::FnvHashMap;
-use super::agent::Agent;
+use super::agent::{Agent, AgentId};
 use super::policy::Policy;
 use super::network::Network;
 use super::publisher::Publisher;
@@ -16,7 +16,7 @@ pub struct Simulation {
     pub agents: Vec<Agent>,
     content: Vec<Rc<Content>>,
     publishers: Vec<Publisher>,
-    share_queues: FnvHashMap<usize, Vec<SharedContent>>,
+    share_queues: FnvHashMap<AgentId, Vec<SharedContent>>,
 }
 
 
@@ -113,7 +113,8 @@ impl Simulation {
     pub fn consume(&mut self,
                    conf: &SimulationConfig,
                    mut rng: &mut StdRng) {
-        let mut new_to_share: FnvHashMap<usize, Vec<SharedContent>> = FnvHashMap::default();
+        let mut new_to_share: FnvHashMap<AgentId, Vec<SharedContent>> = FnvHashMap::default();
+        let mut sub_changes: Vec<isize> = vec![0; self.publishers.len()];
 
         for a in &self.agents {
             let mut shared: Vec<&SharedContent> = self.network.follower_ids(&a).iter()
@@ -121,13 +122,20 @@ impl Simulation {
             shared.extend(a.subscriptions.borrow().iter().flat_map(|p_id| self.publishers[*p_id].outbox.iter()));
             shared.shuffle(&mut rng);
 
-            let will_share = a.consume(shared, &self.network, &conf, &mut rng);
+            let (will_share, (new_subs, unsubs)) = a.consume(shared, &self.network, &conf, &mut rng);
             let shareable = will_share.iter().map(|content| {
                 SharedContent {
                     sharer: (SharerType::Agent, a.id),
                     content: content.clone(),
                 }
             }).collect();
+            for pub_id in new_subs {
+                sub_changes[pub_id] += 1;
+            }
+            for pub_id in unsubs {
+                sub_changes[pub_id] -= 1;
+            }
+
             new_to_share.insert(a.id, shareable);
         }
 
@@ -148,9 +156,13 @@ impl Simulation {
             p.audience_survey(conf.content_sample_size);
             p.update_reach();
 
+            // Update subscribers
+            p.subscribers = std::cmp::max(0, p.subscribers as isize + sub_changes[p.id]) as usize;
+
             // ENH: Publisher pushes content
             // for multiple steps?
             p.outbox.clear();
+            p.budget = conf.publisher.base_budget + p.operating_budget();
         }
     }
 
