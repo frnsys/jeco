@@ -126,6 +126,7 @@ impl Simulation {
 
         let mut signups: FnvHashMap<AgentId, PlatformId> = FnvHashMap::default();
         let mut platforms: FnvHashMap<PlatformId, usize> = FnvHashMap::default();
+        let mut all_data: FnvHashMap<PlatformId, f32> = FnvHashMap::default();
         for a in &self.agents {
             for p in &self.platforms {
                 platforms.insert(p.id, 0);
@@ -186,7 +187,7 @@ impl Simulation {
                 None => {}
             }
 
-            let (will_share, (new_subs, unsubs)) = a.consume(shared, &self.network, &conf, &mut rng);
+            let (will_share, (new_subs, unsubs), data) = a.consume(shared, &self.network, &conf, &mut rng);
             let shareable = will_share.iter().map(|content| {
                 SharedContent {
                     sharer: (SharerType::Agent, a.id),
@@ -198,6 +199,12 @@ impl Simulation {
             }
             for pub_id in unsubs {
                 sub_changes[pub_id] -= 1;
+            }
+
+            // Aggregate generated data
+            for (p_id, d) in data {
+                let d_ = all_data.entry(p_id).or_insert(0.);
+                *d_ += d;
             }
 
             new_to_share.insert(a.id, shareable);
@@ -229,6 +236,11 @@ impl Simulation {
             // ENH: Publisher pushes content
             // for multiple steps?
             p.outbox.clear();
+        }
+
+        // Add data to platforms
+        for p in &mut self.platforms {
+            p.data += *all_data.entry(p.id).or_insert(0.);
         }
 
         // Sign up agents and follow friends

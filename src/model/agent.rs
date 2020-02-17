@@ -108,7 +108,7 @@ impl Agent {
         network: &Network,
         conf: &SimulationConfig,
         rng: &mut StdRng,
-    ) -> (Vec<Rc<Content>>, (Vec<PublisherId>, Vec<PublisherId>)) {
+    ) -> (Vec<Rc<Content>>, (Vec<PublisherId>, Vec<PublisherId>), FnvHashMap<PlatformId, f32>) {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
         let mut values = self.values.get();
@@ -117,12 +117,23 @@ impl Agent {
         let mut new_subs = Vec::new();
         let mut unsubs = Vec::new();
 
+        // Data generated for platforms
+        let mut data = FnvHashMap::default();
+
         // ENH: Can make sure agents don't consume
         // content they've already consumed
         for (platform, sc) in content {
             let c = &sc.content;
             let affinity = self.interests.dot(&c.body.topics);
             let alignment = (values.dot(&c.body.values) - 0.5) * 2.;
+
+            match platform {
+                Some(p_id) => {
+                    let val = data.entry(*p_id).or_insert(0.);
+                    *val += conf.data_per_consume;
+                },
+                None => {}
+            }
 
             // Take the abs value
             // So if something is very polar to the person's values,
@@ -186,7 +197,7 @@ impl Agent {
             }
         }
 
-        (to_share, (new_subs, unsubs))
+        (to_share, (new_subs, unsubs), data)
     }
 
     pub fn similarity(&self, other: &Agent) -> f32 {

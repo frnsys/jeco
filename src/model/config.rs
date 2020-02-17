@@ -29,6 +29,10 @@ pub struct SimulationConfig {
     // to a social network
     pub base_signup_rate: f32,
 
+    // How much data is generated
+    // per content consumption
+    pub data_per_consume: f32,
+
     // See below
     pub publisher: PublisherConfig
 }

@@ -16,6 +16,7 @@ pub type PlatformId = usize;
 #[derive(Debug)]
 pub struct Platform {
     pub id: PlatformId,
+    pub data: f32,
     graph: StableGraph<usize, f32, Directed>,
     agent_to_node: FnvHashMap<AgentId, NodeIndex>,
 }
@@ -26,6 +27,7 @@ impl Platform {
         let lookup = FnvHashMap::default();
         Platform {
             id: id,
+            data: 0.,
             graph: graph,
             agent_to_node: lookup
         }
