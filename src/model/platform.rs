@@ -31,12 +31,18 @@ impl Platform {
         }
     }
 
-    pub fn sign_up(&mut self, agent: &Agent) {
+    pub fn signup(&mut self, agent: &Agent) {
         let idx = self.graph.add_node(agent.id);
         self.agent_to_node.insert(agent.id, idx);
     }
 
-    pub fn follow(&mut self, follower: &Agent, following: &Agent) {
-        // TODO
+    pub fn is_signed_up(&self, a_id: &usize) -> bool {
+        self.agent_to_node.contains_key(a_id)
+    }
+
+    pub fn follow(&mut self, a_id: &usize, b_id: &usize, weight: f32) {
+        let idx_a = self.agent_to_node[a_id];
+        let idx_b = self.agent_to_node[b_id];
+        self.graph.add_edge(idx_a, idx_b, weight);
     }
 }

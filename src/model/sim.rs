@@ -205,8 +205,20 @@ impl Simulation {
             p.outbox.clear();
         }
 
+        // Sign up agents and follow friends
+        // ENH: Maybe not all friends should be followed
         for (a_id, p_id) in signups {
+            self.platforms[p_id].signup(&self.agents[a_id]);
             self.agents[a_id].platforms.insert(p_id);
+            for b_id in self.network.following_ids(&self.agents[a_id]) {
+                let platform = &mut self.platforms[p_id];
+                if platform.is_signed_up(b_id) {
+                    let trust_a = self.network.trust(&a_id, b_id);
+                    let trust_b = self.network.trust(b_id, &a_id);
+                    platform.follow(&a_id, b_id, trust_a); // TODO what should this weight be?
+                    platform.follow(b_id, &a_id, trust_b); // TODO what should this weight be?
+                }
+            }
         }
     }
 
