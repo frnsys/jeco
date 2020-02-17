@@ -1,6 +1,6 @@
 use rand::Rng;
 use std::rc::Rc;
-use fnv::FnvHashMap;
+use fnv::{FnvHashMap, FnvHashSet};
 use super::agent::{Agent, AgentId};
 use super::policy::Policy;
 use super::network::Network;
@@ -124,6 +124,8 @@ impl Simulation {
         let mut new_to_share: FnvHashMap<AgentId, Vec<SharedContent>> = FnvHashMap::default();
         let mut sub_changes: Vec<isize> = vec![0; self.publishers.len()];
 
+        let mut follow_changes: FnvHashMap<AgentId, (FnvHashSet<AgentId>, FnvHashSet<AgentId>)> = FnvHashMap::default();
+
         let mut signups: FnvHashMap<AgentId, PlatformId> = FnvHashMap::default();
         let mut platforms: FnvHashMap<PlatformId, usize> = FnvHashMap::default();
         let mut all_data: FnvHashMap<PlatformId, f32> = FnvHashMap::default();
@@ -187,7 +189,7 @@ impl Simulation {
                 None => {}
             }
 
-            let (will_share, (new_subs, unsubs), data) = a.consume(shared, &self.network, &conf, &mut rng);
+            let (will_share, (new_subs, unsubs), (follows, unfollows), data) = a.consume(shared, &self.network, &conf, &mut rng);
             let shareable = will_share.iter().map(|content| {
                 SharedContent {
                     sharer: (SharerType::Agent, a.id),
@@ -200,6 +202,8 @@ impl Simulation {
             for pub_id in unsubs {
                 sub_changes[pub_id] -= 1;
             }
+
+            follow_changes.insert(a.id, (follows, unfollows));
 
             // Aggregate generated data
             for (p_id, d) in data {
@@ -219,6 +223,27 @@ impl Simulation {
                 },
                 None => {
                     self.share_queues.insert(a_id, to_share_);
+                }
+            }
+        }
+
+        // Update follows
+        // TODO this feels very messy
+        for (a_id, (follows, unfollows)) in follow_changes {
+            if follows.len() > 0 || unfollows.len() > 0 {
+                let p_ids: Vec<&PlatformId> = self.agents[a_id].platforms.iter().collect();
+                for p_id in p_ids {
+                    let pfrm = &mut self.platforms[*p_id];
+                    for b_id in &follows {
+                        if pfrm.is_signed_up(b_id) {
+                            pfrm.follow(&a_id, &b_id, 1.); // TODO diff weights?
+                        }
+                    }
+                    for b_id in &unfollows {
+                        if pfrm.is_signed_up(b_id) {
+                            pfrm.unfollow(&a_id, &b_id);
+                        }
+                    }
                 }
             }
         }

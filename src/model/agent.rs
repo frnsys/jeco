@@ -39,6 +39,10 @@ pub struct Agent {
     // Track trust/feelings towards Publishers
     // TODO would like to not use a RefCell if possible
     pub publishers: RefCell<FnvHashMap<PublisherId, f32>>,
+
+    // EWMA of trust
+    // TODO would like to not use a RefCell if possible
+    pub trust: RefCell<FnvHashMap<AgentId, f32>>,
 }
 
 
@@ -72,6 +76,7 @@ impl Agent {
             publishabilities: FnvHashMap::default(),
             publishers: RefCell::new(FnvHashMap::default()),
             subscriptions: RefCell::new(FnvHashSet::default()),
+            trust: RefCell::new(FnvHashMap::default()),
             platforms: FnvHashSet::default()
         }
     }
@@ -108,14 +113,17 @@ impl Agent {
         network: &Network,
         conf: &SimulationConfig,
         rng: &mut StdRng,
-    ) -> (Vec<Rc<Content>>, (Vec<PublisherId>, Vec<PublisherId>), FnvHashMap<PlatformId, f32>) {
+    ) -> (Vec<Rc<Content>>, (Vec<PublisherId>, Vec<PublisherId>), (FnvHashSet<AgentId>, FnvHashSet<AgentId>), FnvHashMap<PlatformId, f32>) {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
         let mut values = self.values.get();
         let mut publishers = self.publishers.borrow_mut();
         let mut subscriptions = self.subscriptions.borrow_mut();
+        let mut trusts = self.trust.borrow_mut();
         let mut new_subs = Vec::new();
         let mut unsubs = Vec::new();
+        let mut unfollows = FnvHashSet::default();
+        let mut follows = FnvHashSet::default();
 
         // Data generated for platforms
         let mut data = FnvHashMap::default();
@@ -127,6 +135,7 @@ impl Agent {
             let affinity = self.interests.dot(&c.body.topics);
             let alignment = (values.dot(&c.body.values) - 0.5) * 2.;
 
+            // Generate data for platform
             match platform {
                 Some(p_id) => {
                     let val = data.entry(*p_id).or_insert(0.);
@@ -158,10 +167,49 @@ impl Agent {
             // Influence on Agent's values
             let trust = match sc.sharer {
                 (SharerType::Agent, id) => {
-                    network.trust(&self.id, &id)
+                    // network.trust(&self.id, &id); // TODO this is redundant?
+
+                    let mut trust = {
+                        let trust = trusts.entry(id).or_insert(0.);
+                        let old_trust = trust.clone(); // TODO meh
+                        *trust = util::ewma(affinity * alignment, *trust);
+
+                        // If platform is not None,
+                        // we are already following the sharer.
+                        // Decide to unfollow or not.
+                        // TODO parameterize this
+                        if *trust < 0.1 {
+                            unfollows.insert(id);
+                        }
+                        old_trust
+                    };
+
+                    // Get author as well
+                    if c.author != id {
+                        let author_trust = trusts.entry(c.author).or_insert(0.);
+                        trust = (trust + *author_trust)/2.;
+                        *author_trust = util::ewma(affinity * alignment, *author_trust);
+
+                        // For the author, we don't know
+                        // if they're already following or not.
+                        // TODO parameterize this
+                        if trust < 0.1 {
+                            unfollows.insert(id);
+                        } else if trust > 0.9 {
+                            follows.insert(id);
+                        }
+                    }
+
+                    // TODO as it stands right now, Agents' new follows
+                    // will only be authors. How do they encounter new sharers as well?
+                    // There could be a "retweet" like function
+                    // or we have random background changes to their offline networks
+                    // that manifest as follows on platforms too
+
+                    trust
                 },
                 (SharerType::Publisher, id) => {
-                    1. // TODO
+                    publishers[&id]
                 }
             };
             values.zip_apply(&c.body.values, |v, v_| {
@@ -197,7 +245,7 @@ impl Agent {
             }
         }
 
-        (to_share, (new_subs, unsubs), data)
+        (to_share, (new_subs, unsubs), (follows, unfollows), data)
     }
 
     pub fn similarity(&self, other: &Agent) -> f32 {
