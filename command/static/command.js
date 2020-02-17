@@ -34,6 +34,16 @@ const CONFIG_SPEC = {
     type: 'int',
     desc: 'How much content a publisher looks at to understand its audience.'
   },
+  'BASE_SIGNUP_RATE': {
+    key: 'SIMULATION',
+    type: 'float',
+    desc: 'Base probability of signing up to a platform.',
+  },
+  'DATA_PER_CONSUME': {
+    key: 'SIMULATION',
+    type: 'float',
+    desc: 'How much data is generated for a platform when a piece of content is consumed there.',
+  },
   'BASE_BUDGET': {
     key: 'SIMULATION.PUBLISHER',
     type: 'float',
