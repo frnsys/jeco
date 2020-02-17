@@ -5,6 +5,7 @@ use serde::{Serialize, Deserialize};
 pub struct SimulationConfig {
     pub population: usize,
     pub n_publishers: usize,
+    pub n_platforms: usize,
 
     // Base offline contact rate
     pub contact_rate: f32,
@@ -23,6 +24,10 @@ pub struct SimulationConfig {
     // How much content a Publisher
     // surveys to understand their audience
     pub content_sample_size: usize,
+
+    // Base probability of signing up
+    // to a social network
+    pub base_signup_rate: f32,
 
     // See below
     pub publisher: PublisherConfig

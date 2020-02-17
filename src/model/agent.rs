@@ -1,6 +1,7 @@
 use fnv::{FnvHashMap, FnvHashSet};
 use super::util::{Vector, VECTOR_SIZE};
 use super::publisher::PublisherId;
+use super::platform::PlatformId;
 use super::content::{Content, ContentBody, SharedContent, SharerType};
 use super::network::Network;
 use super::config::SimulationConfig;
@@ -26,6 +27,9 @@ pub struct Agent {
     // Publishers the Agent is subscribed to
     // TODO would like to not use a RefCell if possible
     pub subscriptions: RefCell<FnvHashSet<PublisherId>>,
+
+    // Platforms the Agent is on
+    pub platforms: FnvHashSet<PlatformId>,
 
     // Agent's estimate of how likely
     // a Publisher is to publish their content
@@ -67,7 +71,8 @@ impl Agent {
             publishability: 1.,
             publishabilities: FnvHashMap::default(),
             publishers: RefCell::new(FnvHashMap::default()),
-            subscriptions: RefCell::new(FnvHashSet::default())
+            subscriptions: RefCell::new(FnvHashSet::default()),
+            platforms: FnvHashSet::default()
         }
     }
 
