@@ -25,5 +25,5 @@ pub struct ContentBody {
 #[derive(Debug)]
 pub struct SharedContent {
     pub content: Rc<Content>,
-    pub sharer: (SharerType, usize)
+    pub sharer: (SharerType, usize),
 }

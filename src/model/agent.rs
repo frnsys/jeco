@@ -104,7 +104,7 @@ impl Agent {
     // Return content they decide to share
     pub fn consume<'a>(
         &'a self,
-        content: Vec<&'a SharedContent>,
+        content: Vec<(Option<&PlatformId>, &SharedContent)>,
         network: &Network,
         conf: &SimulationConfig,
         rng: &mut StdRng,
@@ -119,7 +119,7 @@ impl Agent {
 
         // ENH: Can make sure agents don't consume
         // content they've already consumed
-        for sc in content {
+        for (platform, sc) in content {
             let c = &sc.content;
             let affinity = self.interests.dot(&c.body.topics);
             let alignment = (values.dot(&c.body.values) - 0.5) * 2.;

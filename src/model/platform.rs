@@ -45,4 +45,12 @@ impl Platform {
         let idx_b = self.agent_to_node[b_id];
         self.graph.add_edge(idx_a, idx_b, weight);
     }
+
+    pub fn following_ids(&self, agent: &Agent) -> Vec<&usize> { //impl Iterator<Item=&usize> {
+        let idx = self.agent_to_node[&agent.id];
+        self.graph
+            .neighbors_directed(idx, Outgoing)
+            .filter_map(|idx| self.graph.node_weight(idx))
+            .collect()
+    }
 }

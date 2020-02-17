@@ -130,11 +130,37 @@ impl Simulation {
             for p in &self.platforms {
                 platforms.insert(p.id, 0);
             }
+
+            // Agent encounters shared content
             let following = self.network.following_ids(&a).clone();
-            let mut shared: Vec<&SharedContent> = following.iter()
+
+            // "Offline" encounters
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = following.iter()
                 .filter(|_| rng.gen::<f32>() < conf.contact_rate)
-                .flat_map(|a_id| self.share_queues[a_id].iter()).collect();
-            shared.extend(a.subscriptions.borrow().iter().flat_map(|p_id| self.publishers[*p_id].outbox.iter()));
+                .flat_map(|a_id| self.share_queues[a_id].iter().map(|sc| (None, sc)))
+                .collect();
+
+            // Subscribed publishers
+            // ENH: Publishers on all platforms.
+            // e.g. outbox.iter().flat_map(|sc| a.platforms.iter().map(|p_id| (p_id, sc.clone())))
+            // Although maybe it's not worth the additional overhead?
+            shared.extend(a.subscriptions.borrow().iter()
+                          .flat_map(|p_id| self.publishers[*p_id].outbox.iter().map(|sc| (None, sc))));
+
+            // Platforms
+            // We basically assume that if someone shares something,
+            // they share it across all platforms and increases the likelihood
+            // that the Agent encounters that shared content.
+            // Unlike offline encounters, we roll per shared content
+            // rather than per agent.
+            // ENH: Agents may develop a preference for a platform?
+            shared.extend(a.platforms.iter()
+                .flat_map(|p_id| self.platforms[*p_id].following_ids(&a).into_iter()
+                          .map(move |a_id| (p_id, a_id)))
+                .flat_map(|(p_id, a_id)| self.share_queues[a_id].iter().map(move |sc| (Some(p_id), sc)))
+                .filter(|_| rng.gen::<f32>() < conf.contact_rate)); // TODO include "algorithmic" weighting
+
+            // Avoid ordering bias
             shared.shuffle(&mut rng);
 
             // See what platforms friends are on
