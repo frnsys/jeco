@@ -161,7 +161,16 @@ impl Simulation {
                 .flat_map(|p_id| self.platforms[*p_id].following_ids(&a).into_iter()
                           .map(move |a_id| (p_id, a_id)))
                 .flat_map(|(p_id, a_id)| self.share_queues[a_id].iter().map(move |sc| (Some(p_id), sc)))
-                .filter(|_| rng.gen::<f32>() < conf.contact_rate)); // TODO include "algorithmic" weighting
+                .filter(|(_, sc)| {
+                    // "Algorithmic" rating based on Agent's trust of Agent B.
+                    // ENH: Trust values should be platform-specific,
+                    // to capture that platforms have incomplete/noisy information about
+                    // "trust" between users.
+                    rng.gen::<f32>() < conf.contact_rate + match a.trust.borrow().get(&sc.sharer.1) {
+                        Some(v) => *v,
+                        None => 0.
+                    }
+                }));
 
             // Avoid ordering bias
             shared.shuffle(&mut rng);
