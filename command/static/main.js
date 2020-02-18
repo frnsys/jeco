@@ -92,7 +92,7 @@ const CHARTS = [{
     key: 'published.mean'
   }]
 }, {
-  title: 'Publishability',
+  title: 'Publishability (sample)',
   datasets: [{
     label: 'max',
     key: 'publishability.max'
@@ -102,6 +102,18 @@ const CHARTS = [{
   }, {
     label: 'mean',
     key: 'publishability.mean'
+  }]
+}, {
+  title: 'Resources (sample)',
+  datasets: [{
+    label: 'max',
+    key: 'resources.max'
+  }, {
+    label: 'min',
+    key: 'resources.min'
+  }, {
+    label: 'mean',
+    key: 'resources.mean'
   }]
 }, {
   title: 'Platform Users',
