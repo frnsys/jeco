@@ -109,6 +109,7 @@ impl Publisher {
                 publisher: Some(self.id),
                 body: *body,
                 author: author.id,
+                ads: 100. // TODO
             });
             self.content.push(content.clone());
             self.outbox.push(SharedContent {

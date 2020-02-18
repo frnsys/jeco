@@ -2,7 +2,7 @@ use std::rc::Rc;
 use super::agent::{Topics, Values, AgentId};
 use super::publisher::PublisherId;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum SharerType {
     Agent,
     Publisher
@@ -13,6 +13,7 @@ pub struct Content {
     pub publisher: Option<PublisherId>,
     pub author: AgentId,
     pub body: ContentBody,
+    pub ads: f32,
 }
 
 #[derive(Debug, Copy, Clone)]
