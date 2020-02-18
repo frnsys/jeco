@@ -82,6 +82,14 @@ impl Recorder {
             })
             .collect();
 
+        let platforms = sim.platforms.iter().fold(FnvHashMap::default(), |mut acc, p| {
+            acc.insert(p.id, json!({
+                "users": p.n_users(),
+                "data": p.data,
+            }));
+            acc
+        });
+
         // Top 10
         let content: Vec<Value> = sim.content_by_popularity().take(10).map(|c| {
             json!({
@@ -160,6 +168,7 @@ impl Recorder {
             },
             "agents": a_sample,
             "publishers": p_sample,
+            "platforms": platforms,
             "p_produced": n_produced as f32/sim.agents.len() as f32,
             "to_share": sim.n_will_share(),
             "top_content": content

@@ -9,8 +9,8 @@ use rand::Rng;
 static NETWORK_SAMPLE_SIZE: usize = 100;
 
 pub struct Network {
-    graph: StableGraph<usize, f32, Directed>,
-    agent_to_node: FnvHashMap<usize, NodeIndex>,
+    graph: StableGraph<usize, f32, Directed>, // TODO make this undirected
+    pub agent_to_node: FnvHashMap<AgentId, NodeIndex>,
 }
 
 impl Network {
@@ -69,7 +69,7 @@ impl Network {
             .collect()
     }
 
-    pub fn follower_ids(&self, agent: &Agent) -> Vec<&usize> { //impl Iterator<Item=&usize> {
+    pub fn following_ids(&self, agent: &Agent) -> Vec<&usize> { //impl Iterator<Item=&usize> {
         let idx = self.agent_to_node[&agent.id];
         self.graph
             .neighbors_directed(idx, Outgoing)

@@ -4,6 +4,7 @@ mod agent;
 mod policy;
 mod content;
 mod network;
+mod platform;
 mod publisher;
 mod config;
 

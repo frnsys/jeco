@@ -1,4 +1,7 @@
+use rand::Rng;
+use rand::rngs::StdRng;
 use std::f32::consts::E;
+use rand_distr::StandardNormal;
 use nalgebra::{Matrix, Dynamic, U2, VecStorage, VectorN, RowVectorN};
 
 // 2 so can be plotted in 2d
@@ -57,4 +60,32 @@ pub fn gravity(a: f32, b: f32, gravity_stretch: f32, max_influence: f32) -> f32 
 
 pub fn sigmoid(x: f32) -> f32 {
     1./(1.+E.powf(-x))
+}
+
+static NORMAL_SCALE: f32 = 0.8;
+pub fn normal_range(rng: &mut StdRng) -> f32 {
+    let mut val: f32 = rng.sample(StandardNormal);
+    val *= NORMAL_SCALE;
+    clamp(val, -1., 1.)
+}
+
+pub fn normal_range_mu(mu: f32, rng: &mut StdRng) -> f32 {
+    let mut val: f32 = rng.sample(StandardNormal);
+    val += mu;
+    val *= NORMAL_SCALE;
+    clamp(val, -1., 1.)
+}
+
+pub fn normal_p(rng: &mut StdRng) -> f32 {
+    let mut val = rng.sample(StandardNormal);
+    val = (val + 0.5) * 2.;
+    val *= NORMAL_SCALE;
+    clamp(val, 0., 1.)
+}
+
+pub fn normal_p_mu(mu: f32, rng: &mut StdRng) -> f32 {
+    let mut val = rng.sample(StandardNormal);
+    val += mu;
+    val *= NORMAL_SCALE;
+    clamp(val, 0., 1.)
 }
