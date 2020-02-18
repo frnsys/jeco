@@ -9,6 +9,11 @@ const CONFIG_SPEC = {
     type: 'int',
     desc: 'The number of publishers to create. Higher numbers will run slower but can provide better results.'
   },
+  'N_PLATFORMS': {
+    key: 'SIMULATION',
+    type: 'int',
+    desc: 'The number of platforms to create. Higher numbers will run slower but can provide better results.'
+  },
   'CONTACT_RATE': {
     key: 'SIMULATION',
     type: 'float',
