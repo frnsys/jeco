@@ -17,3 +17,7 @@ To implement a new policy option:
 ---
 
 Search for `ENH` comments for possible enhancements.
+
+---
+
+![](shot.png)
