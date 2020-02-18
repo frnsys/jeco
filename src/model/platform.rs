@@ -1,8 +1,3 @@
-// TODO
-// - how users sign up
-// - how users follow/unfollow new users
-// - consuming on a platform generates data
-
 use fnv::FnvHashMap;
 use super::agent::{Agent, AgentId};
 use petgraph::stable_graph::{NodeIndex, EdgeIndex, StableGraph};
@@ -70,5 +65,9 @@ impl Platform {
             .neighbors_directed(idx, Outgoing)
             .filter_map(|idx| self.graph.node_weight(idx))
             .collect()
+    }
+
+    pub fn n_users(&self) -> usize {
+        self.graph.node_count()
     }
 }

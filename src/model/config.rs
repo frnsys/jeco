@@ -33,6 +33,10 @@ pub struct SimulationConfig {
     // per content consumption
     pub data_per_consume: f32,
 
+    // Max number of Platforms
+    // an Agent signs up for
+    pub max_platforms: usize,
+
     // See below
     pub publisher: PublisherConfig
 }

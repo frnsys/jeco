@@ -130,10 +130,6 @@ impl Simulation {
         let mut platforms: FnvHashMap<PlatformId, usize> = FnvHashMap::default();
         let mut all_data: FnvHashMap<PlatformId, f32> = FnvHashMap::default();
         for a in &self.agents {
-            for p in &self.platforms {
-                platforms.insert(p.id, 0);
-            }
-
             // Agent encounters shared content
             let following = self.network.following_ids(&a).clone();
 
@@ -175,27 +171,50 @@ impl Simulation {
             // Avoid ordering bias
             shared.shuffle(&mut rng);
 
-            // See what platforms friends are on
-            following.iter()
-                .flat_map(|a_id| &self.agents[**a_id].platforms)
-                .fold(&mut platforms, |acc, p_id| {
-                    // Only consider platforms the agent
-                    // isn't already signed up to
-                    if !a.platforms.contains(p_id) {
-                        *(acc.entry(*p_id).or_insert(0)) += 1;
-                    }
-                    acc
-                });
+            // Only consider signing up to new platforms
+            // if Agent is not platform-saturated
+            if a.platforms.len() < conf.max_platforms {
+                for p in &self.platforms {
+                    platforms.insert(p.id, 0);
+                }
 
-            // Get platform with most friends
-            match platforms.iter().max_by_key(|&(_, v)| v) {
-                Some((p_id, count)) => {
-                    let roll: f32 = rng.gen();
-                    if roll < (conf.base_signup_rate + (*count as f32)/(following.len() as f32)) {
-                        signups.insert(a.id, *p_id);
+                // See what platforms friends are on
+                following.iter()
+                    .flat_map(|a_id| &self.agents[**a_id].platforms)
+                    .fold(&mut platforms, |acc, p_id| {
+                        // Only consider platforms the agent
+                        // isn't already signed up to
+                        if !a.platforms.contains(p_id) {
+                            *(acc.entry(*p_id).or_insert(0)) += 1;
+                        }
+                        acc
+                    });
+
+                // Get platform with most friends
+                // If no friends, choose a random one
+                if platforms.values().all(|v| *v == 0) {
+                    let p_ids: Vec<&PlatformId> = platforms.keys().collect();
+                    let p_id = p_ids.choose(&mut rng);
+                    match p_id {
+                        Some(p_id) => {
+                            let roll: f32 = rng.gen();
+                            if roll < conf.base_signup_rate {
+                                signups.insert(a.id, **p_id);
+                            }
+                        },
+                        None => {}
                     }
-                },
-                None => {}
+                } else {
+                    match platforms.iter().max_by_key(|&(_, v)| v) {
+                        Some((p_id, count)) => {
+                            let roll: f32 = rng.gen();
+                            if roll < (conf.base_signup_rate + (*count as f32)/(following.len() as f32)) {
+                                signups.insert(a.id, *p_id);
+                            }
+                        },
+                        None => {}
+                    }
+                }
             }
 
             let (will_share, (new_subs, unsubs), (follows, unfollows), data) = a.consume(shared, &self.network, &conf, &mut rng);
@@ -280,15 +299,17 @@ impl Simulation {
         // Sign up agents and follow friends
         // ENH: Maybe not all friends should be followed
         for (a_id, p_id) in signups {
-            self.platforms[p_id].signup(&self.agents[a_id]);
-            self.agents[a_id].platforms.insert(p_id);
-            for b_id in self.network.following_ids(&self.agents[a_id]) {
-                let platform = &mut self.platforms[p_id];
-                if platform.is_signed_up(b_id) {
-                    let trust_a = self.network.trust(&a_id, b_id);
-                    let trust_b = self.network.trust(b_id, &a_id);
-                    platform.follow(&a_id, b_id, trust_a); // TODO what should this weight be?
-                    platform.follow(b_id, &a_id, trust_b); // TODO what should this weight be?
+            if !self.platforms[p_id].is_signed_up(&a_id) {
+                self.platforms[p_id].signup(&self.agents[a_id]);
+                self.agents[a_id].platforms.insert(p_id);
+                for b_id in self.network.following_ids(&self.agents[a_id]) {
+                    let platform = &mut self.platforms[p_id];
+                    if platform.is_signed_up(b_id) {
+                        let trust_a = self.network.trust(&a_id, b_id);
+                        let trust_b = self.network.trust(b_id, &a_id);
+                        platform.follow(&a_id, b_id, trust_a); // TODO what should this weight be?
+                        platform.follow(b_id, &a_id, trust_b); // TODO what should this weight be?
+                    }
                 }
             }
         }

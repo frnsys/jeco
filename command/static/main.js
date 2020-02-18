@@ -1,3 +1,6 @@
+const AGENT_SAMPLE = 15;
+const PLATFORM_SAMPLE = 10;
+
 const CHARTS = [{
   title: 'Shares per Content',
   datasets: [{
@@ -100,10 +103,20 @@ const CHARTS = [{
     label: 'mean',
     key: 'publishability.mean'
   }]
-
+}, {
+  title: 'Platform Users',
+  datasets: [...Array(PLATFORM_SAMPLE).keys()].map((i) => ({
+    label: `${i}`,
+    key: `platforms.${i}.users`
+  }))
+}, {
+  title: 'Platform Data',
+  datasets: [...Array(PLATFORM_SAMPLE).keys()].map((i) => ({
+    label: `${i}`,
+    key: `platforms.${i}.data`
+  }))
 }];
 
-const AGENT_SAMPLE = 15;
 const SCATTERS = [{
   title: 'Agent Values',
   key: 'agents',

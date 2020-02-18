@@ -44,6 +44,11 @@ const CONFIG_SPEC = {
     type: 'float',
     desc: 'How much data is generated for a platform when a piece of content is consumed there.',
   },
+  'MAX_PLATFORMS': {
+    key: 'SIMULATION',
+    type: 'int',
+    desc: 'Max platforms an agent signs up for.',
+  },
   'BASE_BUDGET': {
     key: 'SIMULATION.PUBLISHER',
     type: 'float',
