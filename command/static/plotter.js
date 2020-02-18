@@ -31,6 +31,15 @@ class Plotter {
         }))
       },
       options: {
+        tooltips: {
+          callbacks: {
+            label: (item, data) => {
+              let label = data.datasets[item.datasetIndex].label || '';
+              label = `${label}: ${Math.round(item.yLabel * 100) / 100}`;
+              return label;
+            }
+          }
+        },
         animation: {
           duration: 0
         },
