@@ -221,7 +221,7 @@ impl Agent {
                     trust
                 },
                 (SharerType::Publisher, id) => {
-                    publishers[&id]
+                    publishers[&id]/c.ads
                 }
             };
             values.zip_apply(&c.body.values, |v, v_| {
