@@ -109,7 +109,7 @@ header {
 #charts {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fit, 33%);
+  grid-template-columns: repeat(auto-fit, 32%);
   grid-template-rows:auto 1fr;
   grid-gap: 0;
   height: 100vh;

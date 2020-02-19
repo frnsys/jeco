@@ -102,7 +102,8 @@ impl Simulation {
                             let content = Rc::new(Content {
                                 publisher: None,
                                 author: a.id,
-                                body: body
+                                body: body,
+                                ads: 100. // TODO
                             });
                             to_share.push(SharedContent {
                                 content: content.clone(),
@@ -129,6 +130,7 @@ impl Simulation {
         let mut signups: FnvHashMap<AgentId, PlatformId> = FnvHashMap::default();
         let mut platforms: FnvHashMap<PlatformId, usize> = FnvHashMap::default();
         let mut all_data: FnvHashMap<PlatformId, f32> = FnvHashMap::default();
+        let mut all_revenue: FnvHashMap<(SharerType, usize), f32> = FnvHashMap::default();
         for a in &self.agents {
             // Agent encounters shared content
             let following = self.network.following_ids(&a).clone();
@@ -217,7 +219,7 @@ impl Simulation {
                 }
             }
 
-            let (will_share, (new_subs, unsubs), (follows, unfollows), data) = a.consume(shared, &self.network, &conf, &mut rng);
+            let (will_share, (new_subs, unsubs), (follows, unfollows), data, revenue) = a.consume(shared, &self.network, &conf, &mut rng);
             let shareable = will_share.iter().map(|content| {
                 SharedContent {
                     sharer: (SharerType::Agent, a.id),
@@ -237,6 +239,12 @@ impl Simulation {
             for (p_id, d) in data {
                 let d_ = all_data.entry(p_id).or_insert(0.);
                 *d_ += d;
+            }
+
+            // Aggregate ad revenue
+            for (tid, r) in revenue {
+                let r_ = all_revenue.entry(tid).or_insert(0.);
+                *r_ += r;
             }
 
             new_to_share.insert(a.id, shareable);
@@ -289,6 +297,19 @@ impl Simulation {
             // ENH: Publisher pushes content
             // for multiple steps?
             p.outbox.clear();
+        }
+
+        // Distribute ad revenue
+        for ((typ, id), r) in all_revenue {
+            match typ {
+                SharerType::Publisher => {
+                    self.publishers[id].budget += r;
+                    self.publishers[id].learn(r, conf.publisher.change_rate);
+                },
+                SharerType::Agent => {
+                    self.agents[id].resources += r;
+                }
+            }
         }
 
         // Add data to platforms

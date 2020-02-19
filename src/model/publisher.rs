@@ -12,7 +12,7 @@ use rand::rngs::StdRng;
 use itertools::Itertools;
 use super::agent::Agent;
 use super::content::{Content, ContentBody, SharedContent, SharerType};
-use super::util::{Vector, Sample, SampleRow, ewma, bayes_update, z_score, sigmoid};
+use super::util::{Vector, Params, Sample, SampleRow, ewma, bayes_update, z_score, sigmoid, learn_steps};
 use super::config::PublisherConfig;
 
 pub type PublisherId = usize;
@@ -38,7 +38,15 @@ pub struct Publisher {
     // The content quality the Publisher
     // aims for. Could be replaced with something
     // more sophisticated.
-    quality: f32,
+    pub quality: f32,
+
+    // How many ads the Publisher uses
+    pub ads: f32,
+
+    // Params for estimating quality/ads mix
+    theta: Params,
+    observations: Vec<f32>,
+    outcomes: Vec<f32>,
 
     // A Publisher's "reach" is the mean shared
     // count of its content per step
@@ -77,7 +85,13 @@ impl Publisher {
             budget: conf.base_budget,
             revenue_per_subscriber: conf.revenue_per_subscriber,
             reach: 0.,
-            quality: rng.gen(),
+
+            ads: rng.gen::<f32>() * 10.,
+            quality: rng.gen::<f32>() * 10.,
+            theta: Params::new(rng.gen(), rng.gen()),
+            observations: Vec::new(),
+            outcomes: Vec::new(),
+
             outbox: Vec::new(),
             content: Vec::new(),
             subscribers: 0,
@@ -109,6 +123,7 @@ impl Publisher {
                 publisher: Some(self.id),
                 body: *body,
                 author: author.id,
+                ads: self.ads
             });
             self.content.push(content.clone());
             self.outbox.push(SharedContent {
@@ -167,5 +182,19 @@ impl Publisher {
             let mean_shares = shares.iter().fold(0, |acc, v| acc + v) as f32 / shares.len() as f32;
             self.reach = ewma(mean_shares, self.reach);
         }
+    }
+
+    pub fn learn(&mut self, revenue: f32, change_rate: f32) {
+        // Assume reach has been updated
+        self.outcomes.push(revenue * self.reach); // TODO more balanced mixture of the two?
+
+        self.observations.push(self.quality);
+        self.observations.push(self.ads);
+
+        // TODO don't necessarily need to learn _every_ step.
+        self.theta = learn_steps(&self.observations, &self.outcomes, self.theta);
+        let steps: Vec<f32> = self.theta.into_iter().cloned().collect();
+        self.quality += change_rate * steps[0];
+        self.ads += change_rate * steps[1];
     }
 }

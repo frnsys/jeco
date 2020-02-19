@@ -113,7 +113,7 @@ impl Agent {
         network: &Network,
         conf: &SimulationConfig,
         rng: &mut StdRng,
-    ) -> (Vec<Rc<Content>>, (Vec<PublisherId>, Vec<PublisherId>), (FnvHashSet<AgentId>, FnvHashSet<AgentId>), FnvHashMap<PlatformId, f32>) {
+    ) -> (Vec<Rc<Content>>, (Vec<PublisherId>, Vec<PublisherId>), (FnvHashSet<AgentId>, FnvHashSet<AgentId>), FnvHashMap<PlatformId, f32>, FnvHashMap<(SharerType, usize), f32>) {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
         let mut values = self.values.get();
@@ -127,6 +127,9 @@ impl Agent {
 
         // Data generated for platforms
         let mut data = FnvHashMap::default();
+
+        // Ad revenue generated for publishers or agents
+        let mut revenue = FnvHashMap::default();
 
         // ENH: Can make sure agents don't consume
         // content they've already consumed
@@ -156,12 +159,21 @@ impl Agent {
             }
 
             // Update publisher feeling/reputation
+            // and collect ad revenue
             match c.publisher {
                 Some(p_id) => {
                     let v = publishers.entry(p_id).or_insert(0.5);
                     *v = util::ewma(affinity, *v);
+
+                    if c.ads > 0. {
+                        revenue.insert((SharerType::Publisher, p_id), c.ads * conf.revenue_per_ad);
+                    }
                 },
-                None => {}
+                None => {
+                    if c.ads > 0. {
+                        revenue.insert((SharerType::Agent, c.author), c.ads * conf.revenue_per_ad);
+                    }
+                }
             }
 
             // Influence on Agent's values
@@ -209,7 +221,7 @@ impl Agent {
                     trust
                 },
                 (SharerType::Publisher, id) => {
-                    publishers[&id]
+                    publishers[&id]/c.ads
                 }
             };
             values.zip_apply(&c.body.values, |v, v_| {
@@ -245,7 +257,7 @@ impl Agent {
             }
         }
 
-        (to_share, (new_subs, unsubs), (follows, unfollows), data)
+        (to_share, (new_subs, unsubs), (follows, unfollows), data, revenue)
     }
 
     pub fn similarity(&self, other: &Agent) -> f32 {

@@ -70,9 +70,8 @@ impl Recorder {
             })
             .collect();
 
-        let publishers: Vec<&Publisher> = self.publishers.iter().map(|id| &sim.publishers[*id]).collect();
-        let p_sample: Vec<Value> = publishers
-            .iter()
+        let p_sample: Vec<Value> = self.publishers.iter()
+            .map(|id| &sim.publishers[*id])
             .map(|p| {
                 json!({
                     "id": p.id,
@@ -81,6 +80,16 @@ impl Recorder {
                 })
             })
             .collect();
+
+        let publishers = sim.publishers.iter().fold(FnvHashMap::default(), |mut acc, p| {
+            acc.insert(p.id, json!({
+                "reach": p.reach,
+                "budget": p.budget,
+                "ads": p.ads,
+                "quality": p.quality,
+            }));
+            acc
+        });
 
         let platforms = sim.platforms.iter().fold(FnvHashMap::default(), |mut acc, p| {
             acc.insert(p.id, json!({
@@ -118,9 +127,12 @@ impl Recorder {
 
         let n_subscribers: Vec<usize> = sim.publishers.iter().map(|p| p.subscribers).collect();
         let n_published: Vec<usize> = sim.publishers.iter().map(|p| p.n_last_published).collect();
+        let quality: Vec<f32> = sim.publishers.iter().map(|p| p.quality).collect();
+        let ads: Vec<f32> = sim.publishers.iter().map(|p| p.ads).collect();
         let reach: Vec<f32> = sim.publishers.iter().map(|p| p.reach).collect();
         let budget: Vec<f32> = sim.publishers.iter().map(|p| p.budget).collect();
         let publishability: Vec<f32> = agents.iter().map(|a| a.publishability).collect();
+        let resources: Vec<f32> = agents.iter().map(|a| a.resources).collect();
 
         let value = json!({
             "step": step,
@@ -161,13 +173,29 @@ impl Recorder {
                 "min": min_f32(&budget),
                 "mean": mean_f32(&budget),
             },
+            "quality": {
+                "max": max_f32(&quality),
+                "min": min_f32(&quality),
+                "mean": mean_f32(&quality),
+            },
+            "ads": {
+                "max": max_f32(&ads),
+                "min": min_f32(&ads),
+                "mean": mean_f32(&ads),
+            },
             "publishability": {
                 "max": max_f32(&publishability),
                 "min": min_f32(&publishability),
                 "mean": mean_f32(&publishability),
             },
+            "resources": {
+                "max": max_f32(&resources),
+                "min": min_f32(&resources),
+                "mean": mean_f32(&resources),
+            },
             "agents": a_sample,
-            "publishers": p_sample,
+            "publishers_audience": p_sample,
+            "publishers": publishers,
             "platforms": platforms,
             "p_produced": n_produced as f32/sim.agents.len() as f32,
             "to_share": sim.n_will_share(),

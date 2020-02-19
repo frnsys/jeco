@@ -37,6 +37,9 @@ pub struct SimulationConfig {
     // an Agent signs up for
     pub max_platforms: usize,
 
+    // Revenue generated per ad view
+    pub revenue_per_ad: f32,
+
     // See below
     pub publisher: PublisherConfig
 }
@@ -50,4 +53,8 @@ pub struct PublisherConfig {
 
     // Base budget for Publishers
     pub base_budget: f32,
+
+    // How quickly Publishers adjust to
+    // learnings re ads/quality
+    pub change_rate: f32,
 }

@@ -54,6 +54,11 @@ const CONFIG_SPEC = {
     type: 'int',
     desc: 'Max platforms an agent signs up for.',
   },
+  'REVENUE_PER_AD': {
+    key: 'SIMULATION',
+    type: 'f32',
+    desc: 'Revenue per ad view.',
+  },
   'BASE_BUDGET': {
     key: 'SIMULATION.PUBLISHER',
     type: 'float',
@@ -63,6 +68,11 @@ const CONFIG_SPEC = {
     key: 'SIMULATION.PUBLISHER',
     type: 'float',
     desc: 'How much each subscriber adds to the publisher\'s budget.',
+  },
+  'CHANGE_RATE': {
+    key: 'SIMULATION.PUBLISHER',
+    type: 'float',
+    desc: 'How quickly publishers make ad/quality changes.'
   },
   'SEED': {
     key: null,
