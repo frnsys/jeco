@@ -53,4 +53,8 @@ pub struct PublisherConfig {
 
     // Base budget for Publishers
     pub base_budget: f32,
+
+    // How quickly Publishers adjust to
+    // learnings re ads/quality
+    pub change_rate: f32,
 }

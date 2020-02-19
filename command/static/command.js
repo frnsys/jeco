@@ -69,6 +69,11 @@ const CONFIG_SPEC = {
     type: 'float',
     desc: 'How much each subscriber adds to the publisher\'s budget.',
   },
+  'CHANGE_RATE': {
+    key: 'SIMULATION.PUBLISHER',
+    type: 'float',
+    desc: 'How quickly publishers make ad/quality changes.'
+  },
   'SEED': {
     key: null,
     type: 'int',

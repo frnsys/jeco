@@ -184,7 +184,7 @@ impl Publisher {
         }
     }
 
-    pub fn learn(&mut self, revenue: f32) {
+    pub fn learn(&mut self, revenue: f32, change_rate: f32) {
         // Assume reach has been updated
         self.outcomes.push(revenue * self.reach); // TODO more balanced mixture of the two?
 
@@ -194,7 +194,7 @@ impl Publisher {
         // TODO don't necessarily need to learn _every_ step.
         self.theta = learn_steps(&self.observations, &self.outcomes, self.theta);
         let steps: Vec<f32> = self.theta.into_iter().cloned().collect();
-        self.quality += 0.05 * steps[0]; // TODO parameterize alpha?
-        self.ads += 0.05 * steps[1];
+        self.quality += change_rate * steps[0];
+        self.ads += change_rate * steps[1];
     }
 }
