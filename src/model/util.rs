@@ -119,7 +119,7 @@ pub fn gradient_descent(
 
 pub fn learn_steps(observations: &Vec<f32>, outcomes: &Vec<f32>, theta: Params) -> Params {
     let iterations = 100;
-    let alpha = 0.05;
+    let alpha = 0.0001; // needs to be quite small to avoid blowups
 
     let x: X = X::from_row_slice(observations);
     let y: Y = Y::from_row_slice(outcomes);

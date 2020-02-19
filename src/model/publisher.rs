@@ -38,10 +38,10 @@ pub struct Publisher {
     // The content quality the Publisher
     // aims for. Could be replaced with something
     // more sophisticated.
-    quality: f32,
+    pub quality: f32,
 
     // How many ads the Publisher uses
-    ads: f32,
+    pub ads: f32,
 
     // Params for estimating quality/ads mix
     theta: Params,
@@ -86,8 +86,8 @@ impl Publisher {
             revenue_per_subscriber: conf.revenue_per_subscriber,
             reach: 0.,
 
-            ads: rng.gen::<f32>() * 100.,
-            quality: rng.gen(),
+            ads: rng.gen::<f32>() * 10.,
+            quality: rng.gen::<f32>() * 10.,
             theta: Params::new(rng.gen(), rng.gen()),
             observations: Vec::new(),
             outcomes: Vec::new(),

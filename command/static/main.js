@@ -1,5 +1,6 @@
 const AGENT_SAMPLE = 15;
 const PLATFORM_SAMPLE = 10;
+const PUBLISHER_SAMPLE = 10;
 
 const CHARTS = [{
   title: 'Shares per Content',
@@ -116,6 +117,30 @@ const CHARTS = [{
     key: 'resources.mean'
   }]
 }, {
+  title: 'Publisher Reach',
+  datasets: [...Array(PUBLISHER_SAMPLE).keys()].map((i) => ({
+    label: `${i}`,
+    key: `publishers.${i}.reach`
+  }))
+}, {
+  title: 'Publisher Budget',
+  datasets: [...Array(PUBLISHER_SAMPLE).keys()].map((i) => ({
+    label: `${i}`,
+    key: `publishers.${i}.budget`
+  }))
+}, {
+  title: 'Publisher Ads',
+  datasets: [...Array(PUBLISHER_SAMPLE).keys()].map((i) => ({
+    label: `${i}`,
+    key: `publishers.${i}.ads`
+  }))
+}, {
+  title: 'Publisher Quality',
+  datasets: [...Array(PUBLISHER_SAMPLE).keys()].map((i) => ({
+    label: `${i}`,
+    key: `publishers.${i}.quality`
+  }))
+}, {
   title: 'Platform Users',
   datasets: [...Array(PLATFORM_SAMPLE).keys()].map((i) => ({
     label: `${i}`,
@@ -147,7 +172,7 @@ const SCATTERS = [{
   }))
 }, {
   title: 'Publisher Audience Understanding',
-  key: 'publishers',
+  key: 'publishers_audience',
   itemKey: 'values',
   panel: true,
   datasets: [...Array(10).keys()].map((i) => ({
