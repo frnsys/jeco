@@ -304,6 +304,7 @@ impl Simulation {
             match typ {
                 SharerType::Publisher => {
                     self.publishers[id].budget += r;
+                    self.publishers[id].learn(r);
                 },
                 SharerType::Agent => {
                     self.agents[id].resources += r;

@@ -2,7 +2,7 @@ use rand::Rng;
 use rand::rngs::StdRng;
 use std::f32::consts::E;
 use rand_distr::StandardNormal;
-use nalgebra::{Matrix, Dynamic, U2, VecStorage, VectorN, RowVectorN};
+use nalgebra::{Matrix, Dynamic, U1, U2, VecStorage, ArrayStorage, Vector2, VectorN, RowVectorN};
 
 // 2 so can be plotted in 2d
 pub static VECTOR_SIZE: u32 = 2;
@@ -88,4 +88,40 @@ pub fn normal_p_mu(mu: f32, rng: &mut StdRng) -> f32 {
     val += mu;
     val *= NORMAL_SCALE;
     clamp(val, 0., 1.)
+}
+
+
+type X = Matrix<f32, Dynamic, U2, VecStorage<f32, Dynamic, U2>> ;
+type Y = Matrix<f32, Dynamic, U1, VecStorage<f32, Dynamic, U1>> ;
+pub type Params = Vector2<f32>;
+pub fn gradient_descent(
+    x: &X,
+    y: &Y,
+    mut theta: Matrix<f32, U2, U1, ArrayStorage<f32, U2, U1>>,
+    alpha: f32,
+    iterations: i32,
+) -> Matrix<f32, U2, U1, ArrayStorage<f32, U2, U1>> {
+    let m = y.len();
+    let scalar = 1.0 / m as f32;
+    // Vectorized gradient calculation
+    let mut prod;
+    let mut grad;
+    let mut update;
+    for _i in 0..iterations {
+        prod = x * theta;
+        grad = scalar * (x.transpose() * (prod - y));
+        update = alpha * grad;
+        theta -= update;
+    }
+
+    theta
+}
+
+pub fn learn_steps(observations: &Vec<f32>, outcomes: &Vec<f32>, theta: Params) -> Params {
+    let iterations = 100;
+    let alpha = 0.05;
+
+    let x: X = X::from_row_slice(observations);
+    let y: Y = Y::from_row_slice(outcomes);
+    gradient_descent(&x, &y, theta, alpha, iterations)
 }
