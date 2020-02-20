@@ -43,6 +43,26 @@ pub struct Agent {
     // EWMA of trust
     // TODO would like to not use a RefCell if possible
     pub trust: RefCell<FnvHashMap<AgentId, f32>>,
+
+    // An Agent's "reach" is the mean shared
+    // count of their content per step
+    pub reach: f32,
+
+    // The content quality the Agent
+    // aims for. Could be replaced with something
+    // more sophisticated.
+    pub quality: f32,
+
+    // How many ads the Agent uses
+    pub ads: f32,
+
+    // Track most recent content
+    pub content: util::LimitedQueue<Rc<Content>>,
+
+    // Params for estimating quality/ads mix
+    theta: util::Params,
+    observations: Vec<f32>,
+    outcomes: Vec<f32>,
 }
 
 
@@ -70,6 +90,9 @@ impl Agent {
             id: id,
             interests: random_topics(&mut rng),
             values: Cell::new(random_values(&mut rng)),
+            reach: 100.,
+            ads: rng.gen::<f32>() * 10.,
+            quality: rng.gen::<f32>(),
             attention: 100.0, // TODO
             resources: resources,
             publishability: 1.,
@@ -77,18 +100,25 @@ impl Agent {
             publishers: RefCell::new(FnvHashMap::default()),
             subscriptions: RefCell::new(FnvHashSet::default()),
             trust: RefCell::new(FnvHashMap::default()),
-            platforms: FnvHashSet::default()
+            platforms: FnvHashSet::default(),
+            content: util::LimitedQueue::new(10),
+            theta: util::Params::new(rng.gen(), rng.gen()),
+            observations: Vec::new(),
+            outcomes: Vec::new(),
         }
     }
 
     // Return content they create
-    pub fn produce(&self, rng: &mut StdRng) -> Option<ContentBody> {
-        // ENH: Take other factors into account for
-        // when an agent produces.
-        let p_produce = self.resources;
+    pub fn produce(&mut self, rng: &mut StdRng) -> Option<ContentBody> {
+        if self.resources < self.quality { return None }
+
+        // Agent produces depending on expected reach
+        // and resources
+        let p_produce = (self.resources + self.reach)/2.;
         let roll: f32 = rng.gen();
 
         if roll < p_produce {
+            // Agent produces something around their own interests and values
             let topics = self.interests.map(|v| util::normal_p_mu(v, rng));
             let values = self.values.get().map(|v| util::normal_range_mu(v, rng));
 
@@ -96,8 +126,11 @@ impl Agent {
             // Attention cost ranges from 0-100
             let cost = util::normal_p(rng) * 100.;
 
+            self.resources -= self.quality;
+
             Some(ContentBody {
                 cost: cost,
+                quality: self.quality,
                 topics: topics,
                 values: values,
             })
@@ -150,7 +183,7 @@ impl Agent {
             // Take the abs value
             // So if something is very polar to the person's values,
             // they "hateshare" it
-            let reactivity = affinity * alignment.abs();
+            let reactivity = affinity * alignment.abs() * f32::max(c.body.quality, 1.);
 
             // Do they share it?
             let roll: f32 = rng.gen();
@@ -263,5 +296,35 @@ impl Agent {
     pub fn similarity(&self, other: &Agent) -> f32 {
         // TODO need to normalize?
         (self.interests.dot(&other.interests) + self.values.get().dot(&other.values.get())) / 2.
+    }
+
+    pub fn n_shares(&self) -> Vec<usize> {
+        // -1 to account for reference in self.content
+        // -1 to account for reference in Sim's self.content
+        self.content.iter().map(|c| Rc::strong_count(c) - 2).collect()
+    }
+
+    pub fn update_reach(&mut self) {
+        let shares = self.n_shares();
+        if shares.len() == 0 {
+            self.reach = 0.;
+        } else {
+            let mean_shares = shares.iter().fold(0, |acc, v| acc + v) as f32 / shares.len() as f32;
+            self.reach = util::ewma(mean_shares, self.reach);
+        }
+    }
+
+    pub fn learn(&mut self, revenue: f32, change_rate: f32) {
+        // Assume reach has been updated
+        self.outcomes.push(revenue * self.reach); // TODO more balanced mixture of the two?
+
+        self.observations.push(self.quality);
+        self.observations.push(self.ads);
+
+        // TODO don't necessarily need to learn _every_ step.
+        self.theta = util::learn_steps(&self.observations, &self.outcomes, self.theta);
+        let steps: Vec<f32> = self.theta.into_iter().cloned().collect();
+        self.quality += change_rate * steps[0];
+        self.ads += change_rate * steps[1];
     }
 }

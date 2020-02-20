@@ -3,6 +3,7 @@ use rand::rngs::StdRng;
 use std::f32::consts::E;
 use rand_distr::StandardNormal;
 use nalgebra::{Matrix, Dynamic, U1, U2, VecStorage, ArrayStorage, Vector2, VectorN, RowVectorN};
+use std::collections::VecDeque;
 
 // 2 so can be plotted in 2d
 pub static VECTOR_SIZE: u32 = 2;
@@ -124,4 +125,32 @@ pub fn learn_steps(observations: &Vec<f32>, outcomes: &Vec<f32>, theta: Params) 
     let x: X = X::from_row_slice(observations);
     let y: Y = Y::from_row_slice(outcomes);
     gradient_descent(&x, &y, theta, alpha, iterations)
+}
+
+#[derive(Debug)]
+pub struct LimitedQueue<T> {
+    _vec: VecDeque<T>,
+    capacity: usize,
+}
+
+impl<T> LimitedQueue<T> {
+    pub fn new(capacity: usize) -> LimitedQueue<T> {
+        LimitedQueue {
+            capacity: capacity,
+            _vec: VecDeque::with_capacity(capacity)
+        }
+    }
+
+    pub fn push(&mut self, val: T) {
+        self._vec.push_front(val);
+        self._vec.truncate(self.capacity);
+    }
+
+    pub fn iter(&self) -> std::collections::vec_deque::Iter<T> {
+        self._vec.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self._vec.len()
+    }
 }

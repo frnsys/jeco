@@ -103,14 +103,18 @@ impl Simulation {
                                 publisher: None,
                                 author: a.id,
                                 body: body,
-                                ads: 100. // TODO
+                                ads: a.ads,
                             });
                             to_share.push(SharedContent {
                                 content: content.clone(),
                                 sharer: (SharerType::Agent, a.id)
                             });
                             self.content.push(content.clone());
+                            a.content.push(content.clone());
                         }
+
+                        // Update reach
+                        a.update_reach();
                     },
                     None => {}
                 }
@@ -308,6 +312,7 @@ impl Simulation {
                 },
                 SharerType::Agent => {
                     self.agents[id].resources += r;
+                    self.agents[id].learn(r, conf.publisher.change_rate); // TODO remove from publisher conf?
                 }
             }
         }
@@ -342,8 +347,8 @@ impl Simulation {
 
     pub fn n_shares(&self) -> Vec<usize> {
         // -1 to account for reference in self.content
-        // Note that content from Publishers will have an extra +1
-        // because of their publisher.content reference.
+        // Note that content from Publishers and Agents will have an extra +1
+        // because of their publisher.content or agent.content reference.
         // But that should be negligible
         self.content.iter().map(|c| Rc::strong_count(c) - 1).collect()
     }

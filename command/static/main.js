@@ -45,52 +45,52 @@ const CHARTS = [{
     key: 'p_produced'
   }]
 }, {
-  title: 'Subscribers',
+  title: 'Subscribers (Publishers)',
   datasets: [{
     label: 'max',
-    key: 'subscribers.max'
+    key: 'publishers.stats.subscribers.max'
   }, {
     label: 'min',
-    key: 'subscribers.min'
+    key: 'publishers.stats.subscribers.min'
   }, {
     label: 'mean',
-    key: 'subscribers.mean'
+    key: 'publishers.stats.subscribers.mean'
   }]
 }, {
-  title: 'Reach',
+  title: 'Reach (Publishers)',
   datasets: [{
     label: 'max',
-    key: 'reach.max'
+    key: 'publishers.stats.reach.max'
   }, {
     label: 'min',
-    key: 'reach.min'
+    key: 'publishers.stats.reach.min'
   }, {
     label: 'mean',
-    key: 'reach.mean'
+    key: 'publishers.stats.reach.mean'
   }]
 }, {
-  title: 'Budget',
+  title: 'Budget (Publishers)',
   datasets: [{
     label: 'max',
-    key: 'budget.max'
+    key: 'publishers.stats.budget.max'
   }, {
     label: 'min',
-    key: 'budget.min'
+    key: 'publishers.stats.budget.min'
   }, {
     label: 'mean',
-    key: 'budget.mean'
+    key: 'publishers.stats.budget.mean'
   }]
 }, {
-  title: 'Published',
+  title: 'Published (Publishers)',
   datasets: [{
     label: 'max',
-    key: 'published.max'
+    key: 'publishers.stats.published.max'
   }, {
     label: 'min',
-    key: 'published.min'
+    key: 'publishers.stats.published.min'
   }, {
     label: 'mean',
-    key: 'published.mean'
+    key: 'publishers.stats.published.mean'
   }]
 }, {
   title: 'Publishability (sample)',
@@ -120,37 +120,37 @@ const CHARTS = [{
   title: 'Publisher Reach',
   datasets: [...Array(PUBLISHER_SAMPLE).keys()].map((i) => ({
     label: `${i}`,
-    key: `publishers.${i}.reach`
+    key: `publishers.sample.${i}.reach`
   }))
 }, {
   title: 'Publisher Budget',
   datasets: [...Array(PUBLISHER_SAMPLE).keys()].map((i) => ({
     label: `${i}`,
-    key: `publishers.${i}.budget`
+    key: `publishers.sample.${i}.budget`
   }))
 }, {
   title: 'Publisher Ads',
   datasets: [...Array(PUBLISHER_SAMPLE).keys()].map((i) => ({
     label: `${i}`,
-    key: `publishers.${i}.ads`
+    key: `publishers.sample.${i}.ads`
   }))
 }, {
   title: 'Publisher Quality',
   datasets: [...Array(PUBLISHER_SAMPLE).keys()].map((i) => ({
     label: `${i}`,
-    key: `publishers.${i}.quality`
+    key: `publishers.sample.${i}.quality`
   }))
 }, {
   title: 'Platform Users',
   datasets: [...Array(PLATFORM_SAMPLE).keys()].map((i) => ({
     label: `${i}`,
-    key: `platforms.${i}.users`
+    key: `platforms.sample.${i}.users`
   }))
 }, {
   title: 'Platform Data',
   datasets: [...Array(PLATFORM_SAMPLE).keys()].map((i) => ({
     label: `${i}`,
-    key: `platforms.${i}.data`
+    key: `platforms.sample.${i}.data`
   }))
 }];
 
@@ -172,7 +172,7 @@ const SCATTERS = [{
   }))
 }, {
   title: 'Publisher Audience Understanding',
-  key: 'publishers_audience',
+  key: 'publishers.audience',
   itemKey: 'values',
   panel: true,
   datasets: [...Array(10).keys()].map((i) => ({

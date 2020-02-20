@@ -88,7 +88,6 @@ class Plotter {
       });
       c.chart.data.datasets.forEach((dataset, i) => {
         let spec = c.datasets[i];
-        let keyPath = spec.key.split('.');
         states.forEach((s) => {
           let value = valueFromKeyPath(s, spec.key);
           dataset.data.push(value);
@@ -100,7 +99,8 @@ class Plotter {
     this.scatters.forEach((c) => {
       c.chart.data.datasets.forEach((dataset, i) => {
         states.forEach((s) => {
-          let pt = s[c.key][i][c.itemKey];
+          let value = valueFromKeyPath(s, c.key);
+          let pt = value[i][c.itemKey];
           dataset.data.push({x: pt[0], y: pt[1]});
         });
         if (c.panel) {

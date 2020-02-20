@@ -1,4 +1,4 @@
-use super::model::{Simulation, Agent, AgentId, Publisher, PublisherId, Values};
+use super::model::{Simulation, Agent, AgentId, PublisherId, Values};
 use super::config::Config;
 use chrono::{DateTime, Utc};
 use fnv::FnvHashMap;
@@ -153,36 +153,6 @@ impl Recorder {
                 "min": min_f32(&value_shifts),
                 "mean": mean_f32(&value_shifts),
             },
-            "subscribers": {
-                "max": n_subscribers.iter().max(),
-                "min": n_subscribers.iter().min(),
-                "mean": mean_usize(&n_subscribers),
-            },
-            "published": {
-                "max": n_published.iter().max(),
-                "min": n_published.iter().min(),
-                "mean": mean_usize(&n_published),
-            },
-            "reach": {
-                "max": max_f32(&reach),
-                "min": min_f32(&reach),
-                "mean": mean_f32(&reach),
-            },
-            "budget": {
-                "max": max_f32(&budget),
-                "min": min_f32(&budget),
-                "mean": mean_f32(&budget),
-            },
-            "quality": {
-                "max": max_f32(&quality),
-                "min": min_f32(&quality),
-                "mean": mean_f32(&quality),
-            },
-            "ads": {
-                "max": max_f32(&ads),
-                "min": min_f32(&ads),
-                "mean": mean_f32(&ads),
-            },
             "publishability": {
                 "max": max_f32(&publishability),
                 "min": min_f32(&publishability),
@@ -194,9 +164,45 @@ impl Recorder {
                 "mean": mean_f32(&resources),
             },
             "agents": a_sample,
-            "publishers_audience": p_sample,
-            "publishers": publishers,
-            "platforms": platforms,
+            "publishers": {
+                "audience": p_sample,
+                "sample": publishers,
+                "stats": {
+                    "budget": {
+                        "max": max_f32(&budget),
+                        "min": min_f32(&budget),
+                        "mean": mean_f32(&budget),
+                    },
+                    "quality": {
+                        "max": max_f32(&quality),
+                        "min": min_f32(&quality),
+                        "mean": mean_f32(&quality),
+                    },
+                    "ads": {
+                        "max": max_f32(&ads),
+                        "min": min_f32(&ads),
+                        "mean": mean_f32(&ads),
+                    },
+                    "subscribers": {
+                        "max": n_subscribers.iter().max(),
+                        "min": n_subscribers.iter().min(),
+                        "mean": mean_usize(&n_subscribers),
+                    },
+                    "published": {
+                        "max": n_published.iter().max(),
+                        "min": n_published.iter().min(),
+                        "mean": mean_usize(&n_published),
+                    },
+                    "reach": {
+                        "max": max_f32(&reach),
+                        "min": min_f32(&reach),
+                        "mean": mean_f32(&reach),
+                    },
+                }
+            },
+            "platforms": {
+                "sample": platforms
+            },
             "p_produced": n_produced as f32/sim.agents.len() as f32,
             "to_share": sim.n_will_share(),
             "top_content": content

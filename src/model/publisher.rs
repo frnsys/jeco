@@ -12,7 +12,7 @@ use rand::rngs::StdRng;
 use itertools::Itertools;
 use super::agent::Agent;
 use super::content::{Content, ContentBody, SharedContent, SharerType};
-use super::util::{Vector, Params, Sample, SampleRow, ewma, bayes_update, z_score, sigmoid, learn_steps};
+use super::util::{Vector, Params, Sample, SampleRow, ewma, bayes_update, z_score, sigmoid, learn_steps, LimitedQueue};
 use super::config::PublisherConfig;
 
 pub type PublisherId = usize;
@@ -66,7 +66,7 @@ pub struct Publisher {
 
     // Archive of content the Publisher
     // has published
-    pub content: Vec<Rc<Content>>,
+    pub content: LimitedQueue<Rc<Content>>,
 
     // Publisher tries to guess
     // the distribution of their
@@ -87,13 +87,13 @@ impl Publisher {
             reach: 0.,
 
             ads: rng.gen::<f32>() * 10.,
-            quality: rng.gen::<f32>() * 10.,
+            quality: rng.gen::<f32>(),
             theta: Params::new(rng.gen(), rng.gen()),
             observations: Vec::new(),
             outcomes: Vec::new(),
 
             outbox: Vec::new(),
-            content: Vec::new(),
+            content: LimitedQueue::new(50),
             subscribers: 0,
             n_last_published: 0,
 
@@ -119,9 +119,12 @@ impl Publisher {
         let roll: f32 = rng.gen();
         let accepted = roll < p_accept;
         if accepted {
+            // Publisher improves the quality
+            let mut body_ = body.clone();
+            body_.quality += self.quality;
             let content = Rc::new(Content {
                 publisher: Some(self.id),
-                body: *body,
+                body: body_,
                 author: author.id,
                 ads: self.ads
             });
