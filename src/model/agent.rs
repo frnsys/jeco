@@ -238,7 +238,7 @@ impl Agent {
                         // if they're already following or not.
                         if trust < conf.unfollow_trust {
                             unfollows.insert(id);
-                        } else if trust > 0.9 {
+                        } else if trust > conf.follow_trust {
                             follows.insert(id);
                         }
                     }
