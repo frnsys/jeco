@@ -222,8 +222,7 @@ impl Agent {
                         // If platform is not None,
                         // we are already following the sharer.
                         // Decide to unfollow or not.
-                        // TODO parameterize this
-                        if *trust < 0.1 {
+                        if *trust < conf.unfollow_trust {
                             unfollows.insert(id);
                         }
                         old_trust
@@ -237,8 +236,7 @@ impl Agent {
 
                         // For the author, we don't know
                         // if they're already following or not.
-                        // TODO parameterize this
-                        if trust < 0.1 {
+                        if trust < conf.unfollow_trust {
                             unfollows.insert(id);
                         } else if trust > 0.9 {
                             follows.insert(id);

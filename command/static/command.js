@@ -29,6 +29,11 @@ const CONFIG_SPEC = {
     type: 'float',
     desc: 'Horizontal stretching of gravity function. Higher values mean weaker influence at greater distances.'
   },
+  'UNFOLLOW_TRUST': {
+    key: 'SIMULATION',
+    type: 'float',
+    desc: 'If agent A\'s trust of agent B falls below this value, A unfollows B.'
+  },
   'SUBSCRIPTION_PROB_WEIGHT': {
     key: 'SIMULATION',
     type: 'float',

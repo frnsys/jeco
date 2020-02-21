@@ -44,6 +44,10 @@ pub struct SimulationConfig {
     // learnings re ads/quality
     pub change_rate: f32,
 
+    // If trust drops below this threshold,
+    // unfollow that Agent
+    pub unfollow_trust: f32,
+
     // See below
     pub publisher: PublisherConfig,
 }
