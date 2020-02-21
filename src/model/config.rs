@@ -40,8 +40,12 @@ pub struct SimulationConfig {
     // Revenue generated per ad view
     pub revenue_per_ad: f32,
 
+    // How quickly Publishers and Agents adjust to
+    // learnings re ads/quality
+    pub change_rate: f32,
+
     // See below
-    pub publisher: PublisherConfig
+    pub publisher: PublisherConfig,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
@@ -53,8 +57,4 @@ pub struct PublisherConfig {
 
     // Base budget for Publishers
     pub base_budget: f32,
-
-    // How quickly Publishers adjust to
-    // learnings re ads/quality
-    pub change_rate: f32,
 }

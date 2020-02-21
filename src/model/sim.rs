@@ -308,11 +308,11 @@ impl Simulation {
             match typ {
                 SharerType::Publisher => {
                     self.publishers[id].budget += r;
-                    self.publishers[id].learn(r, conf.publisher.change_rate);
+                    self.publishers[id].learn(r, conf.change_rate);
                 },
                 SharerType::Agent => {
                     self.agents[id].resources += r;
-                    self.agents[id].learn(r, conf.publisher.change_rate); // TODO remove from publisher conf?
+                    self.agents[id].learn(r, conf.change_rate);
                 }
             }
         }
