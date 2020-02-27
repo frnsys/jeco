@@ -170,6 +170,17 @@ impl Agent {
         // content they've already consumed
         for (platform, sc) in content {
             let c = &sc.content;
+
+            // Don't read own Content
+            if c.author == self.id {
+                continue;
+            }
+
+            // Requires too much attention
+            if attention < c.body.cost {
+                continue;
+            }
+
             let affinity = self.interests.dot(&c.body.topics);
             let alignment = (values.dot(&c.body.values) - 0.5) * 2.;
 
