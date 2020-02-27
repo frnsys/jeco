@@ -20,10 +20,6 @@ pub struct SimulationConfig {
     // Maximum movement amount
     pub max_influence: f32,
 
-    // Multiplier for subscription probabilities
-    // to dampen subscription rates
-    pub subscription_prob_weight: f32,
-
     // How much content a Publisher
     // surveys to understand their audience
     pub content_sample_size: usize,
@@ -51,6 +47,16 @@ pub struct SimulationConfig {
     // unfollow/follow that Agent
     pub unfollow_trust: f32,
     pub follow_trust: f32,
+
+    // If trust goes below/above this threshold,
+    // unsubscribe/subscribe from that Publisher
+    pub unsubscribe_trust: f32,
+    pub subscribe_trust: f32,
+
+    // Agents unsubscribe from Publishers
+    // if they don't see Content from them for
+    // this many steps
+    pub unsubscribe_lag: usize,
 
     // See below
     pub publisher: PublisherConfig,

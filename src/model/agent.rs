@@ -37,8 +37,9 @@ pub struct Agent {
     pub publishabilities: FnvHashMap<PublisherId, f32>,
 
     // Track trust/feelings towards Publishers
+    // and steps since last seeing content from them
     // TODO would like to not use a RefCell if possible
-    pub publishers: RefCell<FnvHashMap<PublisherId, f32>>,
+    pub publishers: RefCell<FnvHashMap<PublisherId, (f32, usize)>>,
 
     // EWMA of trust
     // TODO would like to not use a RefCell if possible
@@ -157,6 +158,7 @@ impl Agent {
         let mut unsubs = Vec::new();
         let mut unfollows = FnvHashSet::default();
         let mut follows = FnvHashSet::default();
+        let mut seen_publishers = FnvHashSet::default();
 
         // Data generated for platforms
         let mut data = FnvHashMap::default();
@@ -195,8 +197,10 @@ impl Agent {
             // and collect ad revenue
             match c.publisher {
                 Some(p_id) => {
-                    let v = publishers.entry(p_id).or_insert(0.5);
+                    let (v, _) = publishers.entry(p_id).or_insert((0.5, 0));
                     *v = util::ewma(affinity, *v);
+
+                    seen_publishers.insert(p_id);
 
                     if c.ads > 0. {
                         revenue.insert((SharerType::Publisher, p_id), c.ads * conf.revenue_per_ad);
@@ -252,7 +256,7 @@ impl Agent {
                     trust
                 },
                 (SharerType::Publisher, id) => {
-                    publishers[&id]/c.ads
+                    publishers[&id].0/c.ads
                 }
             };
             values.zip_apply(&c.body.values, |v, v_| {
@@ -269,19 +273,31 @@ impl Agent {
             }
         }
 
+        // Update which Publishers we've seen recently
+        for &p_id in subscriptions.iter() {
+            let (_, last_seen) = publishers.entry(p_id).or_insert((0.5, 0));
+            if seen_publishers.contains(&p_id) {
+                *last_seen = 0;
+            } else {
+                *last_seen += 1;
+            }
+        }
+
         // Decide on subscriptions
         // TODO consider costs of subscription
-        for (p_id, affinity) in publishers.iter() {
-            let roll: f32 = rng.gen();
-            if !subscriptions.contains(p_id) {
-                let p = affinity * conf.subscription_prob_weight;
-                if roll < p {
+        for (p_id, (affinity, last_seen)) in publishers.iter() {
+            if last_seen >= &conf.unsubscribe_lag {
+                if subscriptions.contains(p_id) {
+                    subscriptions.remove(p_id);
+                    unsubs.push(*p_id);
+                }
+            } else if affinity > &conf.subscribe_trust {
+                if !subscriptions.contains(p_id) {
                     subscriptions.insert(*p_id);
                     new_subs.push(*p_id);
                 }
-            } else {
-                let p = (1. - affinity) * conf.subscription_prob_weight;
-                if roll < p {
+            } else if affinity < &conf.unsubscribe_trust {
+                if subscriptions.contains(p_id) {
                     subscriptions.remove(p_id);
                     unsubs.push(*p_id);
                 }

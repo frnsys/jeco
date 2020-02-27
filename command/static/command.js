@@ -44,10 +44,20 @@ const CONFIG_SPEC = {
     type: 'float',
     desc: 'If agent A\'s trust of agent B falls below this value, A unfollows B.'
   },
-  'SUBSCRIPTION_PROB_WEIGHT': {
+  'SUBSCRIBE_TRUST': {
     key: 'SIMULATION',
     type: 'float',
-    desc: 'Multiplier for subscription probabilities to dampen subscription rates.'
+    desc: 'If agent A\'s trust of publisher B goes above this value, A subscribes to B.'
+  },
+  'UNSUBSCRIBE_TRUST': {
+    key: 'SIMULATION',
+    type: 'float',
+    desc: 'If agent A\'s trust of publisher B falls below this value, A unsubscribes from B.'
+  },
+  'UNSUBSCRIBE_LAG': {
+    key: 'SIMULATION',
+    type: 'int',
+    desc: 'Agents unsubscribe from publishers if they don\'t see content from them for this many steps.'
   },
   'CONTENT_SAMPLE_SIZE': {
     key: 'SIMULATION',

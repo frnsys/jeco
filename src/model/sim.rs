@@ -296,7 +296,7 @@ impl Simulation {
             p.subscribers = std::cmp::max(0, p.subscribers as isize + sub_changes[p.id]) as usize;
 
             p.n_last_published = p.outbox.len();
-            p.budget = conf.publisher.base_budget + p.operating_budget();
+            p.budget = p.operating_budget();
 
             // ENH: Publisher pushes content
             // for multiple steps?
