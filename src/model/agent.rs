@@ -83,7 +83,7 @@ pub fn random_topics(rng: &mut StdRng) -> Topics {
 }
 
 impl Agent {
-    pub fn new(id: AgentId, mut rng: &mut StdRng) -> Agent {
+    pub fn new(id: AgentId, conf: &SimulationConfig, mut rng: &mut StdRng) -> Agent {
         let resources = util::normal_p(&mut rng);
 
         Agent {
@@ -93,7 +93,7 @@ impl Agent {
             reach: 100.,
             ads: rng.gen::<f32>() * 10.,
             quality: rng.gen::<f32>(),
-            attention: 100.0, // TODO
+            attention: conf.attention_budget,
             resources: resources,
             publishability: 1.,
             publishabilities: FnvHashMap::default(),

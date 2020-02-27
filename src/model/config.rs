@@ -14,6 +14,9 @@ pub struct SimulationConfig {
     // higher values mean weaker influence at greater distances
     pub gravity_stretch: f32,
 
+    // Attention budget per Agent
+    pub attention_budget: f32,
+
     // Maximum movement amount
     pub max_influence: f32,
 
