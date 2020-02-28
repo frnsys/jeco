@@ -31,6 +31,7 @@ pub struct Publisher {
     pub id: PublisherId,
 
     pub location: Position,
+    pub radius: usize,
 
     // Budget determines how much content
     // can be published per step
@@ -88,6 +89,7 @@ impl Publisher {
         Publisher {
             id: id,
             location: (0, 0),
+            radius: 0,
             budget: conf.base_budget,
             revenue_per_subscriber: conf.revenue_per_subscriber,
             reach: 0.,

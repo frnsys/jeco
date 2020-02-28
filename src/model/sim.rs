@@ -6,11 +6,11 @@ use super::policy::Policy;
 use super::network::Network;
 use super::platform::{Platform, PlatformId};
 use super::publisher::{Publisher, PublisherId};
-use super::grid::{HexGrid, Position};
+use super::grid::{HexGrid, Position, hexagon_dist};
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use super::content::{Content, ContentId, SharedContent, SharerType};
-use super::util::ewma;
+use super::util::{ewma, sigmoid};
 use super::config::SimulationConfig;
 use itertools::Itertools;
 use rand_distr::{Distribution, Beta};
@@ -23,6 +23,7 @@ pub struct Simulation {
     pub platforms: Vec<Platform>,
     pub ref_grid: HexGrid,
     pub grid: FnvHashMap<Position, Vec<AgentId>>,
+    pub distances: FnvHashMap<Position, Vec<usize>>,
 
     // Content Agents will share in the next step.
     // Emptied each step.
@@ -91,11 +92,39 @@ impl Simulation {
             let pos = weights.choose_weighted(&mut rng, |item| item.1).unwrap().0;
             publisher.location = pos;
             already_occupied.push(pos);
+
+            let radius = (rng.gen::<f32>() * (ref_grid.rows.max(ref_grid.cols) + 1) as f32).floor() as usize;
+            publisher.radius = radius;
+        }
+
+        // Distance to a Publisher is
+        // measured against the closest position
+        // within its radius.
+        let mut distances = FnvHashMap::default();
+        for pos in ref_grid.positions().iter() {
+            let mut pub_dists = Vec::new();
+            for publisher in &publishers {
+                let dist = ref_grid.radius(publisher.location, publisher.radius).iter().fold(0, |acc, pos_| {
+                    let dist = hexagon_dist(pos, pos_);
+                    dist.min(acc)
+                });
+                pub_dists.push(dist);
+            }
+            distances.insert(*pos, pub_dists);
+        }
+
+        // Precompute relevancies for each Publisher
+        for agent in &mut agents {
+            for dist in &distances[&agent.location] {
+                let relevance = 1. - sigmoid((4*dist-4) as f32);
+                agent.relevancies.push(relevance);
+            }
         }
 
         Simulation {
             grid: grid,
             ref_grid: ref_grid,
+            distances: distances,
             network: network,
             content: Vec::new(),
             agents: agents,

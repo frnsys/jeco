@@ -64,11 +64,6 @@ impl HexGrid {
         neighbs.into_iter().collect()
     }
 
-    // 2D euclidean distance
-    pub fn distance(&self, a: Position, b: Position) -> f32 {
-        (((a.0 - b.0).pow(2) + (a.1 - b.1).pow(2)) as f32).sqrt()
-    }
-
     // Get a Vec of all Positions
     pub fn positions(&self) -> Vec<Position> {
         (0..self.rows)
@@ -76,5 +71,20 @@ impl HexGrid {
                       .map(move |c| (r as isize, c as isize)))
             .collect()
     }
+}
+
+// 2D euclidean distance
+pub fn euclidean_dist(a: &Position, b: &Position) -> f32 {
+    (((a.0 - b.0).pow(2) + (a.1 - b.1).pow(2)) as f32).sqrt()
+}
+
+pub fn hexagon_dist(a: &Position, b: &Position) -> usize {
+    let x0 = a.0 - b.0/2;
+    let y0 = b.0;
+    let x1 = a.1 - b.1/2;
+    let y1 = b.1;
+    let dx = x1 - x0;
+    let dy = y1 - y0;
+    dx.abs().max(dy.abs().max((dx+dy).abs())) as usize
 }
 
