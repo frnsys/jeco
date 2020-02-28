@@ -1,4 +1,4 @@
-use fnv::FnvHashSet;
+use std::collections::HashSet;
 
 pub type Position = (isize, isize);
 
@@ -54,7 +54,7 @@ impl HexGrid {
 
     // Positions within a radius of the specified position
     pub fn radius(&self, pos: Position, r: usize) -> Vec<Position> {
-        let mut neighbs = FnvHashSet::new();
+        let mut neighbs = HashSet::new();
         let mut next = vec![pos];
         for _ in 0..r {
             let adj: Vec<Position> = next.iter().flat_map(|&p| self.adjacent(p)).collect();
@@ -67,6 +67,14 @@ impl HexGrid {
     // 2D euclidean distance
     pub fn distance(&self, a: Position, b: Position) -> f32 {
         (((a.0 - b.0).pow(2) + (a.1 - b.1).pow(2)) as f32).sqrt()
+    }
+
+    // Get a Vec of all Positions
+    pub fn positions(&self) -> Vec<Position> {
+        (0..self.rows)
+            .flat_map(|r| (0..self.cols)
+                      .map(move |c| (r as isize, c as isize)))
+            .collect()
     }
 }
 

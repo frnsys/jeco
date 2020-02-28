@@ -1,5 +1,6 @@
 mod sim;
 mod util;
+mod grid;
 mod agent;
 mod policy;
 mod content;

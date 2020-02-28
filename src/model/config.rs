@@ -3,6 +3,7 @@ use serde::{Serialize, Deserialize};
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 #[serde(rename_all = "UPPERCASE")]
 pub struct SimulationConfig {
+    pub grid_size: usize,
     pub population: usize,
     pub n_publishers: usize,
     pub n_platforms: usize,
