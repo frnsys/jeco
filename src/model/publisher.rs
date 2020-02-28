@@ -12,7 +12,7 @@ use rand::rngs::StdRng;
 use itertools::Itertools;
 use super::agent::Agent;
 use super::content::{Content, ContentId, ContentBody, SharedContent};
-use super::util::{Vector, Params, Sample, SampleRow, ewma, bayes_update, z_score, sigmoid, learn_steps, LimitedQueue};
+use super::util::{Vector, Params, Sample, SampleRow, ewma, bayes_update, z_score, sigmoid, learn_steps, LimitedQueue, normal_range};
 use super::config::PublisherConfig;
 
 pub type PublisherId = usize;
@@ -75,9 +75,12 @@ pub struct Publisher {
 }
 
 impl Publisher {
-    pub fn new(id: PublisherId, conf: &PublisherConfig, rng: &mut StdRng) -> Publisher {
-        let mu = Vector::from_vec(vec![0., 0.]);
-        let var = Vector::from_vec(vec![1., 1.]);
+    pub fn new(id: PublisherId, conf: &PublisherConfig, mut rng: &mut StdRng) -> Publisher {
+        let mu = Vector::from_vec(vec![
+            normal_range(&mut rng),
+            normal_range(&mut rng),
+        ]);
+        let var = Vector::from_vec(vec![0.5, 0.5]);
 
         Publisher {
             id: id,

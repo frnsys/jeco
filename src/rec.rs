@@ -105,7 +105,8 @@ impl Recorder {
             json!({
                 "shares": Rc::strong_count(c) - 1,
                 "topics": c.body.topics,
-                "values": c.body.values
+                "values": c.body.values,
+                "attention_cost": c.body.cost
             })
         }).collect();
 

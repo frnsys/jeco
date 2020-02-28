@@ -74,7 +74,7 @@ impl Simulation {
             p.n_ads_sold = 0.;
         }
         for a in &mut self.agents {
-            match a.produce(&mut rng) {
+            match a.produce(&conf, &mut rng) {
                 Some(body) => {
                     // People give up after not getting anything
                     // published

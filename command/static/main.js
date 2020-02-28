@@ -1,6 +1,7 @@
 const AGENT_SAMPLE = 15;
 const PLATFORM_SAMPLE = 10;
 const PUBLISHER_SAMPLE = 10;
+const CONTENT_SAMPLE = 10;
 
 const CHARTS = [{
   title: 'Shares per Content',
@@ -157,6 +158,12 @@ const CHARTS = [{
   datasets: [...Array(PLATFORM_SAMPLE).keys()].map((i) => ({
     label: `${i}`,
     key: `platforms.sample.${i}.data`
+  }))
+}, {
+  title: 'Top Content Attention Cost',
+  datasets: [...Array(CONTENT_SAMPLE).keys()].map((i) => ({
+    label: `${i}`,
+    key: `top_content.${i}.attention_cost`
   }))
 }];
 

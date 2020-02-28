@@ -114,8 +114,8 @@ impl Agent {
     }
 
     // Return content they create
-    pub fn produce(&mut self, rng: &mut StdRng) -> Option<ContentBody> {
-        // if self.resources < self.quality { return None }
+    pub fn produce(&mut self, conf: &SimulationConfig, rng: &mut StdRng) -> Option<ContentBody> {
+        if self.resources < self.quality { return None }
 
         // Agent produces depending on expected reach
         // and resources
@@ -129,7 +129,7 @@ impl Agent {
 
             // ENH: Take other factors into account
             // Attention cost ranges from 0-100
-            let cost = util::normal_p(rng) * 100.;
+            let cost = util::normal_p(rng) * conf.attention_budget;
 
             self.resources -= self.quality;
 
@@ -363,6 +363,6 @@ impl Agent {
         self.quality += change_rate * steps[0];
         self.ads += change_rate * steps[1];
         self.ads = f32::max(0., self.ads);
-        self.quality = f32::max(0., self.quality);
+        self.quality = f32::min(f32::max(0., self.quality), self.resources);
     }
 }
