@@ -194,5 +194,7 @@ impl Publisher {
         let steps: Vec<f32> = self.theta.into_iter().cloned().collect();
         self.quality += change_rate * steps[0];
         self.ads += change_rate * steps[1];
+        self.ads = f32::max(0., self.ads);
+        self.quality = f32::max(0., self.quality);
     }
 }

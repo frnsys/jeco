@@ -64,6 +64,11 @@ pub struct SimulationConfig {
     // Conversion rate limit for ads
     pub max_conversion_rate: f32,
 
+    // Maximum amount of shared content
+    // an agent considers. Setting this
+    // too high can severely slow things down.
+    pub max_shared_content: usize,
+
     // See below
     pub publisher: PublisherConfig,
 }
