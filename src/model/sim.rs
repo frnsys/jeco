@@ -133,25 +133,34 @@ impl Simulation {
 
         // TODO Ad Market
         let n_new_content = new_content.len();
-        let max_p = 0.99; // Required to avoid beta of 0.0
+        let max_p = 0.95; // Required to avoid beta of 0.0
+        let min_p = 0.05; // Required to avoid alpha of 0.0
         for ((typ, id), contents) in new_content.into_iter() {
             let z = self.platforms.iter().fold(0., |acc, platform| acc + platform.conversion_rate);
             let (p, ad_slots) = match typ {
                 SharerType::Publisher => {
                     // TODO take reach into account
-                    let p = f32::min(max_p, conf.base_conversion_rate/(conf.base_conversion_rate + z));
+                    let p = f32::max(min_p,
+                                     f32::min(max_p,
+                                              conf.base_conversion_rate/(conf.base_conversion_rate + z)));
                     let ad_slots = self.publishers[id].ads;
                     (p, ad_slots)
                 },
                 SharerType::Agent => {
                     // TODO what should this be for agents?
-                    let p = f32::min(max_p, conf.base_conversion_rate/(conf.base_conversion_rate + z));
+                    let p = f32::max(min_p,
+                                     f32::min(max_p,
+                                              conf.base_conversion_rate/(conf.base_conversion_rate + z)));
                     let ad_slots = self.agents[id].ads;
                     (p, ad_slots)
                 }
             };
+            if ad_slots == 0. {
+                continue;
+            }
             let alpha = p * ad_slots;
             let beta = (1.-p) * ad_slots;
+            // println!("alpha {:?}, beta {:?}, ad slots {:?}", alpha, beta, ad_slots);
             let dist = Beta::new(alpha, beta).unwrap();
             for mut c in contents {
                 c.ads = dist.sample(&mut rng);
@@ -204,21 +213,24 @@ impl Simulation {
         let mut platforms: FnvHashMap<PlatformId, usize> = FnvHashMap::default();
         let mut all_data: FnvHashMap<PlatformId, f32> = FnvHashMap::default();
         let mut all_revenue: FnvHashMap<(SharerType, usize), f32> = FnvHashMap::default();
+        let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = Vec::new();
         for a in &self.agents {
+            let to_read = &mut shared;
+
             // Agent encounters shared content
             let following = self.network.following_ids(&a).clone();
 
             // "Offline" encounters
-            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = following.iter()
+            to_read.clear();
+            to_read.extend(following.iter()
                 .filter(|_| rng.gen::<f32>() < conf.contact_rate)
-                .flat_map(|a_id| self.share_queues[a_id].iter().map(|sc| (None, sc)))
-                .collect();
+                .flat_map(|a_id| self.share_queues[a_id].iter().map(|sc| (None, sc))));
 
             // Subscribed publishers
             // ENH: Publishers on all platforms.
             // e.g. outbox.iter().flat_map(|sc| a.platforms.iter().map(|p_id| (p_id, sc.clone())))
             // Although maybe it's not worth the additional overhead?
-            shared.extend(a.subscriptions.borrow().iter()
+            to_read.extend(a.subscriptions.borrow().iter()
                           .flat_map(|p_id| self.outboxes[p_id].iter().map(|sc| (None, sc))));
 
             // Platforms
@@ -228,7 +240,7 @@ impl Simulation {
             // Unlike offline encounters, we roll per shared content
             // rather than per agent.
             // ENH: Agents may develop a preference for a platform?
-            shared.extend(a.platforms.iter()
+            to_read.extend(a.platforms.iter()
                 .flat_map(|p_id| self.platforms[*p_id].following_ids(&a).into_iter()
                           .map(move |a_id| (p_id, a_id)))
                 .flat_map(|(p_id, a_id)| self.share_queues[a_id].iter().map(move |sc| (Some(p_id), sc)))
@@ -244,7 +256,8 @@ impl Simulation {
                 }));
 
             // Avoid ordering bias
-            shared.shuffle(&mut rng);
+            to_read.shuffle(&mut rng);
+            to_read.truncate(conf.max_shared_content);
 
             // Only consider signing up to new platforms
             // if Agent is not platform-saturated
@@ -292,7 +305,7 @@ impl Simulation {
                 }
             }
 
-            let (will_share, (new_subs, unsubs), (follows, unfollows), data, revenue) = a.consume(shared, &self.network, &conf, &mut rng);
+            let (will_share, (new_subs, unsubs), (follows, unfollows), data, revenue) = a.consume(to_read, &self.network, &conf, &mut rng);
             let shareable = will_share.iter().map(|content| {
                 SharedContent {
                     sharer: (SharerType::Agent, a.id),
