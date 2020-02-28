@@ -5,13 +5,14 @@ use super::agent::{Agent, AgentId};
 use super::policy::Policy;
 use super::network::Network;
 use super::platform::{Platform, PlatformId};
-use super::publisher::Publisher;
+use super::publisher::{Publisher, PublisherId};
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use super::content::{Content, ContentId, SharedContent, SharerType};
 use super::util::ewma;
 use super::config::SimulationConfig;
 use itertools::Itertools;
+use rand_distr::{Distribution, Beta};
 
 pub struct Simulation {
     pub network: Network,
@@ -19,7 +20,14 @@ pub struct Simulation {
     content: Vec<Rc<Content>>,
     pub publishers: Vec<Publisher>,
     pub platforms: Vec<Platform>,
+
+    // Content Agents will share in the next step.
+    // Emptied each step.
     share_queues: FnvHashMap<AgentId, Vec<SharedContent>>,
+
+    // Store content the Publisher will
+    // publish in the next step. Emptied each step.
+    outboxes: FnvHashMap<PublisherId, Vec<SharedContent>>,
 }
 
 
@@ -38,6 +46,11 @@ impl Simulation {
             .map(|i| Publisher::new(i, &conf.publisher, &mut rng))
             .collect();
 
+        let mut outboxes = FnvHashMap::default();
+        for publisher in publishers.iter() {
+            outboxes.insert(publisher.id, Vec::new());
+        }
+
         let platforms: Vec<Platform> = (0..conf.n_platforms)
             .map(|i| Platform::new(i))
             .collect();
@@ -49,79 +62,134 @@ impl Simulation {
             content: Vec::new(),
             agents: agents,
             share_queues: share_queues,
+            outboxes: outboxes,
             publishers: publishers,
             platforms: platforms,
         }
     }
 
-    pub fn produce(&mut self, mut rng: &mut StdRng) -> usize {
-        let n_content_start = self.content.len();
+    pub fn produce(&mut self, conf: &SimulationConfig, mut rng: &mut StdRng) -> usize {
+        let mut new_content: FnvHashMap<(SharerType, usize), Vec<Content>> = FnvHashMap::default();
+        for p in &mut self.publishers {
+            p.n_ads_sold = 0.;
+        }
         for a in &mut self.agents {
-            if let Some(to_share) = self.share_queues.get_mut(&a.id) {
-                match a.produce(&mut rng) {
-                    Some(body) => {
-                        // People give up after not getting anything
-                        // published
-                        let mut published = false;
-                        if a.publishability > 0.1 {
-                            // Decide to pitch to publisher
-                            let publishers = self.publishers.iter()
-                                .map(|p| {
-                                    let prob = a.publishabilities.entry(p.id).or_insert(1.).clone();
-                                    // Publisher id, probability of acceptance, expected value
-                                    (p.id, prob, prob*p.reach)
-                                })
-                                .filter(|(_, p, _)| *p >= 0.1) // Minimum probability
-                                .sorted_by(|(_, _, ev), (_, _, ev_)| ev_.partial_cmp(ev).unwrap());
-                            for (pub_id, p, _) in publishers {
-                                match self.publishers[pub_id].pitch(&body, &a, &mut rng) {
-                                    Some(content) => {
-                                        published = true;
-                                        a.publishabilities.insert(pub_id, ewma(1., p));
-                                        a.publishability = ewma(1., a.publishability);
+            match a.produce(&mut rng) {
+                Some(body) => {
+                    // People give up after not getting anything
+                    // published
+                    let mut published = false;
+                    if a.publishability > 0.1 {
+                        // Decide to pitch to publisher
+                        let publishers = self.publishers.iter()
+                            .map(|p| {
+                                let prob = a.publishabilities.entry(p.id).or_insert(1.).clone();
+                                // Publisher id, probability of acceptance, expected value
+                                (p.id, prob, prob*p.reach)
+                            })
+                            .filter(|(_, p, _)| *p >= 0.1) // Minimum probability
+                            .sorted_by(|(_, _, ev), (_, _, ev_)| ev_.partial_cmp(ev).unwrap());
+                        for (pub_id, p, _) in publishers {
+                            match self.publishers[pub_id].pitch(&body, &a, &mut rng) {
+                                Some(content) => {
+                                    published = true;
+                                    a.publishabilities.insert(pub_id, ewma(1., p));
+                                    a.publishability = ewma(1., a.publishability);
 
-                                        // Share to own networks
-                                        to_share.push(SharedContent {
-                                            content: content.clone(),
-                                            sharer: (SharerType::Agent, a.id)
-                                        });
-                                        self.content.push(content.clone());
-                                        break;
-                                    },
-                                    None => {
-                                        a.publishabilities.insert(pub_id, ewma(0., p));
-                                    }
+                                    let val = new_content.entry((SharerType::Publisher, pub_id))
+                                        .or_insert(Vec::new());
+                                    (*val).push(content);
+                                    break;
+                                },
+                                None => {
+                                    a.publishabilities.insert(pub_id, ewma(0., p));
                                 }
                             }
                         }
+                    }
 
-                        // Self-publish
-                        if !published {
-                            a.publishability = ewma(0., a.publishability);
+                    // Self-publish
+                    if !published {
+                        a.publishability = ewma(0., a.publishability);
 
-                            let content = Rc::new(Content {
-                                id: ContentId::new_v4(),
-                                publisher: None,
-                                author: a.id,
-                                body: body,
-                                ads: a.ads,
-                            });
-                            to_share.push(SharedContent {
-                                content: content.clone(),
-                                sharer: (SharerType::Agent, a.id)
-                            });
-                            self.content.push(content.clone());
-                            a.content.push(content.clone());
-                        }
+                        let content = Content {
+                            id: ContentId::new_v4(),
+                            publisher: None,
+                            author: a.id,
+                            body: body,
+                            ads: a.ads,
+                        };
+                        let val = new_content.entry((SharerType::Agent, a.id))
+                            .or_insert(Vec::new());
+                        (*val).push(content);
+                    }
 
-                        // Update reach
-                        a.update_reach();
+                    // Update reach
+                    a.update_reach();
+                },
+                None => {}
+            }
+        }
+
+        // TODO Ad Market
+        let n_new_content = new_content.len();
+        let max_p = 0.99; // Required to avoid beta of 0.0
+        for ((typ, id), contents) in new_content.into_iter() {
+            let z = self.platforms.iter().fold(0., |acc, platform| acc + platform.conversion_rate);
+            let (p, ad_slots) = match typ {
+                SharerType::Publisher => {
+                    // TODO take reach into account
+                    let p = f32::min(max_p, conf.base_conversion_rate/(conf.base_conversion_rate + z));
+                    let ad_slots = self.publishers[id].ads;
+                    (p, ad_slots)
+                },
+                SharerType::Agent => {
+                    // TODO what should this be for agents?
+                    let p = f32::min(max_p, conf.base_conversion_rate/(conf.base_conversion_rate + z));
+                    let ad_slots = self.agents[id].ads;
+                    (p, ad_slots)
+                }
+            };
+            let alpha = p * ad_slots;
+            let beta = (1.-p) * ad_slots;
+            let dist = Beta::new(alpha, beta).unwrap();
+            for mut c in contents {
+                c.ads = dist.sample(&mut rng);
+
+                let content = Rc::new(c);
+
+                self.content.push(content.clone());
+
+                // TODO
+                match self.share_queues.get_mut(&content.author) {
+                    Some(to_share) => {
+                        to_share.push(SharedContent {
+                            content: content.clone(),
+                            sharer: (SharerType::Agent, content.author)
+                        });
                     },
                     None => {}
                 }
+                self.agents[content.author].content.push(content.clone());
+                match typ {
+                    SharerType::Publisher => {
+                        self.publishers[id].n_ads_sold += content.ads;
+                        match self.outboxes.get_mut(&id) {
+                            Some(to_share) => {
+                                to_share.push(SharedContent {
+                                    content: content.clone(),
+                                    sharer: (SharerType::Publisher, id)
+                                });
+                            },
+                            None => {}
+                        }
+                    },
+                    SharerType::Agent => {}
+                }
             }
         }
-        self.content.len() - n_content_start
+
+        n_new_content
     }
 
     pub fn consume(&mut self,
@@ -151,7 +219,7 @@ impl Simulation {
             // e.g. outbox.iter().flat_map(|sc| a.platforms.iter().map(|p_id| (p_id, sc.clone())))
             // Although maybe it's not worth the additional overhead?
             shared.extend(a.subscriptions.borrow().iter()
-                          .flat_map(|p_id| self.publishers[*p_id].outbox.iter().map(|sc| (None, sc))));
+                          .flat_map(|p_id| self.outboxes[p_id].iter().map(|sc| (None, sc))));
 
             // Platforms
             // We basically assume that if someone shares something,
@@ -296,12 +364,15 @@ impl Simulation {
             // Update subscribers
             p.subscribers = std::cmp::max(0, p.subscribers as isize + sub_changes[p.id]) as usize;
 
-            p.n_last_published = p.outbox.len();
+            p.n_last_published = self.outboxes[&p.id].len();
             p.budget = p.operating_budget();
 
             // ENH: Publisher pushes content
             // for multiple steps?
-            p.outbox.clear();
+            match self.outboxes.get_mut(&p.id) {
+                Some(outbox) => outbox.clear(),
+                None => {}
+            }
         }
 
         // Distribute ad revenue

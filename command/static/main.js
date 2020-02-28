@@ -141,6 +141,12 @@ const CHARTS = [{
     key: `publishers.sample.${i}.quality`
   }))
 }, {
+  title: 'Publisher Ads Sold',
+  datasets: [...Array(PUBLISHER_SAMPLE).keys()].map((i) => ({
+    label: `${i}`,
+    key: `publishers.sample.${i}.ads_sold`
+  }))
+}, {
   title: 'Platform Users',
   datasets: [...Array(PLATFORM_SAMPLE).keys()].map((i) => ({
     label: `${i}`,

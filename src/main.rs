@@ -43,7 +43,7 @@ fn main() {
                             sim.apply_policy(&policy);
                         }
                         for _ in 0..steps {
-                            let n_produced = sim.produce(&mut rng);
+                            let n_produced = sim.produce(&conf.simulation, &mut rng);
                             sim.consume(&conf.simulation, &mut rng);
 
                             recorder.record(step, &sim, n_produced);
@@ -68,7 +68,7 @@ fn main() {
             let mut recorder = Recorder::new(&sim, &mut rng);
             let mut pb = ProgressBar::new(steps as u64);
             for step in 0..steps {
-                let n_produced = sim.produce(&mut rng);
+                let n_produced = sim.produce(&conf.simulation, &mut rng);
                 sim.consume(&conf.simulation, &mut rng);
 
                 recorder.record(step, &sim, n_produced);
@@ -77,7 +77,7 @@ fn main() {
             recorder.save(&conf);
         } else {
             for _ in 0..steps {
-                sim.produce(&mut rng);
+                sim.produce(&conf.simulation, &mut rng);
                 sim.consume(&conf.simulation, &mut rng);
             }
         }

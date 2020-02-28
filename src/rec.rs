@@ -87,6 +87,7 @@ impl Recorder {
                 "budget": p.budget,
                 "ads": p.ads,
                 "quality": p.quality,
+                "ads_sold": p.n_ads_sold
             }));
             acc
         });

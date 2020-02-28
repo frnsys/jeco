@@ -11,7 +11,7 @@ use std::rc::Rc;
 use rand::rngs::StdRng;
 use itertools::Itertools;
 use super::agent::Agent;
-use super::content::{Content, ContentId, ContentBody, SharedContent, SharerType};
+use super::content::{Content, ContentId, ContentBody, SharedContent};
 use super::util::{Vector, Params, Sample, SampleRow, ewma, bayes_update, z_score, sigmoid, learn_steps, LimitedQueue};
 use super::config::PublisherConfig;
 
@@ -57,12 +57,11 @@ pub struct Publisher {
     // and directly received the Publisher's content
     pub subscribers: usize,
 
-    // Store content the Publisher will
-    // publish in the next step. Emptied each step.
-    pub outbox: Vec<SharedContent>,
-
     // How much was published in the last step
     pub n_last_published: usize,
+
+    // How many ads were sold in the last step
+    pub n_ads_sold: f32,
 
     // Archive of content the Publisher
     // has published
@@ -91,8 +90,8 @@ impl Publisher {
             theta: Params::new(rng.gen(), rng.gen()),
             observations: Vec::new(),
             outcomes: Vec::new(),
+            n_ads_sold: 0.,
 
-            outbox: Vec::new(),
             content: LimitedQueue::new(50),
             subscribers: 0,
             n_last_published: 0,
@@ -105,7 +104,7 @@ impl Publisher {
 
     // An Agent pitches a piece
     // of content to the publisher
-    pub fn pitch(&mut self, body: &ContentBody, author: &Agent, rng: &mut StdRng) -> Option<Rc<Content>> {
+    pub fn pitch(&mut self, body: &ContentBody, author: &Agent, rng: &mut StdRng) -> Option<Content> {
         if self.budget < self.quality { return None }
 
         let z_ints = z_score(&body.topics, &self.audience_interests);
@@ -122,22 +121,17 @@ impl Publisher {
             // Publisher improves the quality
             let mut body_ = body.clone();
             body_.quality += self.quality;
-            let content = Rc::new(Content {
+            let content = Content {
                 id: ContentId::new_v4(),
                 publisher: Some(self.id),
                 body: body_,
                 author: author.id,
                 ads: self.ads
-            });
-            self.content.push(content.clone());
-            self.outbox.push(SharedContent {
-                content: content.clone(),
-                sharer: (SharerType::Publisher, self.id)
-            });
+            };
 
             // Deduct from budget
             self.budget -= self.quality;
-            Some(content.clone())
+            Some(content)
         } else {
             None
         }

@@ -115,11 +115,11 @@ impl Agent {
 
     // Return content they create
     pub fn produce(&mut self, rng: &mut StdRng) -> Option<ContentBody> {
-        if self.resources < self.quality { return None }
+        // if self.resources < self.quality { return None }
 
         // Agent produces depending on expected reach
         // and resources
-        let p_produce = (self.resources + self.reach)/2.;
+        let p_produce = 0.1; // (self.resources + self.reach)/2.;
         let roll: f32 = rng.gen();
 
         if roll < p_produce {
