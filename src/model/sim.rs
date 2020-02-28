@@ -45,7 +45,7 @@ impl Simulation {
             share_queues.insert(agent.id, Vec::new());
         }
 
-        let publishers: Vec<Publisher> = (0..conf.n_publishers)
+        let mut publishers: Vec<Publisher> = (0..conf.n_publishers)
             .map(|i| Publisher::new(i, &conf.publisher, &mut rng))
             .collect();
 
@@ -68,10 +68,29 @@ impl Simulation {
 
         // Randomly assign agents by density
         for agent in &mut agents {
-            let weights: Vec<(Position, usize)> = grid.iter().map(|(pos, agents)| (*pos, agents.len() + 1)).collect();
+            let weights: Vec<(Position, usize)> = grid.iter()
+                .map(|(pos, agents)| (*pos, agents.len() + 1))
+                .collect();
             let pos = weights.choose_weighted(&mut rng, |item| item.1).unwrap().0;
             grid.get_mut(&pos).unwrap().push(agent.id);
             agent.location = pos;
+        }
+
+        // Randomly assign publishers by density
+        let mut already_occupied: Vec<Position> = Vec::new();
+        for publisher in &mut publishers {
+            // If all locations have a Publisher,
+            // reset to allow for multiple Publishers per location.
+            if already_occupied.len() == grid.keys().len() {
+                already_occupied.clear();
+            }
+            let weights: Vec<(Position, usize)> = grid.iter()
+                .filter(|(pos, _)| !already_occupied.contains(pos))
+                .map(|(pos, agents)| (*pos, agents.len() + 1))
+                .collect();
+            let pos = weights.choose_weighted(&mut rng, |item| item.1).unwrap().0;
+            publisher.location = pos;
+            already_occupied.push(pos);
         }
 
         Simulation {
