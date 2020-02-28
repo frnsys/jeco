@@ -36,7 +36,7 @@ pub struct Simulation {
 
 impl Simulation {
     pub fn new(conf: &SimulationConfig, mut rng: &mut StdRng) -> Simulation {
-        let agents: Vec<Agent> = (0..conf.population)
+        let mut agents: Vec<Agent> = (0..conf.population)
             .map(|i| Agent::new(i, &conf, &mut rng))
             .collect();
 
@@ -67,10 +67,11 @@ impl Simulation {
         }
 
         // Randomly assign agents by density
-        for agent in agents.iter() {
+        for agent in &mut agents {
             let weights: Vec<(Position, usize)> = grid.iter().map(|(pos, agents)| (*pos, agents.len() + 1)).collect();
             let pos = weights.choose_weighted(&mut rng, |item| item.1).unwrap().0;
             grid.get_mut(&pos).unwrap().push(agent.id);
+            agent.location = pos;
         }
 
         Simulation {

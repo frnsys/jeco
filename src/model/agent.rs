@@ -1,4 +1,5 @@
 use fnv::{FnvHashMap, FnvHashSet};
+use super::grid::Position;
 use super::util::{Vector, VECTOR_SIZE};
 use super::publisher::PublisherId;
 use super::platform::PlatformId;
@@ -23,6 +24,7 @@ pub struct Agent {
     pub values: Cell<Values>,
     pub attention: f32,
     pub resources: f32,
+    pub location: Position,
 
     // Publishers the Agent is subscribed to
     // TODO would like to not use a RefCell if possible
@@ -92,6 +94,7 @@ impl Agent {
 
         Agent {
             id: id,
+            location: (0, 0),
             interests: random_topics(&mut rng),
             values: Cell::new(random_values(&mut rng)),
             reach: 100.,
