@@ -14,6 +14,7 @@ use super::agent::Agent;
 use super::content::{Content, ContentId, ContentBody, SharedContent};
 use super::util::{Vector, Params, Sample, SampleRow, ewma, bayes_update, z_score, sigmoid, learn_steps, LimitedQueue, normal_range};
 use super::config::PublisherConfig;
+use super::grid::Position;
 
 pub type PublisherId = usize;
 
@@ -28,6 +29,9 @@ pub type PublisherId = usize;
 #[derive(Debug)]
 pub struct Publisher {
     pub id: PublisherId,
+
+    pub location: Position,
+    pub radius: usize,
 
     // Budget determines how much content
     // can be published per step
@@ -84,6 +88,8 @@ impl Publisher {
 
         Publisher {
             id: id,
+            location: (0, 0),
+            radius: 0,
             budget: conf.base_budget,
             revenue_per_subscriber: conf.revenue_per_subscriber,
             reach: 0.,

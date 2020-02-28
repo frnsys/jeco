@@ -4,6 +4,11 @@ const CONFIG_SPEC = {
     type: 'int',
     desc: 'The number of agents to create. Higher numbers will run slower but can provide better results.'
   },
+  'GRID_SIZE': {
+    key: 'SIMULATION',
+    type: 'int',
+    desc: 'The size of the world. An n-by-n hex grid represents the world, where n is this value.'
+  },
   'N_PUBLISHERS': {
     key: 'SIMULATION',
     type: 'int',

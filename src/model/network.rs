@@ -6,7 +6,7 @@ use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::Rng;
 
-static NETWORK_SAMPLE_SIZE: usize = 100;
+static NETWORK_SAMPLE_P: f32 = 0.2;
 
 pub struct Network {
     graph: StableGraph<usize, f32, Directed>, // TODO make this undirected
@@ -16,6 +16,7 @@ pub struct Network {
 impl Network {
     pub fn new(agents: &Vec<Agent>, mut rng: &mut StdRng) -> Network {
         // Network of agents, with trust as weight
+        let sample_size = (agents.len() as f32 * NETWORK_SAMPLE_P).floor() as usize;
         let mut graph = StableGraph::<usize, f32, Directed, u32>::default();
         let mut lookup = FnvHashMap::default();
         for agent in agents.iter() {
@@ -27,14 +28,19 @@ impl Network {
         let mut total_edges = 1.;
         for agent in agents.iter() {
             let idx = lookup[&agent.id];
-            let candidates = agents.choose_multiple(&mut rng, NETWORK_SAMPLE_SIZE);
+            let candidates = agents.choose_multiple(&mut rng, sample_size);
             for candidate in candidates {
                 let roll: f32 = rng.gen();
                 let c_idx = lookup[&candidate.id];
 
                 let sim = agent.similarity(&candidate);
                 let pref = (graph.neighbors_directed(c_idx, Incoming).count() as f32) / total_edges;
-                let p = (sim + pref) / 2.;
+                let same_location = if agent.location == candidate.location {
+                    1.
+                } else {
+                    0.
+                };
+                let p = (sim + pref + same_location) / 3.;
                 if roll < p {
                     graph.add_edge(idx, c_idx, sim);
                     total_edges += 1.;

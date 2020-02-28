@@ -1,4 +1,5 @@
 use fnv::{FnvHashMap, FnvHashSet};
+use super::grid::{Position, hexagon_dist};
 use super::util::{Vector, VECTOR_SIZE};
 use super::publisher::PublisherId;
 use super::platform::PlatformId;
@@ -23,6 +24,8 @@ pub struct Agent {
     pub values: Cell<Values>,
     pub attention: f32,
     pub resources: f32,
+    pub location: Position,
+    pub relevancies: Vec<f32>, // Indexed by PublisherId
 
     // Publishers the Agent is subscribed to
     // TODO would like to not use a RefCell if possible
@@ -92,6 +95,7 @@ impl Agent {
 
         Agent {
             id: id,
+            location: (0, 0),
             interests: random_topics(&mut rng),
             values: Cell::new(random_values(&mut rng)),
             reach: 100.,
@@ -110,6 +114,7 @@ impl Agent {
             theta: util::Params::new(rng.gen(), rng.gen()),
             observations: Vec::new(),
             outcomes: Vec::new(),
+            relevancies: Vec::new()
         }
     }
 
@@ -207,13 +212,7 @@ impl Agent {
             // Take the abs value
             // So if something is very polar to the person's values,
             // they "hateshare" it
-            let reactivity = affinity * alignment.abs() * f32::max(c.body.quality, 1.);
-
-            // Do they share it?
-            let roll: f32 = rng.gen();
-            if roll < reactivity {
-                to_share.push(c.clone());
-            }
+            let mut reactivity = affinity * alignment.abs() * f32::max(c.body.quality, 1.);
 
             // Update publisher feeling/reputation
             // and collect ad revenue
@@ -227,12 +226,28 @@ impl Agent {
                     if c.ads > 0. {
                         revenue.insert((SharerType::Publisher, p_id), c.ads * conf.revenue_per_ad);
                     }
+
+                    let relevancy = self.relevancies[p_id];
+                    reactivity *= relevancy;
                 },
                 None => {
                     if c.ads > 0. {
                         revenue.insert((SharerType::Agent, c.author), c.ads * conf.revenue_per_ad);
                     }
+
+                    // TODO? Can't access author location so
+                    // kind of complicated
+                    // Made distance less important here
+                    // let dist = hexagon_dist(&self.location, &c.author);
+                    // let relevance = 1. - util::sigmoid((dist-4) as f32);
+                    // reactivity *= relevancy;
                 }
+            }
+
+            // Do they share it?
+            let roll: f32 = rng.gen();
+            if roll < reactivity {
+                to_share.push(c.clone());
             }
 
             // Influence on Agent's values
