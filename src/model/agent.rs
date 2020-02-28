@@ -2,7 +2,7 @@ use fnv::{FnvHashMap, FnvHashSet};
 use super::util::{Vector, VECTOR_SIZE};
 use super::publisher::PublisherId;
 use super::platform::PlatformId;
-use super::content::{Content, ContentBody, SharedContent, SharerType};
+use super::content::{Content, ContentId, ContentBody, SharedContent, SharerType};
 use super::network::Network;
 use super::config::SimulationConfig;
 use rand::rngs::StdRng;
@@ -60,6 +60,9 @@ pub struct Agent {
     // Track most recent content
     pub content: util::LimitedQueue<Rc<Content>>,
 
+    // Track recently encountered content
+    pub seen_content: RefCell<util::LimitedSet<ContentId>>,
+
     // Params for estimating quality/ads mix
     theta: util::Params,
     observations: Vec<f32>,
@@ -103,6 +106,7 @@ impl Agent {
             trust: RefCell::new(FnvHashMap::default()),
             platforms: FnvHashSet::default(),
             content: util::LimitedQueue::new(10),
+            seen_content: RefCell::new(util::LimitedSet::new(100)),
             theta: util::Params::new(rng.gen(), rng.gen()),
             observations: Vec::new(),
             outcomes: Vec::new(),
@@ -159,6 +163,7 @@ impl Agent {
         let mut unfollows = FnvHashSet::default();
         let mut follows = FnvHashSet::default();
         let mut seen_publishers = FnvHashSet::default();
+        let mut seen_content = self.seen_content.borrow_mut();
 
         // Data generated for platforms
         let mut data = FnvHashMap::default();
@@ -180,6 +185,12 @@ impl Agent {
             if attention < c.body.cost {
                 continue;
             }
+
+            // Skip already-read content
+            if seen_content.contains(&c.id) {
+                continue;
+            }
+            seen_content.insert(c.id);
 
             let affinity = self.interests.dot(&c.body.topics);
             let alignment = (values.dot(&c.body.values) - 0.5) * 2.;

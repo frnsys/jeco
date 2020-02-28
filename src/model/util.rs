@@ -4,6 +4,8 @@ use std::f32::consts::E;
 use rand_distr::StandardNormal;
 use nalgebra::{Matrix, Dynamic, U1, U2, VecStorage, ArrayStorage, Vector2, VectorN, RowVectorN};
 use std::collections::VecDeque;
+use fnv::FnvHashSet;
+use std::hash::Hash;
 
 // 2 so can be plotted in 2d
 pub static VECTOR_SIZE: u32 = 2;
@@ -152,5 +154,48 @@ impl<T> LimitedQueue<T> {
 
     pub fn len(&self) -> usize {
         self._vec.len()
+    }
+}
+
+
+#[derive(Debug)]
+pub struct LimitedSet<T: Eq + Hash + Clone> {
+    _vec: VecDeque<T>,
+    _set: FnvHashSet<T>,
+    capacity: usize,
+}
+
+impl<T: Eq + Hash + Clone> LimitedSet<T> {
+    pub fn new(capacity: usize) -> LimitedSet<T> {
+        LimitedSet {
+            capacity: capacity,
+            _set: FnvHashSet::default(),
+            _vec: VecDeque::with_capacity(capacity)
+        }
+    }
+
+    pub fn insert(&mut self, val: T) {
+        self._vec.push_front(val.clone());
+        if self._vec.len() > self.capacity {
+            match self._vec.pop_back() {
+                Some(v) => {
+                    self._set.remove(&v);
+                },
+                None => {}
+            }
+        }
+        self._set.insert(val);
+    }
+
+    pub fn iter(&self) -> std::collections::vec_deque::Iter<T> {
+        self._vec.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self._vec.len()
+    }
+
+    pub fn contains(&self, val: &T) -> bool {
+        self._set.contains(val)
     }
 }

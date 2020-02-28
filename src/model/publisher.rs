@@ -11,7 +11,7 @@ use std::rc::Rc;
 use rand::rngs::StdRng;
 use itertools::Itertools;
 use super::agent::Agent;
-use super::content::{Content, ContentBody, SharedContent, SharerType};
+use super::content::{Content, ContentId, ContentBody, SharedContent, SharerType};
 use super::util::{Vector, Params, Sample, SampleRow, ewma, bayes_update, z_score, sigmoid, learn_steps, LimitedQueue};
 use super::config::PublisherConfig;
 
@@ -123,6 +123,7 @@ impl Publisher {
             let mut body_ = body.clone();
             body_.quality += self.quality;
             let content = Rc::new(Content {
+                id: ContentId::new_v4(),
                 publisher: Some(self.id),
                 body: body_,
                 author: author.id,

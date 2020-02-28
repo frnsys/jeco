@@ -8,7 +8,7 @@ use super::platform::{Platform, PlatformId};
 use super::publisher::Publisher;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
-use super::content::{Content, SharedContent, SharerType};
+use super::content::{Content, ContentId, SharedContent, SharerType};
 use super::util::ewma;
 use super::config::SimulationConfig;
 use itertools::Itertools;
@@ -100,6 +100,7 @@ impl Simulation {
                             a.publishability = ewma(0., a.publishability);
 
                             let content = Rc::new(Content {
+                                id: ContentId::new_v4(),
                                 publisher: None,
                                 author: a.id,
                                 body: body,

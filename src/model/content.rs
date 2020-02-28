@@ -1,6 +1,9 @@
+use uuid::Uuid;
 use std::rc::Rc;
 use super::agent::{Topics, Values, AgentId};
 use super::publisher::PublisherId;
+
+pub type ContentId = Uuid;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum SharerType {
@@ -10,6 +13,7 @@ pub enum SharerType {
 
 #[derive(Debug)]
 pub struct Content {
+    pub id: Uuid,
     pub publisher: Option<PublisherId>,
     pub author: AgentId,
     pub body: ContentBody,
