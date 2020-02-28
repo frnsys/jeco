@@ -1,4 +1,4 @@
-use super::model::{Simulation, Agent, AgentId, PublisherId, Values};
+use super::model::{Simulation, Agent, AgentId, PublisherId, Values, Position};
 use super::config::Config;
 use chrono::{DateTime, Utc};
 use fnv::FnvHashMap;
@@ -110,6 +110,8 @@ impl Recorder {
             })
         }).collect();
 
+        let space: Vec<(Position, usize)> = sim.grid.iter().map(|(pos, agents)| (*pos, agents.len())).collect();
+
         let value_shifts: Vec<f32> = agents.iter().zip(self.init_values.iter())
             .map(|(a, b)| 1. - a.values.get().normalize().dot(&b.normalize())).collect();
 
@@ -138,6 +140,7 @@ impl Recorder {
 
         let value = json!({
             "step": step,
+            "space": space,
             "shares": {
                 "max": n_shares.iter().max(),
                 "min": n_shares.iter().min(),

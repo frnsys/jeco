@@ -6,6 +6,7 @@ use super::policy::Policy;
 use super::network::Network;
 use super::platform::{Platform, PlatformId};
 use super::publisher::{Publisher, PublisherId};
+use super::grid::{HexGrid, Position};
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use super::content::{Content, ContentId, SharedContent, SharerType};
@@ -20,6 +21,8 @@ pub struct Simulation {
     content: Vec<Rc<Content>>,
     pub publishers: Vec<Publisher>,
     pub platforms: Vec<Platform>,
+    pub ref_grid: HexGrid,
+    pub grid: FnvHashMap<Position, Vec<AgentId>>,
 
     // Content Agents will share in the next step.
     // Emptied each step.
@@ -57,7 +60,22 @@ impl Simulation {
 
         let network = Network::new(&agents, &mut rng);
 
+        let ref_grid = HexGrid::new(conf.grid_size, conf.grid_size);
+        let mut grid = FnvHashMap::default();
+        for pos in ref_grid.positions() {
+            grid.insert(pos, Vec::new());
+        }
+
+        // Randomly assign agents by density
+        for agent in agents.iter() {
+            let weights: Vec<(Position, usize)> = grid.iter().map(|(pos, agents)| (*pos, agents.len() + 1)).collect();
+            let pos = weights.choose_weighted(&mut rng, |item| item.1).unwrap().0;
+            grid.get_mut(&pos).unwrap().push(agent.id);
+        }
+
         Simulation {
+            grid: grid,
+            ref_grid: ref_grid,
             network: network,
             content: Vec::new(),
             agents: agents,
