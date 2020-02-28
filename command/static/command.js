@@ -99,6 +99,16 @@ const CONFIG_SPEC = {
     type: 'float',
     desc: 'How quickly publishers make ad/quality changes.'
   },
+  'BASE_CONVERSION_RATE': {
+    key: 'SIMULATION',
+    type: 'float',
+    desc: 'Base conversion rate for ads.'
+  },
+  'MAX_CONVERSION_RATE': {
+    key: 'SIMULATION',
+    type: 'float',
+    desc: 'Maximum conversion rate for ads.'
+  },
   'SEED': {
     key: null,
     type: 'int',

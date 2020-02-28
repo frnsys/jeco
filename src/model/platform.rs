@@ -3,6 +3,7 @@ use super::agent::{Agent, AgentId};
 use petgraph::stable_graph::{NodeIndex, EdgeIndex, StableGraph};
 use petgraph::{Directed, Outgoing};
 use petgraph::visit::EdgeRef;
+use super::util;
 
 pub type PlatformId = usize;
 
@@ -13,6 +14,7 @@ pub type PlatformId = usize;
 pub struct Platform {
     pub id: PlatformId,
     pub data: f32,
+    pub conversion_rate: f32,
     graph: StableGraph<usize, f32, Directed>,
     agent_to_node: FnvHashMap<AgentId, NodeIndex>,
 }
@@ -23,9 +25,10 @@ impl Platform {
         let lookup = FnvHashMap::default();
         Platform {
             id: id,
-            data: 0.,
             graph: graph,
-            agent_to_node: lookup
+            agent_to_node: lookup,
+            conversion_rate: 0.,
+            data: 0.,
         }
     }
 
@@ -69,5 +72,9 @@ impl Platform {
 
     pub fn n_users(&self) -> usize {
         self.graph.node_count()
+    }
+
+    pub fn update_conversion_rate(&mut self, max_conversion_rate: f32) {
+        self.conversion_rate = util::sigmoid(self.data-0.5) * max_conversion_rate;
     }
 }

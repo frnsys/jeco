@@ -58,6 +58,12 @@ pub struct SimulationConfig {
     // this many steps
     pub unsubscribe_lag: usize,
 
+    // Base conversion rate for ads
+    pub base_conversion_rate: f32,
+
+    // Conversion rate limit for ads
+    pub max_conversion_rate: f32,
+
     // See below
     pub publisher: PublisherConfig,
 }

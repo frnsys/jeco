@@ -321,6 +321,7 @@ impl Simulation {
         // Add data to platforms
         for p in &mut self.platforms {
             p.data += *all_data.entry(p.id).or_insert(0.);
+            p.update_conversion_rate(conf.max_conversion_rate);
         }
 
         // Sign up agents and follow friends
