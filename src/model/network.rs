@@ -7,8 +7,6 @@ use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::Rng;
 
-static NETWORK_SAMPLE_P: f32 = 0.2;
-
 #[derive(Debug)]
 pub struct Network {
     graph: StableGraph<usize, f32, Directed>,
@@ -23,9 +21,9 @@ impl Network {
         }
     }
 
-    pub fn preferential_attachment(&mut self, agents: &Vec<Agent>, mut rng: &mut StdRng) {
+    pub fn preferential_attachment(&mut self, agents: &Vec<Agent>, sample_p: f32, mut rng: &mut StdRng) {
         // Network of agents, with trust as weight
-        let sample_size = (agents.len() as f32 * NETWORK_SAMPLE_P).floor() as usize;
+        let sample_size = (agents.len() as f32 * sample_p).floor() as usize;
         for agent in agents.iter() {
             let idx = self.graph.add_node(agent.id);
             self.lookup.insert(agent.id, idx);
