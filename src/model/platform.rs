@@ -1,8 +1,5 @@
-use fnv::FnvHashMap;
-use super::agent::{Agent, AgentId};
-use petgraph::stable_graph::{NodeIndex, EdgeIndex, StableGraph};
-use petgraph::{Directed, Outgoing};
-use petgraph::visit::EdgeRef;
+use super::agent::AgentId;
+use super::network::Network;
 use super::util;
 
 pub type PlatformId = usize;
@@ -15,63 +12,42 @@ pub struct Platform {
     pub id: PlatformId,
     pub data: f32,
     pub conversion_rate: f32,
-    graph: StableGraph<usize, f32, Directed>,
-    agent_to_node: FnvHashMap<AgentId, NodeIndex>,
+    network: Network,
 }
 
 impl Platform {
     pub fn new(id: PlatformId) -> Platform {
-        let graph = StableGraph::<usize, f32, Directed, u32>::default();
-        let lookup = FnvHashMap::default();
+        let network = Network::new();
         Platform {
             id: id,
-            graph: graph,
-            agent_to_node: lookup,
-            conversion_rate: 0.,
+            network: network,
             data: 0.,
+            conversion_rate: 0.,
         }
     }
 
-    pub fn signup(&mut self, agent: &Agent) {
-        let idx = self.graph.add_node(agent.id);
-        self.agent_to_node.insert(agent.id, idx);
+    pub fn signup(&mut self, a: AgentId) {
+        self.network.add(a);
     }
 
-    pub fn is_signed_up(&self, a_id: &usize) -> bool {
-        self.agent_to_node.contains_key(a_id)
+    pub fn is_signed_up(&self, a: &AgentId) -> bool {
+        self.network.exists(a)
     }
 
-    pub fn follow(&mut self, a_id: &usize, b_id: &usize, weight: f32) {
-        let idx_a = self.agent_to_node[a_id];
-        let idx_b = self.agent_to_node[b_id];
-        self.graph.add_edge(idx_a, idx_b, weight);
+    pub fn unfollow(&mut self, a: &AgentId, b: &AgentId) {
+        self.network.remove_edges(a, b);
     }
 
-    pub fn unfollow(&mut self, a_id: &usize, b_id: &usize) {
-        let idx_a = self.agent_to_node[a_id];
-        let idx_b = self.agent_to_node[b_id];
-
-        // TODO is there a way to do this without
-        // creating a new vec?
-        let to_remove: Vec<EdgeIndex> = self.graph.edges_directed(idx_a, Outgoing)
-            .filter(|edge| edge.target() == idx_b)
-            .map(|edge| edge.id())
-            .collect();
-        for edge in to_remove {
-            self.graph.remove_edge(edge);
-        }
+    pub fn follow(&mut self, a: &AgentId, b: &AgentId, weight: f32) {
+        self.network.add_edge(a, b, weight);
     }
 
-    pub fn following_ids(&self, agent: &Agent) -> Vec<&usize> { //impl Iterator<Item=&usize> {
-        let idx = self.agent_to_node[&agent.id];
-        self.graph
-            .neighbors_directed(idx, Outgoing)
-            .filter_map(|idx| self.graph.node_weight(idx))
-            .collect()
+    pub fn following_ids(&self, a: &AgentId) -> Vec<&usize> {
+        self.network.following_ids(a)
     }
 
     pub fn n_users(&self) -> usize {
-        self.graph.node_count()
+        self.network.n_nodes()
     }
 
     pub fn update_conversion_rate(&mut self, max_conversion_rate: f32) {

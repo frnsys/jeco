@@ -2,10 +2,10 @@ use rand::Rng;
 use rand::rngs::StdRng;
 use std::f32::consts::E;
 use rand_distr::StandardNormal;
-use nalgebra::{Matrix, Dynamic, U1, U2, VecStorage, ArrayStorage, Vector2, VectorN, RowVectorN};
 use std::collections::VecDeque;
 use fnv::FnvHashSet;
 use std::hash::Hash;
+use nalgebra::{Matrix, Dynamic, U1, U2, VecStorage, ArrayStorage, Vector2, VectorN, RowVectorN};
 
 // 2 so can be plotted in 2d
 pub static VECTOR_SIZE: u32 = 2;

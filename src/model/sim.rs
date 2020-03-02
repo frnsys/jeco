@@ -25,6 +25,8 @@ pub struct Simulation {
     pub grid: FnvHashMap<Position, Vec<AgentId>>,
     pub distances: FnvHashMap<Position, Vec<usize>>,
 
+    pub n_produced: usize,
+
     // Content Agents will share in the next step.
     // Emptied each step.
     share_queues: FnvHashMap<AgentId, Vec<SharedContent>>,
@@ -59,7 +61,8 @@ impl Simulation {
             .map(|i| Platform::new(i))
             .collect();
 
-        let network = Network::new(&agents, &mut rng);
+        let mut network = Network::new();
+        network.preferential_attachment(&agents, &mut rng);
 
         let ref_grid = HexGrid::new(conf.grid_size, conf.grid_size);
         let mut grid = FnvHashMap::default();
@@ -132,10 +135,16 @@ impl Simulation {
             outboxes: outboxes,
             publishers: publishers,
             platforms: platforms,
+            n_produced: 0,
         }
     }
 
-    pub fn produce(&mut self, conf: &SimulationConfig, mut rng: &mut StdRng) -> usize {
+    pub fn step(&mut self, conf: &SimulationConfig, mut rng: &mut StdRng) {
+        self.produce(&conf, &mut rng);
+        self.consume(&conf, &mut rng);
+    }
+
+    pub fn produce(&mut self, conf: &SimulationConfig, mut rng: &mut StdRng) {
         let mut new_content: FnvHashMap<(SharerType, usize), Vec<Content>> = FnvHashMap::default();
         for p in &mut self.publishers {
             p.n_ads_sold = 0.;
@@ -265,7 +274,7 @@ impl Simulation {
             }
         }
 
-        n_new_content
+        self.n_produced = n_new_content;
     }
 
     pub fn consume(&mut self,
@@ -285,7 +294,7 @@ impl Simulation {
             let to_read = &mut shared;
 
             // Agent encounters shared content
-            let following = self.network.following_ids(&a).clone();
+            let following = self.network.following_ids(&a.id).clone();
 
             // "Offline" encounters
             to_read.clear();
@@ -308,7 +317,7 @@ impl Simulation {
             // rather than per agent.
             // ENH: Agents may develop a preference for a platform?
             to_read.extend(a.platforms.iter()
-                .flat_map(|p_id| self.platforms[*p_id].following_ids(&a).into_iter()
+                .flat_map(|p_id| self.platforms[*p_id].following_ids(&a.id).into_iter()
                           .map(move |a_id| (p_id, a_id)))
                 .flat_map(|(p_id, a_id)| self.share_queues[a_id].iter().map(move |sc| (Some(p_id), sc)))
                 .filter(|(_, sc)| {
@@ -479,9 +488,9 @@ impl Simulation {
         // ENH: Maybe not all friends should be followed
         for (a_id, p_id) in signups {
             if !self.platforms[p_id].is_signed_up(&a_id) {
-                self.platforms[p_id].signup(&self.agents[a_id]);
+                self.platforms[p_id].signup(self.agents[a_id].id);
                 self.agents[a_id].platforms.insert(p_id);
-                for b_id in self.network.following_ids(&self.agents[a_id]) {
+                for b_id in self.network.following_ids(&self.agents[a_id].id) {
                     let platform = &mut self.platforms[p_id];
                     if platform.is_signed_up(b_id) {
                         let trust_a = self.network.trust(&a_id, b_id);

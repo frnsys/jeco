@@ -57,7 +57,7 @@ impl Recorder {
         }
     }
 
-    pub fn record(&mut self, step: usize, sim: &Simulation, n_produced: usize) {
+    pub fn record(&mut self, step: usize, sim: &Simulation) {
         let agents: Vec<&Agent> = self.agents.iter().map(|id| &sim.agents[*id]).collect();
         let a_sample: Vec<Value> = agents
             .iter()
@@ -208,7 +208,7 @@ impl Recorder {
             "platforms": {
                 "sample": platforms
             },
-            "p_produced": n_produced as f32/sim.agents.len() as f32,
+            "p_produced": sim.n_produced as f32/sim.agents.len() as f32,
             "to_share": sim.n_will_share(),
             "top_content": content
         });
