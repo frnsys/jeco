@@ -75,8 +75,8 @@ impl Recorder {
             .map(|p| {
                 json!({
                     "id": p.id,
-                    "values": p.audience_values.0, // mean only
-                    "interests": p.audience_interests.0, // ditto
+                    "values": p.audience.values.0, // mean only
+                    "interests": p.audience.interests.0, // ditto
                 })
             })
             .collect();

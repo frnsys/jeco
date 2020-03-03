@@ -1,6 +1,6 @@
 use fnv::{FnvHashMap, FnvHashSet};
-use super::grid::{Position, hexagon_dist};
-use super::util::{Vector, VECTOR_SIZE};
+use super::grid::{Position};
+use super::util::{Vector, VECTOR_SIZE, Learner};
 use super::publisher::PublisherId;
 use super::platform::PlatformId;
 use super::content::{Content, ContentId, ContentBody, SharedContent, SharerType};
@@ -67,9 +67,7 @@ pub struct Agent {
     pub seen_content: RefCell<util::LimitedSet<ContentId>>,
 
     // Params for estimating quality/ads mix
-    theta: util::Params,
-    observations: Vec<f32>,
-    outcomes: Vec<f32>,
+    learner: Learner,
 }
 
 
@@ -111,9 +109,7 @@ impl Agent {
             platforms: FnvHashSet::default(),
             content: util::LimitedQueue::new(10),
             seen_content: RefCell::new(util::LimitedSet::new(100)),
-            theta: util::Params::new(rng.gen(), rng.gen()),
-            observations: Vec::new(),
-            outcomes: Vec::new(),
+            learner: Learner::new(50, &mut rng),
             relevancies: Vec::new()
         }
     }
@@ -367,17 +363,10 @@ impl Agent {
 
     pub fn learn(&mut self, revenue: f32, change_rate: f32) {
         // Assume reach has been updated
-        self.outcomes.push(revenue * self.reach); // TODO more balanced mixture of the two?
-
-        self.observations.push(self.quality);
-        self.observations.push(self.ads);
-
-        // TODO don't necessarily need to learn _every_ step.
-        self.theta = util::learn_steps(&self.observations, &self.outcomes, self.theta);
-        let steps: Vec<f32> = self.theta.into_iter().cloned().collect();
-        self.quality += change_rate * steps[0];
-        self.ads += change_rate * steps[1];
-        self.ads = f32::max(0., self.ads);
-        self.quality = f32::min(f32::max(0., self.quality), self.resources);
+        // TODO more balanced mixture of the two?
+        let outcome = revenue * self.reach;
+        self.learner.learn(vec![self.quality, self.ads], outcome, change_rate);
+        self.quality = self.learner.params.x;
+        self.ads = self.learner.params.y;
     }
 }

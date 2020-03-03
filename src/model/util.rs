@@ -120,7 +120,7 @@ pub fn gradient_descent(
     theta
 }
 
-pub fn learn_steps(observations: &Vec<f32>, outcomes: &Vec<f32>, theta: Params) -> Params {
+pub fn learn_steps(observations: &[f32], outcomes: &[f32], theta: Params) -> Params {
     let iterations = 100;
     let alpha = 0.0001; // needs to be quite small to avoid blowups
 
@@ -131,7 +131,7 @@ pub fn learn_steps(observations: &Vec<f32>, outcomes: &Vec<f32>, theta: Params) 
 
 #[derive(Debug)]
 pub struct LimitedQueue<T> {
-    _vec: VecDeque<T>,
+    _vec: Vec<T>,
     capacity: usize,
 }
 
@@ -139,21 +139,30 @@ impl<T> LimitedQueue<T> {
     pub fn new(capacity: usize) -> LimitedQueue<T> {
         LimitedQueue {
             capacity: capacity,
-            _vec: VecDeque::with_capacity(capacity)
+            _vec: Vec::with_capacity(capacity)
         }
     }
 
     pub fn push(&mut self, val: T) {
-        self._vec.push_front(val);
+        self._vec.insert(0, val);
         self._vec.truncate(self.capacity);
     }
 
-    pub fn iter(&self) -> std::collections::vec_deque::Iter<T> {
+    pub fn extend(&mut self, vals: Vec<T>) {
+        self._vec.extend(vals);
+        self._vec.truncate(self.capacity);
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<T> {
         self._vec.iter()
     }
 
     pub fn len(&self) -> usize {
         self._vec.len()
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        self._vec.as_slice()
     }
 }
 
@@ -197,5 +206,40 @@ impl<T: Eq + Hash + Clone> LimitedSet<T> {
 
     pub fn contains(&self, val: &T) -> bool {
         self._set.contains(val)
+    }
+}
+
+#[derive(Debug)]
+pub struct Learner {
+    theta: Params,
+    observations: LimitedQueue<f32>,
+    outcomes: LimitedQueue<f32>,
+    pub params: Params,
+}
+
+impl Learner {
+    pub fn new(memory: usize, rng: &mut StdRng) -> Learner {
+        let theta = Params::new(rng.gen(), rng.gen());
+        Learner {
+            theta: theta,
+            observations: LimitedQueue::new(memory),
+            outcomes: LimitedQueue::new(memory),
+            params: theta.clone()
+        }
+    }
+
+    pub fn learn(&mut self, observations: Vec<f32>, outcome: f32, change_rate: f32) {
+        self.outcomes.push(outcome);
+        self.observations.extend(observations);
+
+        self.theta = learn_steps(&self.observations.as_slice(),
+            &self.outcomes.as_slice(), self.theta);
+
+        self.params.x += change_rate * self.theta.x;
+        self.params.y += change_rate * self.theta.y;
+
+        // Assuming params must be >= 0
+        self.params.x = f32::max(0., self.params.x);
+        self.params.y = f32::max(0., self.params.y);
     }
 }

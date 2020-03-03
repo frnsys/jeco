@@ -1,18 +1,10 @@
-// TODO
-// After ads are implemented
-// - deciding on how many ads to include
-//  - civic vs profit-driven utility mixture
-//
-// After social networks are implemented
-// - circulate content through agent networks/non-subscriber readers
-
 use rand::Rng;
 use std::rc::Rc;
 use rand::rngs::StdRng;
 use itertools::Itertools;
 use super::agent::Agent;
-use super::content::{Content, ContentId, ContentBody, SharedContent};
-use super::util::{Vector, Params, Sample, SampleRow, ewma, bayes_update, z_score, sigmoid, learn_steps, LimitedQueue, normal_range};
+use super::content::{Content, ContentId, ContentBody};
+use super::util::{Vector, Learner, Sample, SampleRow, ewma, bayes_update, z_score, sigmoid, LimitedQueue, normal_range};
 use super::config::PublisherConfig;
 use super::grid::Position;
 
@@ -48,9 +40,7 @@ pub struct Publisher {
     pub ads: f32,
 
     // Params for estimating quality/ads mix
-    theta: Params,
-    observations: Vec<f32>,
-    outcomes: Vec<f32>,
+    learner: Learner,
 
     // A Publisher's "reach" is the mean shared
     // count of its content per step
@@ -74,31 +64,24 @@ pub struct Publisher {
     // Publisher tries to guess
     // the distribution of their
     // audiences' values and interests
-    pub audience_values: (Vector, Vector),
-    pub audience_interests: (Vector, Vector),
+    pub audience: Audience,
 }
 
 impl Publisher {
     pub fn new(id: PublisherId, conf: &PublisherConfig, mut rng: &mut StdRng) -> Publisher {
-        let mu = Vector::from_vec(vec![
-            normal_range(&mut rng),
-            normal_range(&mut rng),
-        ]);
-        let var = Vector::from_vec(vec![0.5, 0.5]);
-
         Publisher {
             id: id,
-            location: (0, 0),
+
             radius: 0,
+            location: (0, 0),
+
             budget: conf.base_budget,
             revenue_per_subscriber: conf.revenue_per_subscriber,
             reach: 0.,
 
             ads: rng.gen::<f32>() * 10.,
             quality: rng.gen::<f32>(),
-            theta: Params::new(rng.gen(), rng.gen()),
-            observations: Vec::new(),
-            outcomes: Vec::new(),
+            learner: Learner::new(50, &mut rng),
             n_ads_sold: 0.,
 
             content: LimitedQueue::new(50),
@@ -106,8 +89,7 @@ impl Publisher {
             n_last_published: 0,
 
             // Priors
-            audience_values: (mu.clone(), var.clone()),
-            audience_interests: (mu.clone(), var.clone()),
+            audience: Audience::new(&mut rng),
         }
     }
 
@@ -116,16 +98,15 @@ impl Publisher {
     pub fn pitch(&mut self, body: &ContentBody, author: &Agent, rng: &mut StdRng) -> Option<Content> {
         if self.budget < self.quality { return None }
 
-        let z_ints = z_score(&body.topics, &self.audience_interests);
-        let z_vals = z_score(&body.values, &self.audience_values);
+        let z_ints = z_score(&body.topics, &self.audience.interests);
+        let z_vals = z_score(&body.values, &self.audience.values);
         let sim_to_perceived_reader = f32::max(1. - (z_ints.mean() + z_vals.mean())/6., 0.);
         // 2*3=6; 2 for the mean, max z-score of 3
 
         // TODO this doesn't necessarily need to be random?
         // Could just be based on a threshold
         let p_accept = sigmoid(sim_to_perceived_reader-0.5);
-        let roll: f32 = rng.gen();
-        let accepted = roll < p_accept;
+        let accepted = rng.gen::<f32>() < p_accept;
         if accepted {
             // Publisher improves the quality
             let mut body_ = body.clone();
@@ -155,20 +136,8 @@ impl Publisher {
     // to look at. Ideally also weight content by shares.
     pub fn audience_survey(&mut self, sample_size: usize) {
         if self.content.len() == 0 { return }
-
-        // TODO should these be merged into one "audience" matrix?
-        // Might be faster
-        let mut v_rows: Vec<SampleRow> = Vec::with_capacity(sample_size);
-        let mut i_rows: Vec<SampleRow> = Vec::with_capacity(sample_size);
-        for c in self.content_by_popularity().take(sample_size) {
-            v_rows.push(c.body.values.transpose());
-            i_rows.push(c.body.topics.transpose());
-        }
-        let mut sample = Sample::from_rows(v_rows.as_slice());
-        self.audience_values = bayes_update(self.audience_values, sample);
-
-        sample = Sample::from_rows(i_rows.as_slice());
-        self.audience_interests = bayes_update(self.audience_interests, sample);
+        let sample: Vec<Rc<Content>> = self.content_by_popularity().take(sample_size).cloned().collect();
+        self.audience.update(sample);
     }
 
     pub fn content_by_popularity(&self) -> std::vec::IntoIter<&Rc<Content>> {
@@ -193,17 +162,58 @@ impl Publisher {
 
     pub fn learn(&mut self, revenue: f32, change_rate: f32) {
         // Assume reach has been updated
-        self.outcomes.push(revenue * self.reach); // TODO more balanced mixture of the two?
+        // TODO more balanced mixture of the two?
+        let outcome = revenue * self.reach;
+        self.learner.learn(vec![self.quality, self.ads], outcome, change_rate);
+        self.quality = self.learner.params.x;
+        self.ads = self.learner.params.y;
+    }
+}
 
-        self.observations.push(self.quality);
-        self.observations.push(self.ads);
 
-        // TODO don't necessarily need to learn _every_ step.
-        self.theta = learn_steps(&self.observations, &self.outcomes, self.theta);
-        let steps: Vec<f32> = self.theta.into_iter().cloned().collect();
-        self.quality += change_rate * steps[0];
-        self.ads += change_rate * steps[1];
-        self.ads = f32::max(0., self.ads);
-        self.quality = f32::max(0., self.quality);
+#[derive(Debug)]
+pub struct Audience {
+    pub values: (Vector, Vector),
+    pub interests: (Vector, Vector),
+
+    val_sample: Vec<SampleRow>,
+    int_sample: Vec<SampleRow>,
+}
+
+impl Audience {
+    pub fn new(mut rng: &mut StdRng) -> Audience {
+        let mu_values = Vector::from_vec(vec![
+            normal_range(&mut rng),
+            normal_range(&mut rng),
+        ]);
+        let mu_interests = Vector::from_vec(vec![
+            normal_range(&mut rng),
+            normal_range(&mut rng),
+        ]);
+        let var = Vector::from_vec(vec![0.5, 0.5]);
+
+        Audience {
+            values: (mu_values, var.clone()),
+            interests: (mu_interests, var.clone()),
+
+            val_sample: Vec::new(),
+            int_sample: Vec::new(),
+        }
+    }
+
+    pub fn update<'a >(&mut self, sample: Vec<Rc<Content>>) {
+        self.val_sample.clear();
+        self.int_sample.clear();
+
+        for c in sample {
+            self.val_sample.push(c.body.values.transpose());
+            self.int_sample.push(c.body.topics.transpose());
+        }
+
+        let mut sample = Sample::from_rows(self.val_sample.as_slice());
+        self.values = bayes_update(self.values, sample);
+
+        sample = Sample::from_rows(self.int_sample.as_slice());
+        self.interests = bayes_update(self.interests, sample);
     }
 }
