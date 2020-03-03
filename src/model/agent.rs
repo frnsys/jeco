@@ -172,8 +172,6 @@ impl Agent {
         // Ad revenue generated for publishers or agents
         let mut revenue = FnvHashMap::default();
 
-        // ENH: Can make sure agents don't consume
-        // content they've already consumed
         for (platform, sc) in content {
             let c = &sc.content;
 
@@ -193,22 +191,9 @@ impl Agent {
             }
             seen_content.insert(c.id);
 
-            let affinity = self.interests.dot(&c.body.topics);
-            let alignment = (values.dot(&c.body.values) - 0.5) * 2.;
-
-            // Generate data for platform
-            match platform {
-                Some(p_id) => {
-                    let val = data.entry(**p_id).or_insert(0.);
-                    *val += conf.data_per_consume;
-                },
-                None => {}
-            }
-
-            // Take the abs value
-            // So if something is very polar to the person's values,
-            // they "hateshare" it
-            let mut reactivity = affinity * alignment.abs() * f32::max(c.body.quality, 1.);
+            let affinity = similarity(&self.interests, &c.body.topics);
+            let align = alignment(&values, &c.body.values);
+            let mut react = reactivity(affinity, align, c.body.quality);
 
             // Update publisher feeling/reputation
             // and collect ad revenue
@@ -224,7 +209,7 @@ impl Agent {
                     }
 
                     let relevancy = self.relevancies[p_id];
-                    reactivity *= relevancy;
+                    react *= relevancy;
                 },
                 None => {
                     if c.ads > 0. {
@@ -236,13 +221,13 @@ impl Agent {
                     // Made distance less important here
                     // let dist = hexagon_dist(&self.location, &c.author);
                     // let relevance = 1. - util::sigmoid((dist-4) as f32);
-                    // reactivity *= relevancy;
+                    // react *= relevancy;
                 }
             }
 
             // Do they share it?
             let roll: f32 = rng.gen();
-            if roll < reactivity {
+            if roll < react {
                 to_share.push(c.clone());
             }
 
@@ -254,7 +239,7 @@ impl Agent {
                     let mut trust = {
                         let trust = trusts.entry(id).or_insert(0.);
                         let old_trust = trust.clone(); // TODO meh
-                        *trust = util::ewma(affinity * alignment, *trust);
+                        *trust = update_trust(*trust, affinity, align);
 
                         // If platform is not None,
                         // we are already following the sharer.
@@ -269,7 +254,7 @@ impl Agent {
                     if c.author != id {
                         let author_trust = trusts.entry(c.author).or_insert(0.);
                         trust = (trust + *author_trust)/2.;
-                        *author_trust = util::ewma(affinity * alignment, *author_trust);
+                        *author_trust = update_trust(*author_trust, affinity, align);
 
                         // For the author, we don't know
                         // if they're already following or not.
@@ -292,10 +277,19 @@ impl Agent {
                     publishers[&id].0/c.ads
                 }
             };
-            values.zip_apply(&c.body.values, |v, v_| {
-                v + util::gravity(v, v_, conf.gravity_stretch, conf.max_influence) * affinity * trust
+            values.zip_apply(&c.body.values, |a_v, c_v| {
+                a_v + util::gravity(a_v, c_v, conf.gravity_stretch, conf.max_influence) * affinity * trust
             });
             self.values.set(values);
+
+            // Generate data for platform
+            match platform {
+                Some(p_id) => {
+                    let val = data.entry(**p_id).or_insert(0.);
+                    *val += conf.data_per_consume;
+                },
+                None => {}
+            }
 
             // Assume that they fully consume
             // the content, e.g. spend its
@@ -368,5 +362,139 @@ impl Agent {
         self.learner.learn(vec![self.quality, self.ads], outcome, change_rate);
         self.quality = self.learner.params.x;
         self.ads = self.learner.params.y;
+    }
+}
+
+pub fn distance(a: &Vector, b: &Vector) -> f32 {
+    ((a.x - b.x).powf(2.) + (a.y - b.y).powf(2.)).sqrt()
+}
+
+static MAX_TOPIC_DISTANCE: f32 = 1.4142135623730951; // sqrt(2.)
+pub fn similarity(a: &Vector, b: &Vector) -> f32 {
+    1. - distance(a, b)/MAX_TOPIC_DISTANCE
+}
+
+static MAX_VALUE_DISTANCE: f32 = 2.8284271247461903; // sqrt(8.)
+pub fn alignment(a: &Vector, b: &Vector) -> f32 {
+    ((1. - distance(a, b)/MAX_VALUE_DISTANCE) - 0.5) * 2.
+}
+
+pub fn update_trust(trust: f32, affinity: f32, alignment: f32) -> f32 {
+    trust + affinity * alignment
+}
+
+pub fn reactivity(affinity: f32, alignment: f32, quality: f32) -> f32 {
+    // Take the abs value
+    // So if something is very polar to the person's values,
+    // they "hateshare" it
+    affinity * alignment.abs() * f32::min(quality, 1.)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_alignment() {
+        let mut a = Values::from_vec(vec![0., 0.]);
+        let mut b = Values::from_vec(vec![1., 1.]);
+        let align = alignment(&a, &b);
+        assert_eq!(align, 0.);
+
+        a = Values::from_vec(vec![0., 0.]);
+        b = Values::from_vec(vec![-1., -1.]);
+        let align = alignment(&a, &b);
+        assert_eq!(align, 0.);
+
+        let mut a = Values::from_vec(vec![0., 0.]);
+        let mut b = Values::from_vec(vec![0., 0.]);
+        let align = alignment(&a, &b);
+        assert_eq!(align, 1.);
+
+        let mut a = Values::from_vec(vec![1., 1.]);
+        let mut b = Values::from_vec(vec![-1., -1.]);
+        let align = alignment(&a, &b);
+        assert_eq!(align, -1.);
+    }
+
+    #[test]
+    fn test_similarity() {
+        let mut a = Topics::from_vec(vec![0., 0.]);
+        let mut b = Topics::from_vec(vec![1., 1.]);
+        let sim = similarity(&a, &b);
+        assert_eq!(sim, 0.);
+
+        a = Topics::from_vec(vec![1., 1.]);
+        b = Topics::from_vec(vec![1., 1.]);
+        let sim = similarity(&a, &b);
+        assert_eq!(sim, 1.);
+
+        a = Topics::from_vec(vec![0., 0.]);
+        b = Topics::from_vec(vec![0., 0.]);
+        let sim = similarity(&a, &b);
+        assert_eq!(sim, 1.);
+    }
+
+    #[test]
+    fn test_update_trust() {
+        let trust = 0.;
+
+        // Strong affinity and strong alignment
+        assert!(update_trust(trust, 1., 1.) > trust);
+
+        // Strong affinity and opposite alignment
+        assert!(update_trust(trust, 1., -1.) < trust);
+
+        // Weak affinity and strong alignment
+        assert!(update_trust(trust, 0., 1.) == trust);
+
+        // Weak affinity and opposite alignment
+        assert!(update_trust(trust, 0., -1.) == trust);
+    }
+
+    #[test]
+    fn test_reactivity() {
+        // Strong affinity, strong alignment, high quality
+        assert_eq!(reactivity(1., 1., 1.), 1.);
+
+        // Strong affinity, opposite alignment, high quality
+        assert_eq!(reactivity(1., -1., 1.), 1.);
+
+        // Weak affinity, strong alignment, high quality
+        assert_eq!(reactivity(0., 1., 1.), 0.);
+
+        // Weak affinity, opposite alignment, high quality
+        assert_eq!(reactivity(0., -1., 1.), 0.);
+
+        // Strong affinity, strong alignment, low quality
+        assert_eq!(reactivity(1., 1., 0.), 0.);
+
+        // Strong affinity, opposite alignment, low quality
+        assert_eq!(reactivity(1., -1., 0.), 0.);
+
+        // Weak affinity, strong alignment, low quality
+        assert_eq!(reactivity(0., 1., 0.), 0.);
+
+        // Weak affinity, opposite alignment, low quality
+        assert_eq!(reactivity(0., -1., 0.), 0.);
+    }
+
+    #[test]
+    fn test_gravity() {
+        let gravity_stretch = 100.;
+        let max_influence = 0.1;
+
+        let mut to_val = 1.;
+        let mut from_val = 0.9;
+        let gravity_closer = util::gravity(from_val, to_val, gravity_stretch, max_influence);
+        assert!(gravity_closer > 0.);
+
+        from_val = 0.8;
+        let gravity_further = util::gravity(from_val, to_val, gravity_stretch, max_influence);
+        assert!(gravity_closer > gravity_further);
+
+        to_val = -1.;
+        let gravity = util::gravity(from_val, to_val, gravity_stretch, max_influence);
+        assert!(gravity < 0.);
     }
 }

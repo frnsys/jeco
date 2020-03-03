@@ -20,4 +20,8 @@ Search for `ENH` comments for possible enhancements.
 
 ---
 
+Run tests with `cargo test -- --nocapture`
+
+---
+
 ![](shot.png)

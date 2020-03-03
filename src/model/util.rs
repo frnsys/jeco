@@ -48,7 +48,7 @@ pub fn clamp(val: f32, min: f32, max: f32) -> f32 {
 
 // Returns how much a moves towards b
 pub fn gravity(a: f32, b: f32, gravity_stretch: f32, max_influence: f32) -> f32 {
-    let mut dist = a - b;
+    let mut dist = b - a;
     let sign = dist.signum();
     dist = dist.abs();
     if dist == 0. {
