@@ -17,12 +17,6 @@ pub fn ewma(mu: f32, prev: f32) -> f32 {
     EWMA_ALPHA * mu + (1. - EWMA_ALPHA) * prev
 }
 
-pub fn z_score(a: &Vector, params: &(Vector, Vector)) -> Vector {
-    let (mu, var) = params;
-    let std = var.map(|x| x.sqrt());
-    (a - mu).abs().component_div(&std)
-}
-
 // Bayesian normal update
 pub type Sample = Matrix<f32, Dynamic, U2, VecStorage<f32, Dynamic, U2>>;
 pub type SampleRow = RowVectorN<f32, U2>;

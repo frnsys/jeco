@@ -2,9 +2,9 @@ use rand::Rng;
 use std::rc::Rc;
 use rand::rngs::StdRng;
 use itertools::Itertools;
-use super::agent::Agent;
+use super::agent::{Agent, similarity, alignment};
 use super::content::{Content, ContentId, ContentBody};
-use super::util::{Vector, Learner, Sample, SampleRow, ewma, bayes_update, z_score, sigmoid, LimitedQueue, normal_range};
+use super::util::{Vector, Learner, Sample, SampleRow, ewma, bayes_update, sigmoid, LimitedQueue, normal_range};
 use super::config::PublisherConfig;
 use super::grid::Position;
 
@@ -98,14 +98,9 @@ impl Publisher {
     pub fn pitch(&mut self, body: &ContentBody, author: &Agent, rng: &mut StdRng) -> Option<Content> {
         if self.budget < self.quality { return None }
 
-        let z_ints = z_score(&body.topics, &self.audience.interests);
-        let z_vals = z_score(&body.values, &self.audience.values);
-        let sim_to_perceived_reader = f32::max(1. - (z_ints.mean() + z_vals.mean())/6., 0.);
-        // 2*3=6; 2 for the mean, max z-score of 3
-
         // TODO this doesn't necessarily need to be random?
         // Could just be based on a threshold
-        let p_accept = sigmoid(sim_to_perceived_reader-0.5);
+        let p_accept = accept_prob(&body, &self.audience);
         let accepted = rng.gen::<f32>() < p_accept;
         if accepted {
             // Publisher improves the quality
@@ -218,6 +213,19 @@ impl Audience {
     }
 }
 
+pub fn reader_similarity(body: &ContentBody, audience: &Audience) -> f32 {
+    let sim = similarity(&body.topics, &audience.interests.0);
+    let align = alignment(&body.values, &audience.values.0)/2. + 0.5;
+    (sim + align)/2.
+}
+
+pub fn accept_prob(body: &ContentBody, audience: &Audience) -> f32 {
+    let sim = reader_similarity(body, audience);
+
+    // TODO this doesn't necessarily need to be random?
+    // Could just be based on a threshold
+    sigmoid(8.*(sim-0.5))
+}
 
 #[cfg(test)]
 mod tests {
@@ -255,5 +263,51 @@ mod tests {
         }
         assert_eq!(audience.values.0, Values::from_vec(vec![-1., 1.]));
         assert_eq!(audience.interests.0, Topics::from_vec(vec![0., 1.]));
+    }
+
+    #[test]
+    fn test_reader_similarity() {
+        let mut body = ContentBody {
+            cost: 0.,
+            quality: 0.,
+            topics: Topics::from_vec(vec![ 0., 1.]),
+            values: Values::from_vec(vec![-1., 1.]),
+        };
+
+        let mu = Vector::from_vec(vec![0., 0.]);
+        let var = Vector::from_vec(vec![0.5, 0.5]);
+        let audience = Audience {
+            values: (Values::from_vec(vec![-1., 1.]), var.clone()),
+            interests: (Topics::from_vec(vec![0., 1.]), var.clone()),
+
+            val_sample: Vec::new(),
+            int_sample: Vec::new(),
+        };
+        let sim = reader_similarity(&body, &audience);
+        let prob = accept_prob(&body, &audience);
+        assert_eq!(sim, 1.0);
+        assert!(prob > 0.95);
+
+        body = ContentBody {
+            cost: 0.,
+            quality: 0.,
+            topics: Topics::from_vec(vec![ 0., 0.]),
+            values: Values::from_vec(vec![-1., 1.]),
+        };
+        let sim = reader_similarity(&body, &audience);
+        let prob = accept_prob(&body, &audience);
+        assert!(sim < 1.0 && sim > 0.0);
+        assert!(prob > 0.75);
+
+        body = ContentBody {
+            cost: 0.,
+            quality: 0.,
+            topics: Topics::from_vec(vec![ 1., 0.]),
+            values: Values::from_vec(vec![ 1.,-1.]),
+        };
+        let sim = reader_similarity(&body, &audience);
+        let prob = accept_prob(&body, &audience);
+        assert_eq!(sim, 0.0);
+        assert!(prob < 0.05);
     }
 }
