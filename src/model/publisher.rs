@@ -217,3 +217,43 @@ impl Audience {
         self.interests = bayes_update(self.interests, sample);
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::super::agent::{Topics, Values};
+
+    #[test]
+    fn test_audience_learning() {
+        let mu = Vector::from_vec(vec![0., 0.]);
+        let var = Vector::from_vec(vec![0.5, 0.5]);
+        let mut audience = Audience {
+            values: (mu.clone(), var.clone()),
+            interests: (mu.clone(), var.clone()),
+
+            val_sample: Vec::new(),
+            int_sample: Vec::new(),
+        };
+
+        for _ in 0..10 {
+            let sample: Vec<Rc<Content>> = (0..2).map(|_| {
+                Rc::new(Content {
+                    id: ContentId::new_v4(),
+                    publisher: Some(0),
+                    body: ContentBody {
+                        cost: 0.,
+                        quality: 0.,
+                        topics: Topics::from_vec(vec![ 0., 1.]),
+                        values: Values::from_vec(vec![-1., 1.]),
+                    },
+                    author: 0,
+                    ads: 0.
+                })
+            }).collect();
+            audience.update(sample);
+        }
+        assert_eq!(audience.values.0, Values::from_vec(vec![-1., 1.]));
+        assert_eq!(audience.interests.0, Topics::from_vec(vec![0., 1.]));
+    }
+}

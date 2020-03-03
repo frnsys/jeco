@@ -120,7 +120,7 @@ impl Agent {
 
         // Agent produces depending on expected reach
         // and resources
-        let p_produce = 0.1; // (self.resources + self.reach)/2.;
+        let p_produce = 0.1; // (self.resources + self.reach)/2.; // TODO
         let roll: f32 = rng.gen();
 
         if roll < p_produce {
@@ -379,8 +379,9 @@ pub fn alignment(a: &Vector, b: &Vector) -> f32 {
     ((1. - distance(a, b)/MAX_VALUE_DISTANCE) - 0.5) * 2.
 }
 
+static EASE_OF_TRUST: f32 = 1./100.;
 pub fn update_trust(trust: f32, affinity: f32, alignment: f32) -> f32 {
-    trust + affinity * alignment
+    trust + affinity * alignment * EASE_OF_TRUST
 }
 
 pub fn reactivity(affinity: f32, alignment: f32, quality: f32) -> f32 {
