@@ -69,6 +69,7 @@ pub struct Publisher {
 
 impl Publisher {
     pub fn new(id: PublisherId, conf: &PublisherConfig, mut rng: &mut StdRng) -> Publisher {
+        let learner = Learner::new(&mut rng);
         Publisher {
             id: id,
 
@@ -79,9 +80,9 @@ impl Publisher {
             revenue_per_subscriber: conf.revenue_per_subscriber,
             reach: 0.,
 
-            ads: rng.gen::<f32>() * 10.,
-            quality: rng.gen::<f32>(),
-            learner: Learner::new(50, &mut rng),
+            ads: learner.arm.a as f32,
+            quality: learner.arm.b as f32,
+            learner: learner,
             n_ads_sold: 0.,
 
             content: LimitedQueue::new(50),
@@ -155,13 +156,13 @@ impl Publisher {
         }
     }
 
-    pub fn learn(&mut self, revenue: f32, change_rate: f32) {
+    pub fn learn(&mut self, revenue: f32) {
         // Assume reach has been updated
         // TODO more balanced mixture of the two?
         let outcome = revenue * self.reach;
-        self.learner.learn(vec![self.quality, self.ads], outcome, change_rate);
-        self.quality = self.learner.params.x;
-        self.ads = self.learner.params.y;
+        self.learner.learn(outcome as f64);
+        self.ads = self.learner.arm.a as f32;
+        self.quality = self.learner.arm.b as f32;
     }
 }
 

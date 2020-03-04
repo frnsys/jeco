@@ -22,3 +22,4 @@ strum = "0.15.0"
 strum_macros = "0.15.0"
 itertools = "0.8.2"
 uuid = { version = "0.8", features = ["v4"] }
+bandit = "0.12.1"

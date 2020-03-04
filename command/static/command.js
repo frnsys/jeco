@@ -99,11 +99,6 @@ const CONFIG_SPEC = {
     type: 'float',
     desc: 'How much each subscriber adds to the publisher\'s budget.',
   },
-  'CHANGE_RATE': {
-    key: 'SIMULATION',
-    type: 'float',
-    desc: 'How quickly publishers make ad/quality changes.'
-  },
   'BASE_CONVERSION_RATE': {
     key: 'SIMULATION',
     type: 'float',

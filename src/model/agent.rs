@@ -90,6 +90,7 @@ pub fn random_topics(rng: &mut StdRng) -> Topics {
 impl Agent {
     pub fn new(id: AgentId, conf: &SimulationConfig, mut rng: &mut StdRng) -> Agent {
         let resources = util::normal_p(&mut rng);
+        let learner = Learner::new(&mut rng);
 
         Agent {
             id: id,
@@ -97,8 +98,9 @@ impl Agent {
             interests: random_topics(&mut rng),
             values: Cell::new(random_values(&mut rng)),
             reach: 100.,
-            ads: rng.gen::<f32>() * 10.,
-            quality: rng.gen::<f32>(),
+            ads: learner.arm.a as f32,
+            quality: learner.arm.b as f32,
+            learner: learner,
             attention: conf.attention_budget,
             resources: resources,
             publishability: 1.,
@@ -109,7 +111,6 @@ impl Agent {
             platforms: FnvHashSet::default(),
             content: util::LimitedQueue::new(10),
             seen_content: RefCell::new(util::LimitedSet::new(100)),
-            learner: Learner::new(50, &mut rng),
             relevancies: Vec::new()
         }
     }
@@ -355,13 +356,13 @@ impl Agent {
         }
     }
 
-    pub fn learn(&mut self, revenue: f32, change_rate: f32) {
+    pub fn learn(&mut self, revenue: f32) {
         // Assume reach has been updated
         // TODO more balanced mixture of the two?
         let outcome = revenue * self.reach;
-        self.learner.learn(vec![self.quality, self.ads], outcome, change_rate);
-        self.quality = self.learner.params.x;
-        self.ads = self.learner.params.y;
+        self.learner.learn(outcome as f64);
+        self.ads = self.learner.arm.a as f32;
+        self.quality = self.learner.arm.b as f32;
     }
 }
 
