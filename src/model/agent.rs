@@ -102,7 +102,7 @@ impl Agent {
             quality: learner.arm.b as f32,
             learner: learner,
             attention: conf.attention_budget,
-            resources: resources,
+            resources: resources * 100.,
             publishability: 1.,
             publishabilities: FnvHashMap::default(),
             publishers: RefCell::new(FnvHashMap::default()),
@@ -121,7 +121,7 @@ impl Agent {
 
         // Agent produces depending on expected reach
         // and resources
-        let p_produce = 0.1; // (self.resources + self.reach)/2.; // TODO
+        let p_produce = 0.6; // (self.resources + self.reach)/2.; // TODO
         let roll: f32 = rng.gen();
 
         if roll < p_produce {

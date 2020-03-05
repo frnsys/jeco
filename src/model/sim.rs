@@ -151,7 +151,7 @@ impl Simulation {
         for p in &mut self.publishers {
             p.n_ads_sold = 0.;
         }
-        for a in &mut self.agents {
+        for mut a in &mut self.agents {
             match a.produce(&conf, &mut rng) {
                 Some(body) => {
                     // People give up after not getting anything
@@ -168,7 +168,7 @@ impl Simulation {
                             .filter(|(_, p, _)| *p >= 0.1) // Minimum probability
                             .sorted_by(|(_, _, ev), (_, _, ev_)| ev_.partial_cmp(ev).unwrap());
                         for (pub_id, p, _) in publishers {
-                            match self.publishers[pub_id].pitch(&body, &a, &mut rng) {
+                            match self.publishers[pub_id].pitch(&body, &mut a, &mut rng) {
                                 Some(content) => {
                                     published = true;
                                     a.publishabilities.insert(pub_id, ewma(1., p));
