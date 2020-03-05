@@ -342,6 +342,7 @@ impl Agent {
     pub fn n_shares(&self) -> Vec<usize> {
         // -1 to account for reference in self.content
         // -1 to account for reference in Sim's self.content
+        // there may be 1 extra for a Publisher, but there isn't always one
         self.content.iter().map(|c| Rc::strong_count(c) - 2).collect()
     }
 

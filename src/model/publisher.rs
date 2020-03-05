@@ -148,7 +148,8 @@ impl Publisher {
     pub fn n_shares(&self) -> Vec<usize> {
         // -1 to account for reference in self.content
         // -1 to account for reference in Sim's self.content
-        self.content.iter().map(|c| Rc::strong_count(c) - 2).collect()
+        // -1 to account for reference in authors's self.content
+        self.content.iter().map(|c| Rc::strong_count(c) - 3).collect()
     }
 
     pub fn update_reach(&mut self) {
