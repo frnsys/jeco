@@ -137,6 +137,7 @@ impl Recorder {
         let budget: Vec<f32> = sim.publishers.iter().map(|p| p.budget).collect();
         let publishability: Vec<f32> = agents.iter().map(|a| a.publishability).collect();
         let resources: Vec<f32> = agents.iter().map(|a| a.resources).collect();
+        let agent_reach: Vec<f32> = agents.iter().map(|a| a.reach).collect();
 
         let value = json!({
             "step": step,
@@ -167,6 +168,11 @@ impl Recorder {
                 "max": max_f32(&resources),
                 "min": min_f32(&resources),
                 "mean": mean_f32(&resources),
+            },
+            "reach": {
+                "max": max_f32(&agent_reach),
+                "min": min_f32(&agent_reach),
+                "mean": mean_f32(&agent_reach),
             },
             "agents": a_sample,
             "publishers": {

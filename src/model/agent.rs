@@ -122,10 +122,8 @@ impl Agent {
 
         // Agent produces depending on expected reach
         // and resources
-        let p_produce = 0.6; // (self.resources + self.reach)/2.; // TODO
         let roll: f32 = rng.gen();
-
-        if roll < p_produce {
+        if roll < p_produce(self.reach/conf.population as f32) {
             // Agent produces something around their own interests and values
             let topics = self.interests.map(|v| util::normal_p_mu(v, rng));
             let values = self.values.get().map(|v| util::normal_range_mu(v, rng));
@@ -393,6 +391,10 @@ pub fn reactivity(affinity: f32, alignment: f32, quality: f32) -> f32 {
     affinity * alignment.abs() * f32::min(quality, 1.)
 }
 
+pub fn p_produce(p_reach: f32) -> f32 {
+    util::sigmoid(18.*(p_reach-0.2))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -499,5 +501,18 @@ mod tests {
         to_val = -1.;
         let gravity = util::gravity(from_val, to_val, gravity_stretch, max_influence);
         assert!(gravity < 0.);
+    }
+
+
+    #[test]
+    fn test_p_produce() {
+        let mut p = p_produce(0.);
+        assert!(p < 0.1 && p > 0.);
+
+        p = p_produce(0.2);
+        assert_eq!(p, 0.5);
+
+        p = p_produce(0.5);
+        assert!(p < 1. && p > 0.95);
     }
 }
