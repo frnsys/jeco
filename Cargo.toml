@@ -25,5 +25,5 @@ uuid = { version = "0.8", features = ["v4"] }
 bandit = "0.12.1"
 
 # Temporary, for profiling
-/* [profile.release] */
-/* debug = true */
+# [profile.release]
+# debug = true
