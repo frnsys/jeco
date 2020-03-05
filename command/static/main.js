@@ -46,6 +46,12 @@ const CHARTS = [{
     key: 'p_produced'
   }]
 }, {
+  title: 'p Pitching',
+  datasets: [{
+    label: 'p',
+    key: 'p_pitched'
+  }]
+}, {
   title: 'Subscribers (Publishers)',
   datasets: [{
     label: 'max',

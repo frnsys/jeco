@@ -27,7 +27,9 @@ pub struct Simulation {
     pub grid: FnvHashMap<Position, Vec<AgentId>>,
     pub distances: FnvHashMap<Position, Vec<usize>>,
 
+    // Stats
     pub n_produced: usize,
+    pub n_pitched: usize,
 
     // Content Agents will share in the next step.
     // Emptied each step.
@@ -138,6 +140,7 @@ impl Simulation {
             publishers: publishers,
             platforms: platforms,
             n_produced: 0,
+            n_pitched: 0,
         }
     }
 
@@ -147,6 +150,7 @@ impl Simulation {
     }
 
     pub fn produce(&mut self, conf: &SimulationConfig, mut rng: &mut StdRng) {
+        let mut n_pitched = 0;
         let mut new_content: FnvHashMap<(SharerType, usize), Vec<Content>> = FnvHashMap::default();
         for p in &mut self.publishers {
             p.n_ads_sold = 0.;
@@ -157,7 +161,8 @@ impl Simulation {
                     // People give up after not getting anything
                     // published
                     let mut published = false;
-                    if a.publishability > 0.1 {
+                    if a.publishability > 0. { // 0.1
+                        n_pitched += 1;
                         // Decide to pitch to publisher
                         let publishers = self.publishers.iter()
                             .map(|p| {
@@ -210,10 +215,10 @@ impl Simulation {
         }
 
         // TODO Ad Market
-        let n_new_content = new_content.len();
+        let n_new_content = new_content.values().fold(0, |acc, v| acc + v.len());
         let max_p = 0.95; // Required to avoid beta of 0.0
         let min_p = 0.05; // Required to avoid alpha of 0.0
-        for ((typ, id), contents) in new_content.into_iter() {
+        for ((typ, id), mut contents) in new_content.into_iter() {
             let z = self.platforms.iter().fold(0., |acc, platform| acc + platform.conversion_rate);
             let (p, ad_slots) = match typ {
                 SharerType::Publisher => {
@@ -233,16 +238,17 @@ impl Simulation {
                     (p, ad_slots)
                 }
             };
-            if ad_slots == 0. {
-                continue;
+            if ad_slots > 0. {
+                let alpha = p * ad_slots;
+                let beta = (1.-p) * ad_slots;
+                // println!("alpha {:?}, beta {:?}, ad slots {:?}", alpha, beta, ad_slots);
+                let dist = Beta::new(alpha, beta).unwrap();
+                for c in &mut contents {
+                    c.ads = dist.sample(&mut rng);
+                }
             }
-            let alpha = p * ad_slots;
-            let beta = (1.-p) * ad_slots;
-            // println!("alpha {:?}, beta {:?}, ad slots {:?}", alpha, beta, ad_slots);
-            let dist = Beta::new(alpha, beta).unwrap();
-            for mut c in contents {
-                c.ads = dist.sample(&mut rng);
 
+            for c in contents {
                 let content = Rc::new(c);
 
                 self.content.push(content.clone());
@@ -261,6 +267,7 @@ impl Simulation {
                 match typ {
                     SharerType::Publisher => {
                         self.publishers[id].n_ads_sold += content.ads;
+                        self.publishers[id].content.push(content.clone());
                         match self.outboxes.get_mut(&id) {
                             Some(to_share) => {
                                 to_share.push(SharedContent {
@@ -276,6 +283,7 @@ impl Simulation {
             }
         }
 
+        self.n_pitched = n_pitched;
         self.n_produced = n_new_content;
     }
 
