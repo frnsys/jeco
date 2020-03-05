@@ -21,9 +21,8 @@ impl Network {
         }
     }
 
-    pub fn preferential_attachment(&mut self, agents: &Vec<Agent>, sample_p: f32, mut rng: &mut StdRng) {
+    pub fn preferential_attachment(&mut self, agents: &Vec<Agent>, max_friends: usize, mut rng: &mut StdRng) {
         // Network of agents, with trust as weight
-        let sample_size = (agents.len() as f32 * sample_p).floor() as usize;
         for agent in agents.iter() {
             let idx = self.graph.add_node(agent.id);
             self.lookup.insert(agent.id, idx);
@@ -33,6 +32,7 @@ impl Network {
         let mut total_edges = 1.;
         for agent in agents.iter() {
             let idx = self.lookup[&agent.id];
+            let sample_size = (rng.gen::<f32>() * max_friends as f32).floor() as usize;
             let candidates = agents.choose_multiple(&mut rng, sample_size);
             for candidate in candidates {
                 // Probability that two Agents know each other

@@ -15,7 +15,7 @@ use super::config::SimulationConfig;
 use itertools::Itertools;
 use rand_distr::{Distribution, Beta};
 
-static NETWORK_SAMPLE_P: f32 = 0.2;
+static MAX_FRIENDS: usize = 120;
 
 pub struct Simulation {
     pub network: Network,
@@ -66,7 +66,7 @@ impl Simulation {
             .collect();
 
         let mut network = Network::new();
-        network.preferential_attachment(&agents, NETWORK_SAMPLE_P, &mut rng);
+        network.preferential_attachment(&agents, MAX_FRIENDS, &mut rng);
 
         let ref_grid = HexGrid::new(conf.grid_size, conf.grid_size);
         let mut grid = FnvHashMap::default();
