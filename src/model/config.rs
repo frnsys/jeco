@@ -66,6 +66,9 @@ pub struct SimulationConfig {
     // too high can severely slow things down.
     pub max_shared_content: usize,
 
+    // How much it costs for 1 point of quality
+    pub cost_per_quality: f32,
+
     // See below
     pub publisher: PublisherConfig,
 }

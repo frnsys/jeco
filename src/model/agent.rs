@@ -117,7 +117,8 @@ impl Agent {
 
     // Return content they create
     pub fn produce(&mut self, conf: &SimulationConfig, rng: &mut StdRng) -> Option<ContentBody> {
-        if self.resources < self.quality { return None }
+        let cost = self.quality * conf.cost_per_quality;
+        if self.resources < cost { return None }
 
         // Agent produces depending on expected reach
         // and resources
@@ -131,12 +132,12 @@ impl Agent {
 
             // ENH: Take other factors into account
             // Attention cost ranges from 0-100
-            let cost = util::normal_p(rng) * conf.attention_budget;
+            let attn_cost = util::normal_p(rng) * conf.attention_budget;
 
-            self.resources -= self.quality;
+            self.resources -= cost;
 
             Some(ContentBody {
-                cost: cost,
+                cost: attn_cost,
                 quality: self.quality,
                 topics: topics,
                 values: values,

@@ -6,6 +6,7 @@ use super::agent::{Agent, similarity, alignment};
 use super::content::{Content, ContentId, ContentBody};
 use super::util::{Vector, Learner, Sample, SampleRow, ewma, bayes_update, sigmoid, LimitedQueue, normal_range};
 use super::config::PublisherConfig;
+use super::config::SimulationConfig;
 use super::grid::Position;
 
 pub type PublisherId = usize;
@@ -96,10 +97,9 @@ impl Publisher {
 
     // An Agent pitches a piece
     // of content to the publisher
-    pub fn pitch(&mut self, body: &ContentBody, author: &mut Agent, rng: &mut StdRng) -> Option<Content> {
-        if self.budget < self.quality + body.quality {
-            return None
-        }
+    pub fn pitch(&mut self, body: &ContentBody, author: &mut Agent, conf: &SimulationConfig, rng: &mut StdRng) -> Option<Content> {
+        let cost = (self.quality + body.quality) * conf.cost_per_quality;
+        if self.budget < cost { return None; }
 
         // TODO this doesn't necessarily need to be random?
         // Could just be based on a threshold
@@ -107,7 +107,7 @@ impl Publisher {
         let accepted = rng.gen::<f32>() < p_accept;
         if accepted {
             // Pay author
-            author.resources += body.quality;
+            author.resources += body.quality * conf.cost_per_quality;
 
             // Publisher improves the quality
             let mut body_ = body.clone();
@@ -121,7 +121,7 @@ impl Publisher {
             };
 
             // Deduct from budget
-            self.budget -= self.quality;
+            self.budget -= cost;
             Some(content)
         } else {
             None

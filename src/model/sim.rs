@@ -173,7 +173,7 @@ impl Simulation {
                             .filter(|(_, p, _)| *p >= 0.1) // Minimum probability
                             .sorted_by(|(_, _, ev), (_, _, ev_)| ev_.partial_cmp(ev).unwrap());
                         for (pub_id, p, _) in publishers {
-                            match self.publishers[pub_id].pitch(&body, &mut a, &mut rng) {
+                            match self.publishers[pub_id].pitch(&body, &mut a, &conf, &mut rng) {
                                 Some(content) => {
                                     published = true;
                                     a.publishabilities.insert(pub_id, ewma(1., p));

@@ -109,6 +109,11 @@ const CONFIG_SPEC = {
     type: 'float',
     desc: 'Maximum conversion rate for ads.'
   },
+  'COST_PER_QUALITY': {
+    key: 'SIMULATION',
+    type: 'float',
+    desc: 'Cost to improve content quality by 1 point.'
+  },
   'SEED': {
     key: null,
     type: 'int',
