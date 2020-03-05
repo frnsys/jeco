@@ -2,10 +2,13 @@ use rand::Rng;
 use rand::rngs::StdRng;
 use std::f32::consts::E;
 use rand_distr::StandardNormal;
-use nalgebra::{Matrix, Dynamic, U1, U2, VecStorage, ArrayStorage, Vector2, VectorN, RowVectorN};
 use std::collections::VecDeque;
 use fnv::FnvHashSet;
 use std::hash::Hash;
+use rand::seq::SliceRandom;
+use bandit::{MultiArmedBandit, Identifiable, DEFAULT_BANDIT_CONFIG};
+use bandit::softmax::{AnnealingSoftmax, AnnealingSoftmaxConfig};
+use nalgebra::{Matrix, Dynamic, U2, VecStorage, VectorN, RowVectorN};
 
 // 2 so can be plotted in 2d
 pub static VECTOR_SIZE: u32 = 2;
@@ -17,19 +20,14 @@ pub fn ewma(mu: f32, prev: f32) -> f32 {
     EWMA_ALPHA * mu + (1. - EWMA_ALPHA) * prev
 }
 
-pub fn z_score(a: &Vector, params: &(Vector, Vector)) -> Vector {
-    let (mu, var) = params;
-    let std = var.map(|x| x.sqrt());
-    (a - mu).abs().component_div(&std)
-}
-
 // Bayesian normal update
 pub type Sample = Matrix<f32, Dynamic, U2, VecStorage<f32, Dynamic, U2>>;
 pub type SampleRow = RowVectorN<f32, U2>;
+static EPSILON: f32 = 1e-10;
 pub fn bayes_update(prior: (Vector, Vector), sample: Sample) -> (Vector, Vector) {
     let (prior_mu, prior_var) = prior;
     let sample_mu = sample.row_mean().transpose();
-    let sample_var = sample.row_variance().transpose();
+    let sample_var = sample.row_variance().transpose().add_scalar(EPSILON);
     let denom = prior_var + &sample_var;
     let post_mu = (sample_var.component_mul(&prior_mu) + prior_var.component_mul(&sample_mu)).component_div(&denom);
     let post_var = sample_var.component_mul(&prior_var).component_div(&denom);
@@ -48,7 +46,7 @@ pub fn clamp(val: f32, min: f32, max: f32) -> f32 {
 
 // Returns how much a moves towards b
 pub fn gravity(a: f32, b: f32, gravity_stretch: f32, max_influence: f32) -> f32 {
-    let mut dist = a - b;
+    let mut dist = b - a;
     let sign = dist.signum();
     dist = dist.abs();
     if dist == 0. {
@@ -94,44 +92,9 @@ pub fn normal_p_mu(mu: f32, rng: &mut StdRng) -> f32 {
 }
 
 
-type X = Matrix<f32, Dynamic, U2, VecStorage<f32, Dynamic, U2>> ;
-type Y = Matrix<f32, Dynamic, U1, VecStorage<f32, Dynamic, U1>> ;
-pub type Params = Vector2<f32>;
-pub fn gradient_descent(
-    x: &X,
-    y: &Y,
-    mut theta: Matrix<f32, U2, U1, ArrayStorage<f32, U2, U1>>,
-    alpha: f32,
-    iterations: i32,
-) -> Matrix<f32, U2, U1, ArrayStorage<f32, U2, U1>> {
-    let m = y.len();
-    let scalar = 1.0 / m as f32;
-    // Vectorized gradient calculation
-    let mut prod;
-    let mut grad;
-    let mut update;
-    for _i in 0..iterations {
-        prod = x * theta;
-        grad = scalar * (x.transpose() * (prod - y));
-        update = alpha * grad;
-        theta -= update;
-    }
-
-    theta
-}
-
-pub fn learn_steps(observations: &Vec<f32>, outcomes: &Vec<f32>, theta: Params) -> Params {
-    let iterations = 100;
-    let alpha = 0.0001; // needs to be quite small to avoid blowups
-
-    let x: X = X::from_row_slice(observations);
-    let y: Y = Y::from_row_slice(outcomes);
-    gradient_descent(&x, &y, theta, alpha, iterations)
-}
-
 #[derive(Debug)]
 pub struct LimitedQueue<T> {
-    _vec: VecDeque<T>,
+    _vec: Vec<T>,
     capacity: usize,
 }
 
@@ -139,21 +102,30 @@ impl<T> LimitedQueue<T> {
     pub fn new(capacity: usize) -> LimitedQueue<T> {
         LimitedQueue {
             capacity: capacity,
-            _vec: VecDeque::with_capacity(capacity)
+            _vec: Vec::with_capacity(capacity)
         }
     }
 
     pub fn push(&mut self, val: T) {
-        self._vec.push_front(val);
+        self._vec.insert(0, val);
         self._vec.truncate(self.capacity);
     }
 
-    pub fn iter(&self) -> std::collections::vec_deque::Iter<T> {
+    pub fn extend(&mut self, vals: Vec<T>) {
+        self._vec.extend(vals);
+        self._vec.truncate(self.capacity);
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<T> {
         self._vec.iter()
     }
 
     pub fn len(&self) -> usize {
         self._vec.len()
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        self._vec.as_slice()
     }
 }
 
@@ -197,5 +169,116 @@ impl<T: Eq + Hash + Clone> LimitedSet<T> {
 
     pub fn contains(&self, val: &T) -> bool {
         self._set.contains(val)
+    }
+}
+
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
+pub struct LearnerArm {
+    pub a: u32,
+    pub b: u32
+}
+
+impl Identifiable for LearnerArm {
+    fn ident(&self) -> String {
+        format!("arm:{}:{}", self.a, self.b)
+    }
+}
+
+#[derive(Debug)]
+pub struct Learner {
+    bandit: AnnealingSoftmax<LearnerArm>,
+    pub arm: LearnerArm
+}
+
+impl Learner {
+    pub fn new(mut rng: &mut StdRng) -> Learner {
+        let arms: Vec<LearnerArm> = (0..10).flat_map(|i| (0..10).map(move |j| LearnerArm{a: i, b: j})).collect();
+        let arm = arms.choose(&mut rng).unwrap().clone();
+        Learner {
+            bandit: AnnealingSoftmax::new(arms, DEFAULT_BANDIT_CONFIG.clone(), AnnealingSoftmaxConfig {
+                cooldown_factor: 0.5
+            }),
+            arm: arm,
+        }
+    }
+
+    pub fn learn(&mut self, reward: f64) {
+        self.bandit.update(self.arm, reward);
+        self.arm = self.bandit.select_arm();
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use fnv::FnvHashMap;
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
+
+    #[test]
+    fn test_limited_queue() {
+        let mut q = LimitedQueue::new(5);
+        for i in 0..8 {
+            q.push(i);
+        }
+        assert_eq!(q.len(), 5);
+        let q_: Vec<usize> = q.iter().cloned().collect();
+        assert_eq!(q_, vec![7,6,5,4,3]);
+    }
+
+    #[test]
+    fn test_limited_set() {
+        let mut q = LimitedSet::new(5);
+        for i in 0..8 {
+            q.insert(i);
+        }
+        assert_eq!(q.len(), 5);
+        let q_: Vec<usize> = q.iter().cloned().collect();
+        assert_eq!(q_, vec![7,6,5,4,3]);
+    }
+
+    #[test]
+    fn test_learner() {
+        let best_arm = LearnerArm{a: 5, b: 5};
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let mut learner = Learner::new(&mut rng);
+        let mut arm_counts: FnvHashMap<LearnerArm, usize> = FnvHashMap::default();
+        for _ in 0..1000 {
+            if learner.arm == best_arm {
+                learner.learn(1000.);
+            } else {
+                learner.learn(0.);
+            }
+            *arm_counts.entry(learner.arm).or_insert(0) += 1;
+        }
+        let (max_arm, _) = arm_counts.iter().fold((best_arm, 0), |(acc, c), (arm, count)| {
+            if count > &c {
+                (*arm, *count)
+            } else {
+                (acc, c)
+            }
+        });
+        assert_eq!(best_arm, max_arm);
+
+        let new_best_arm = LearnerArm{a: 0, b: 0};
+        for _ in 0..5000 {
+            if learner.arm == best_arm {
+                learner.learn(-1000.);
+            } else if learner.arm == new_best_arm {
+                learner.learn(2000.);
+            } else {
+                learner.learn(0.);
+            }
+            *arm_counts.entry(learner.arm).or_insert(0) += 1;
+        }
+        let (new_max_arm, _) = arm_counts.iter().fold((best_arm, 0), |(acc, c), (arm, count)| {
+            if count > &c {
+                (*arm, *count)
+            } else {
+                (acc, c)
+            }
+        });
+        assert_eq!(new_best_arm, new_max_arm);
     }
 }

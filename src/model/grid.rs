@@ -53,9 +53,9 @@ impl HexGrid {
     }
 
     // Positions within a radius of the specified position
-    pub fn radius(&self, pos: Position, r: usize) -> Vec<Position> {
+    pub fn radius(&self, pos: &Position, r: usize) -> Vec<Position> {
         let mut neighbs = HashSet::new();
-        let mut next = vec![pos];
+        let mut next = vec![*pos];
         for _ in 0..r {
             let adj: Vec<Position> = next.iter().flat_map(|&p| self.adjacent(p)).collect();
             neighbs.extend(adj.to_vec());
@@ -79,12 +79,14 @@ pub fn euclidean_dist(a: &Position, b: &Position) -> f32 {
 }
 
 pub fn hexagon_dist(a: &Position, b: &Position) -> usize {
-    let x0 = a.0 - b.0/2;
-    let y0 = b.0;
-    let x1 = a.1 - b.1/2;
-    let y1 = b.1;
-    let dx = x1 - x0;
-    let dy = y1 - y0;
-    dx.abs().max(dy.abs().max((dx+dy).abs())) as usize
+    let (y1, x1) = a;
+    let (y2, x2) = b;
+    let du = x2 - x1;
+    let dv = (y2 + x2/2) - (y1 + x1/2);
+    if (du >= 0 && dv >= 0) || (du < 0 && dv < 0) {
+        du.abs().max(dv.abs()) as usize
+    } else {
+        (du.abs() + dv.abs()) as usize
+    }
 }
 

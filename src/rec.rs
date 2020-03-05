@@ -57,7 +57,7 @@ impl Recorder {
         }
     }
 
-    pub fn record(&mut self, step: usize, sim: &Simulation, n_produced: usize) {
+    pub fn record(&mut self, step: usize, sim: &Simulation) {
         let agents: Vec<&Agent> = self.agents.iter().map(|id| &sim.agents[*id]).collect();
         let a_sample: Vec<Value> = agents
             .iter()
@@ -75,8 +75,8 @@ impl Recorder {
             .map(|p| {
                 json!({
                     "id": p.id,
-                    "values": p.audience_values.0, // mean only
-                    "interests": p.audience_interests.0, // ditto
+                    "values": p.audience.values.0, // mean only
+                    "interests": p.audience.interests.0, // ditto
                 })
             })
             .collect();
@@ -137,6 +137,7 @@ impl Recorder {
         let budget: Vec<f32> = sim.publishers.iter().map(|p| p.budget).collect();
         let publishability: Vec<f32> = agents.iter().map(|a| a.publishability).collect();
         let resources: Vec<f32> = agents.iter().map(|a| a.resources).collect();
+        let agent_reach: Vec<f32> = agents.iter().map(|a| a.reach).collect();
 
         let value = json!({
             "step": step,
@@ -167,6 +168,11 @@ impl Recorder {
                 "max": max_f32(&resources),
                 "min": min_f32(&resources),
                 "mean": mean_f32(&resources),
+            },
+            "reach": {
+                "max": max_f32(&agent_reach),
+                "min": min_f32(&agent_reach),
+                "mean": mean_f32(&agent_reach),
             },
             "agents": a_sample,
             "publishers": {
@@ -208,7 +214,8 @@ impl Recorder {
             "platforms": {
                 "sample": platforms
             },
-            "p_produced": n_produced as f32/sim.agents.len() as f32,
+            "p_produced": sim.n_produced as f32/sim.agents.len() as f32,
+            "p_pitched": sim.n_pitched as f32/sim.agents.len() as f32,
             "to_share": sim.n_will_share(),
             "top_content": content
         });

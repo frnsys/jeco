@@ -40,10 +40,6 @@ pub struct SimulationConfig {
     // Revenue generated per ad view
     pub revenue_per_ad: f32,
 
-    // How quickly Publishers and Agents adjust to
-    // learnings re ads/quality
-    pub change_rate: f32,
-
     // If trust goes below/above this threshold,
     // unfollow/follow that Agent
     pub unfollow_trust: f32,
@@ -69,6 +65,9 @@ pub struct SimulationConfig {
     // an agent considers. Setting this
     // too high can severely slow things down.
     pub max_shared_content: usize,
+
+    // How much it costs for 1 point of quality
+    pub cost_per_quality: f32,
 
     // See below
     pub publisher: PublisherConfig,

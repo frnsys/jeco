@@ -1,6 +1,6 @@
 use fnv::{FnvHashMap, FnvHashSet};
-use super::grid::{Position, hexagon_dist};
-use super::util::{Vector, VECTOR_SIZE};
+use super::grid::{Position};
+use super::util::{Vector, VECTOR_SIZE, Learner};
 use super::publisher::PublisherId;
 use super::platform::PlatformId;
 use super::content::{Content, ContentId, ContentBody, SharedContent, SharerType};
@@ -67,9 +67,7 @@ pub struct Agent {
     pub seen_content: RefCell<util::LimitedSet<ContentId>>,
 
     // Params for estimating quality/ads mix
-    theta: util::Params,
-    observations: Vec<f32>,
-    outcomes: Vec<f32>,
+    learner: Learner,
 }
 
 
@@ -92,6 +90,7 @@ pub fn random_topics(rng: &mut StdRng) -> Topics {
 impl Agent {
     pub fn new(id: AgentId, conf: &SimulationConfig, mut rng: &mut StdRng) -> Agent {
         let resources = util::normal_p(&mut rng);
+        let learner = Learner::new(&mut rng);
 
         Agent {
             id: id,
@@ -99,10 +98,11 @@ impl Agent {
             interests: random_topics(&mut rng),
             values: Cell::new(random_values(&mut rng)),
             reach: 100.,
-            ads: rng.gen::<f32>() * 10.,
-            quality: rng.gen::<f32>(),
+            ads: learner.arm.a as f32,
+            quality: learner.arm.b as f32,
+            learner: learner,
             attention: conf.attention_budget,
-            resources: resources,
+            resources: resources * 100.,
             publishability: 1.,
             publishabilities: FnvHashMap::default(),
             publishers: RefCell::new(FnvHashMap::default()),
@@ -111,35 +111,31 @@ impl Agent {
             platforms: FnvHashSet::default(),
             content: util::LimitedQueue::new(10),
             seen_content: RefCell::new(util::LimitedSet::new(100)),
-            theta: util::Params::new(rng.gen(), rng.gen()),
-            observations: Vec::new(),
-            outcomes: Vec::new(),
             relevancies: Vec::new()
         }
     }
 
     // Return content they create
     pub fn produce(&mut self, conf: &SimulationConfig, rng: &mut StdRng) -> Option<ContentBody> {
-        if self.resources < self.quality { return None }
+        let cost = self.quality * conf.cost_per_quality;
+        if self.resources < cost { return None }
 
         // Agent produces depending on expected reach
         // and resources
-        let p_produce = 0.1; // (self.resources + self.reach)/2.;
         let roll: f32 = rng.gen();
-
-        if roll < p_produce {
+        if roll < p_produce(self.reach/conf.population as f32) {
             // Agent produces something around their own interests and values
             let topics = self.interests.map(|v| util::normal_p_mu(v, rng));
             let values = self.values.get().map(|v| util::normal_range_mu(v, rng));
 
             // ENH: Take other factors into account
             // Attention cost ranges from 0-100
-            let cost = util::normal_p(rng) * conf.attention_budget;
+            let attn_cost = util::normal_p(rng) * conf.attention_budget;
 
-            self.resources -= self.quality;
+            self.resources -= cost;
 
             Some(ContentBody {
-                cost: cost,
+                cost: attn_cost,
                 quality: self.quality,
                 topics: topics,
                 values: values,
@@ -176,8 +172,6 @@ impl Agent {
         // Ad revenue generated for publishers or agents
         let mut revenue = FnvHashMap::default();
 
-        // ENH: Can make sure agents don't consume
-        // content they've already consumed
         for (platform, sc) in content {
             let c = &sc.content;
 
@@ -197,22 +191,9 @@ impl Agent {
             }
             seen_content.insert(c.id);
 
-            let affinity = self.interests.dot(&c.body.topics);
-            let alignment = (values.dot(&c.body.values) - 0.5) * 2.;
-
-            // Generate data for platform
-            match platform {
-                Some(p_id) => {
-                    let val = data.entry(**p_id).or_insert(0.);
-                    *val += conf.data_per_consume;
-                },
-                None => {}
-            }
-
-            // Take the abs value
-            // So if something is very polar to the person's values,
-            // they "hateshare" it
-            let mut reactivity = affinity * alignment.abs() * f32::max(c.body.quality, 1.);
+            let affinity = similarity(&self.interests, &c.body.topics);
+            let align = alignment(&values, &c.body.values);
+            let mut react = reactivity(affinity, align, c.body.quality);
 
             // Update publisher feeling/reputation
             // and collect ad revenue
@@ -228,7 +209,7 @@ impl Agent {
                     }
 
                     let relevancy = self.relevancies[p_id];
-                    reactivity *= relevancy;
+                    react *= relevancy;
                 },
                 None => {
                     if c.ads > 0. {
@@ -240,13 +221,13 @@ impl Agent {
                     // Made distance less important here
                     // let dist = hexagon_dist(&self.location, &c.author);
                     // let relevance = 1. - util::sigmoid((dist-4) as f32);
-                    // reactivity *= relevancy;
+                    // react *= relevancy;
                 }
             }
 
             // Do they share it?
             let roll: f32 = rng.gen();
-            if roll < reactivity {
+            if roll < react {
                 to_share.push(c.clone());
             }
 
@@ -258,7 +239,7 @@ impl Agent {
                     let mut trust = {
                         let trust = trusts.entry(id).or_insert(0.);
                         let old_trust = trust.clone(); // TODO meh
-                        *trust = util::ewma(affinity * alignment, *trust);
+                        *trust = update_trust(*trust, affinity, align);
 
                         // If platform is not None,
                         // we are already following the sharer.
@@ -273,7 +254,7 @@ impl Agent {
                     if c.author != id {
                         let author_trust = trusts.entry(c.author).or_insert(0.);
                         trust = (trust + *author_trust)/2.;
-                        *author_trust = util::ewma(affinity * alignment, *author_trust);
+                        *author_trust = update_trust(*author_trust, affinity, align);
 
                         // For the author, we don't know
                         // if they're already following or not.
@@ -296,10 +277,19 @@ impl Agent {
                     publishers[&id].0/c.ads
                 }
             };
-            values.zip_apply(&c.body.values, |v, v_| {
-                v + util::gravity(v, v_, conf.gravity_stretch, conf.max_influence) * affinity * trust
+            values.zip_apply(&c.body.values, |a_v, c_v| {
+                a_v + util::gravity(a_v, c_v, conf.gravity_stretch, conf.max_influence) * affinity * trust
             });
             self.values.set(values);
+
+            // Generate data for platform
+            match platform {
+                Some(p_id) => {
+                    let val = data.entry(**p_id).or_insert(0.);
+                    *val += conf.data_per_consume;
+                },
+                None => {}
+            }
 
             // Assume that they fully consume
             // the content, e.g. spend its
@@ -352,6 +342,7 @@ impl Agent {
     pub fn n_shares(&self) -> Vec<usize> {
         // -1 to account for reference in self.content
         // -1 to account for reference in Sim's self.content
+        // there may be 1 extra for a Publisher, but there isn't always one
         self.content.iter().map(|c| Rc::strong_count(c) - 2).collect()
     }
 
@@ -365,19 +356,164 @@ impl Agent {
         }
     }
 
-    pub fn learn(&mut self, revenue: f32, change_rate: f32) {
+    pub fn learn(&mut self, revenue: f32) {
         // Assume reach has been updated
-        self.outcomes.push(revenue * self.reach); // TODO more balanced mixture of the two?
+        // TODO more balanced mixture of the two?
+        let outcome = revenue * self.reach;
+        self.learner.learn(outcome as f64);
+        self.ads = self.learner.arm.a as f32;
+        self.quality = self.learner.arm.b as f32;
+    }
+}
 
-        self.observations.push(self.quality);
-        self.observations.push(self.ads);
+pub fn distance(a: &Vector, b: &Vector) -> f32 {
+    ((a.x - b.x).powf(2.) + (a.y - b.y).powf(2.)).sqrt()
+}
 
-        // TODO don't necessarily need to learn _every_ step.
-        self.theta = util::learn_steps(&self.observations, &self.outcomes, self.theta);
-        let steps: Vec<f32> = self.theta.into_iter().cloned().collect();
-        self.quality += change_rate * steps[0];
-        self.ads += change_rate * steps[1];
-        self.ads = f32::max(0., self.ads);
-        self.quality = f32::min(f32::max(0., self.quality), self.resources);
+static MAX_TOPIC_DISTANCE: f32 = 1.4142135623730951; // sqrt(2.)
+pub fn similarity(a: &Vector, b: &Vector) -> f32 {
+    1. - distance(a, b)/MAX_TOPIC_DISTANCE
+}
+
+static MAX_VALUE_DISTANCE: f32 = 2.8284271247461903; // sqrt(8.)
+pub fn alignment(a: &Vector, b: &Vector) -> f32 {
+    ((1. - distance(a, b)/MAX_VALUE_DISTANCE) - 0.5) * 2.
+}
+
+static EASE_OF_TRUST: f32 = 1./100.;
+pub fn update_trust(trust: f32, affinity: f32, alignment: f32) -> f32 {
+    trust + affinity * alignment * EASE_OF_TRUST
+}
+
+pub fn reactivity(affinity: f32, alignment: f32, quality: f32) -> f32 {
+    // Take the abs value
+    // So if something is very polar to the person's values,
+    // they "hateshare" it
+    affinity * alignment.abs() * f32::min(quality, 1.)
+}
+
+pub fn p_produce(p_reach: f32) -> f32 {
+    util::sigmoid(18.*(p_reach-0.2))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_alignment() {
+        let mut a = Values::from_vec(vec![0., 0.]);
+        let mut b = Values::from_vec(vec![1., 1.]);
+        let align = alignment(&a, &b);
+        assert_eq!(align, 0.);
+
+        a = Values::from_vec(vec![0., 0.]);
+        b = Values::from_vec(vec![-1., -1.]);
+        let align = alignment(&a, &b);
+        assert_eq!(align, 0.);
+
+        let mut a = Values::from_vec(vec![0., 0.]);
+        let mut b = Values::from_vec(vec![0., 0.]);
+        let align = alignment(&a, &b);
+        assert_eq!(align, 1.);
+
+        let mut a = Values::from_vec(vec![1., 1.]);
+        let mut b = Values::from_vec(vec![-1., -1.]);
+        let align = alignment(&a, &b);
+        assert_eq!(align, -1.);
+    }
+
+    #[test]
+    fn test_similarity() {
+        let mut a = Topics::from_vec(vec![0., 0.]);
+        let mut b = Topics::from_vec(vec![1., 1.]);
+        let sim = similarity(&a, &b);
+        assert_eq!(sim, 0.);
+
+        a = Topics::from_vec(vec![1., 1.]);
+        b = Topics::from_vec(vec![1., 1.]);
+        let sim = similarity(&a, &b);
+        assert_eq!(sim, 1.);
+
+        a = Topics::from_vec(vec![0., 0.]);
+        b = Topics::from_vec(vec![0., 0.]);
+        let sim = similarity(&a, &b);
+        assert_eq!(sim, 1.);
+    }
+
+    #[test]
+    fn test_update_trust() {
+        let trust = 0.;
+
+        // Strong affinity and strong alignment
+        assert!(update_trust(trust, 1., 1.) > trust);
+
+        // Strong affinity and opposite alignment
+        assert!(update_trust(trust, 1., -1.) < trust);
+
+        // Weak affinity and strong alignment
+        assert!(update_trust(trust, 0., 1.) == trust);
+
+        // Weak affinity and opposite alignment
+        assert!(update_trust(trust, 0., -1.) == trust);
+    }
+
+    #[test]
+    fn test_reactivity() {
+        // Strong affinity, strong alignment, high quality
+        assert_eq!(reactivity(1., 1., 1.), 1.);
+
+        // Strong affinity, opposite alignment, high quality
+        assert_eq!(reactivity(1., -1., 1.), 1.);
+
+        // Weak affinity, strong alignment, high quality
+        assert_eq!(reactivity(0., 1., 1.), 0.);
+
+        // Weak affinity, opposite alignment, high quality
+        assert_eq!(reactivity(0., -1., 1.), 0.);
+
+        // Strong affinity, strong alignment, low quality
+        assert_eq!(reactivity(1., 1., 0.), 0.);
+
+        // Strong affinity, opposite alignment, low quality
+        assert_eq!(reactivity(1., -1., 0.), 0.);
+
+        // Weak affinity, strong alignment, low quality
+        assert_eq!(reactivity(0., 1., 0.), 0.);
+
+        // Weak affinity, opposite alignment, low quality
+        assert_eq!(reactivity(0., -1., 0.), 0.);
+    }
+
+    #[test]
+    fn test_gravity() {
+        let gravity_stretch = 100.;
+        let max_influence = 0.1;
+
+        let mut to_val = 1.;
+        let mut from_val = 0.9;
+        let gravity_closer = util::gravity(from_val, to_val, gravity_stretch, max_influence);
+        assert!(gravity_closer > 0.);
+
+        from_val = 0.8;
+        let gravity_further = util::gravity(from_val, to_val, gravity_stretch, max_influence);
+        assert!(gravity_closer > gravity_further);
+
+        to_val = -1.;
+        let gravity = util::gravity(from_val, to_val, gravity_stretch, max_influence);
+        assert!(gravity < 0.);
+    }
+
+
+    #[test]
+    fn test_p_produce() {
+        let mut p = p_produce(0.);
+        assert!(p < 0.1 && p > 0.);
+
+        p = p_produce(0.2);
+        assert_eq!(p, 0.5);
+
+        p = p_produce(0.5);
+        assert!(p < 1. && p > 0.95);
     }
 }

@@ -15,6 +15,8 @@ use super::config::SimulationConfig;
 use itertools::Itertools;
 use rand_distr::{Distribution, Beta};
 
+static MAX_FRIENDS: usize = 120;
+
 pub struct Simulation {
     pub network: Network,
     pub agents: Vec<Agent>,
@@ -24,6 +26,10 @@ pub struct Simulation {
     pub ref_grid: HexGrid,
     pub grid: FnvHashMap<Position, Vec<AgentId>>,
     pub distances: FnvHashMap<Position, Vec<usize>>,
+
+    // Stats
+    pub n_produced: usize,
+    pub n_pitched: usize,
 
     // Content Agents will share in the next step.
     // Emptied each step.
@@ -59,7 +65,8 @@ impl Simulation {
             .map(|i| Platform::new(i))
             .collect();
 
-        let network = Network::new(&agents, &mut rng);
+        let mut network = Network::new();
+        network.preferential_attachment(&agents, MAX_FRIENDS, &mut rng);
 
         let ref_grid = HexGrid::new(conf.grid_size, conf.grid_size);
         let mut grid = FnvHashMap::default();
@@ -100,23 +107,16 @@ impl Simulation {
         // Distance to a Publisher is
         // measured against the closest position
         // within its radius.
-        let mut distances = FnvHashMap::default();
-        for pos in ref_grid.positions().iter() {
-            let mut pub_dists = Vec::new();
-            for publisher in &publishers {
-                let dist = ref_grid.radius(publisher.location, publisher.radius).iter().fold(0, |acc, pos_| {
-                    let dist = hexagon_dist(pos, pos_);
-                    dist.min(acc)
-                });
-                pub_dists.push(dist);
-            }
-            distances.insert(*pos, pub_dists);
-        }
+        let distances = compute_distances(
+            &ref_grid,
+            &publishers.iter()
+                .map(|p| (p.location.clone(), p.radius))
+                .collect());
 
         // Precompute relevancies for each Publisher
         for agent in &mut agents {
             for dist in &distances[&agent.location] {
-                let relevance = 1. - sigmoid((4*dist-4) as f32);
+                let relevance = relevance_from_dist(*dist);
                 agent.relevancies.push(relevance);
             }
         }
@@ -132,21 +132,30 @@ impl Simulation {
             outboxes: outboxes,
             publishers: publishers,
             platforms: platforms,
+            n_produced: 0,
+            n_pitched: 0,
         }
     }
 
-    pub fn produce(&mut self, conf: &SimulationConfig, mut rng: &mut StdRng) -> usize {
+    pub fn step(&mut self, conf: &SimulationConfig, mut rng: &mut StdRng) {
+        self.produce(&conf, &mut rng);
+        self.consume(&conf, &mut rng);
+    }
+
+    pub fn produce(&mut self, conf: &SimulationConfig, mut rng: &mut StdRng) {
+        let mut n_pitched = 0;
         let mut new_content: FnvHashMap<(SharerType, usize), Vec<Content>> = FnvHashMap::default();
         for p in &mut self.publishers {
             p.n_ads_sold = 0.;
         }
-        for a in &mut self.agents {
+        for mut a in &mut self.agents {
             match a.produce(&conf, &mut rng) {
                 Some(body) => {
                     // People give up after not getting anything
                     // published
                     let mut published = false;
-                    if a.publishability > 0.1 {
+                    if a.publishability > 0. { // 0.1
+                        n_pitched += 1;
                         // Decide to pitch to publisher
                         let publishers = self.publishers.iter()
                             .map(|p| {
@@ -157,7 +166,7 @@ impl Simulation {
                             .filter(|(_, p, _)| *p >= 0.1) // Minimum probability
                             .sorted_by(|(_, _, ev), (_, _, ev_)| ev_.partial_cmp(ev).unwrap());
                         for (pub_id, p, _) in publishers {
-                            match self.publishers[pub_id].pitch(&body, &a, &mut rng) {
+                            match self.publishers[pub_id].pitch(&body, &mut a, &conf, &mut rng) {
                                 Some(content) => {
                                     published = true;
                                     a.publishabilities.insert(pub_id, ewma(1., p));
@@ -199,10 +208,10 @@ impl Simulation {
         }
 
         // TODO Ad Market
-        let n_new_content = new_content.len();
+        let n_new_content = new_content.values().fold(0, |acc, v| acc + v.len());
         let max_p = 0.95; // Required to avoid beta of 0.0
         let min_p = 0.05; // Required to avoid alpha of 0.0
-        for ((typ, id), contents) in new_content.into_iter() {
+        for ((typ, id), mut contents) in new_content.into_iter() {
             let z = self.platforms.iter().fold(0., |acc, platform| acc + platform.conversion_rate);
             let (p, ad_slots) = match typ {
                 SharerType::Publisher => {
@@ -222,16 +231,17 @@ impl Simulation {
                     (p, ad_slots)
                 }
             };
-            if ad_slots == 0. {
-                continue;
+            if ad_slots > 0. {
+                let alpha = p * ad_slots;
+                let beta = (1.-p) * ad_slots;
+                // println!("alpha {:?}, beta {:?}, ad slots {:?}", alpha, beta, ad_slots);
+                let dist = Beta::new(alpha, beta).unwrap();
+                for c in &mut contents {
+                    c.ads = dist.sample(&mut rng);
+                }
             }
-            let alpha = p * ad_slots;
-            let beta = (1.-p) * ad_slots;
-            // println!("alpha {:?}, beta {:?}, ad slots {:?}", alpha, beta, ad_slots);
-            let dist = Beta::new(alpha, beta).unwrap();
-            for mut c in contents {
-                c.ads = dist.sample(&mut rng);
 
+            for c in contents {
                 let content = Rc::new(c);
 
                 self.content.push(content.clone());
@@ -250,6 +260,7 @@ impl Simulation {
                 match typ {
                     SharerType::Publisher => {
                         self.publishers[id].n_ads_sold += content.ads;
+                        self.publishers[id].content.push(content.clone());
                         match self.outboxes.get_mut(&id) {
                             Some(to_share) => {
                                 to_share.push(SharedContent {
@@ -265,7 +276,8 @@ impl Simulation {
             }
         }
 
-        n_new_content
+        self.n_pitched = n_pitched;
+        self.n_produced = n_new_content;
     }
 
     pub fn consume(&mut self,
@@ -285,7 +297,7 @@ impl Simulation {
             let to_read = &mut shared;
 
             // Agent encounters shared content
-            let following = self.network.following_ids(&a).clone();
+            let following = self.network.following_ids(&a.id).clone();
 
             // "Offline" encounters
             to_read.clear();
@@ -308,7 +320,7 @@ impl Simulation {
             // rather than per agent.
             // ENH: Agents may develop a preference for a platform?
             to_read.extend(a.platforms.iter()
-                .flat_map(|p_id| self.platforms[*p_id].following_ids(&a).into_iter()
+                .flat_map(|p_id| self.platforms[*p_id].following_ids(&a.id).into_iter()
                           .map(move |a_id| (p_id, a_id)))
                 .flat_map(|(p_id, a_id)| self.share_queues[a_id].iter().map(move |sc| (Some(p_id), sc)))
                 .filter(|(_, sc)| {
@@ -460,11 +472,11 @@ impl Simulation {
             match typ {
                 SharerType::Publisher => {
                     self.publishers[id].budget += r;
-                    self.publishers[id].learn(r, conf.change_rate);
+                    self.publishers[id].learn(r);
                 },
                 SharerType::Agent => {
                     self.agents[id].resources += r;
-                    self.agents[id].learn(r, conf.change_rate);
+                    self.agents[id].learn(r);
                 }
             }
         }
@@ -479,9 +491,9 @@ impl Simulation {
         // ENH: Maybe not all friends should be followed
         for (a_id, p_id) in signups {
             if !self.platforms[p_id].is_signed_up(&a_id) {
-                self.platforms[p_id].signup(&self.agents[a_id]);
+                self.platforms[p_id].signup(self.agents[a_id].id);
                 self.agents[a_id].platforms.insert(p_id);
-                for b_id in self.network.following_ids(&self.agents[a_id]) {
+                for b_id in self.network.following_ids(&self.agents[a_id].id) {
                     let platform = &mut self.platforms[p_id];
                     if platform.is_signed_up(b_id) {
                         let trust_a = self.network.trust(&a_id, b_id);
@@ -512,5 +524,65 @@ impl Simulation {
 
     pub fn apply_policy(&mut self, policy: &Policy) {
         // TODO
+    }
+}
+
+fn compute_distances(grid: &HexGrid, spots: &Vec<(Position, usize)>) -> FnvHashMap<Position, Vec<usize>> {
+    let mut distances = FnvHashMap::default();
+    for pos in grid.positions().iter() {
+        let mut dists = Vec::new();
+        for (loc, rad) in spots {
+            let start = hexagon_dist(pos, loc);
+            let dist = grid.radius(loc, *rad).iter().fold(start, |acc, pos_| {
+                let dist = hexagon_dist(pos, pos_);
+                dist.min(acc)
+            });
+            dists.push(dist);
+        }
+        distances.insert(*pos, dists);
+    }
+    distances
+}
+
+fn relevance_from_dist(dist: usize) -> f32 {
+    let x = 2*(dist as isize)-4;
+    1. - sigmoid(x as f32)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_distances() {
+        let grid_size = 3;
+        let grid = HexGrid::new(grid_size, grid_size);
+        let spots = vec![
+            ((0, 0), 0),
+            ((0, 0), 2),
+        ];
+        let distances = compute_distances(&grid, &spots);
+
+        assert_eq!(distances[&(0, 0)], vec![0, 0]);
+        assert_eq!(distances[&(0, 1)], vec![1, 0]);
+        assert_eq!(distances[&(1, 0)], vec![1, 0]);
+        assert_eq!(distances[&(2, 0)], vec![2, 0]);
+        assert_eq!(distances[&(0, 2)], vec![2, 0]);
+        assert_eq!(distances[&(2, 1)], vec![2, 0]);
+        assert_eq!(distances[&(1, 2)], vec![2, 1]);
+    }
+
+    #[test]
+    fn test_relevances() {
+        let mut last = 1.;
+        let expected = [0.95, 0.85, 0.5, 0.1, 0.01];
+        for i in 0..5 {
+            let rel = relevance_from_dist(i);
+            assert!(rel >= expected[i]);
+
+            // Relevance should decrease with distance
+            assert!(rel < last);
+            last = rel;
+        }
     }
 }

@@ -43,10 +43,8 @@ fn main() {
                             sim.apply_policy(&policy);
                         }
                         for _ in 0..steps {
-                            let n_produced = sim.produce(&conf.simulation, &mut rng);
-                            sim.consume(&conf.simulation, &mut rng);
-
-                            recorder.record(step, &sim, n_produced);
+                            sim.step(&conf.simulation, &mut rng);
+                            recorder.record(step, &sim);
                             recorder.sync(step, redis_host).unwrap();
                             step += 1;
                         }
@@ -65,20 +63,17 @@ fn main() {
     } else {
         let mut sim = Simulation::new(&conf.simulation, &mut rng);
         if debug {
-            let mut recorder = Recorder::new(&sim, &mut rng);
             let mut pb = ProgressBar::new(steps as u64);
+            let mut recorder = Recorder::new(&sim, &mut rng);
             for step in 0..steps {
-                let n_produced = sim.produce(&conf.simulation, &mut rng);
-                sim.consume(&conf.simulation, &mut rng);
-
-                recorder.record(step, &sim, n_produced);
+                sim.step(&conf.simulation, &mut rng);
+                recorder.record(step, &sim);
                 pb.inc();
             }
             recorder.save(&conf);
         } else {
             for _ in 0..steps {
-                sim.produce(&conf.simulation, &mut rng);
-                sim.consume(&conf.simulation, &mut rng);
+                sim.step(&conf.simulation, &mut rng);
             }
         }
     }

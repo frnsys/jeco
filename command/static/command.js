@@ -99,11 +99,6 @@ const CONFIG_SPEC = {
     type: 'float',
     desc: 'How much each subscriber adds to the publisher\'s budget.',
   },
-  'CHANGE_RATE': {
-    key: 'SIMULATION',
-    type: 'float',
-    desc: 'How quickly publishers make ad/quality changes.'
-  },
   'BASE_CONVERSION_RATE': {
     key: 'SIMULATION',
     type: 'float',
@@ -113,6 +108,11 @@ const CONFIG_SPEC = {
     key: 'SIMULATION',
     type: 'float',
     desc: 'Maximum conversion rate for ads.'
+  },
+  'COST_PER_QUALITY': {
+    key: 'SIMULATION',
+    type: 'float',
+    desc: 'Cost to improve content quality by 1 point.'
   },
   'SEED': {
     key: null,
