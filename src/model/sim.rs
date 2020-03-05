@@ -107,23 +107,16 @@ impl Simulation {
         // Distance to a Publisher is
         // measured against the closest position
         // within its radius.
-        let mut distances = FnvHashMap::default();
-        for pos in ref_grid.positions().iter() {
-            let mut pub_dists = Vec::new();
-            for publisher in &publishers {
-                let dist = ref_grid.radius(publisher.location, publisher.radius).iter().fold(0, |acc, pos_| {
-                    let dist = hexagon_dist(pos, pos_);
-                    dist.min(acc)
-                });
-                pub_dists.push(dist);
-            }
-            distances.insert(*pos, pub_dists);
-        }
+        let distances = compute_distances(
+            &ref_grid,
+            &publishers.iter()
+                .map(|p| (p.location.clone(), p.radius))
+                .collect());
 
         // Precompute relevancies for each Publisher
         for agent in &mut agents {
             for dist in &distances[&agent.location] {
-                let relevance = 1. - sigmoid((4*dist-4) as f32);
+                let relevance = relevance_from_dist(*dist);
                 agent.relevancies.push(relevance);
             }
         }
@@ -531,5 +524,65 @@ impl Simulation {
 
     pub fn apply_policy(&mut self, policy: &Policy) {
         // TODO
+    }
+}
+
+fn compute_distances(grid: &HexGrid, spots: &Vec<(Position, usize)>) -> FnvHashMap<Position, Vec<usize>> {
+    let mut distances = FnvHashMap::default();
+    for pos in grid.positions().iter() {
+        let mut dists = Vec::new();
+        for (loc, rad) in spots {
+            let start = hexagon_dist(pos, loc);
+            let dist = grid.radius(loc, *rad).iter().fold(start, |acc, pos_| {
+                let dist = hexagon_dist(pos, pos_);
+                dist.min(acc)
+            });
+            dists.push(dist);
+        }
+        distances.insert(*pos, dists);
+    }
+    distances
+}
+
+fn relevance_from_dist(dist: usize) -> f32 {
+    let x = 2*(dist as isize)-4;
+    1. - sigmoid(x as f32)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_distances() {
+        let grid_size = 3;
+        let grid = HexGrid::new(grid_size, grid_size);
+        let spots = vec![
+            ((0, 0), 0),
+            ((0, 0), 2),
+        ];
+        let distances = compute_distances(&grid, &spots);
+
+        assert_eq!(distances[&(0, 0)], vec![0, 0]);
+        assert_eq!(distances[&(0, 1)], vec![1, 0]);
+        assert_eq!(distances[&(1, 0)], vec![1, 0]);
+        assert_eq!(distances[&(2, 0)], vec![2, 0]);
+        assert_eq!(distances[&(0, 2)], vec![2, 0]);
+        assert_eq!(distances[&(2, 1)], vec![2, 0]);
+        assert_eq!(distances[&(1, 2)], vec![2, 1]);
+    }
+
+    #[test]
+    fn test_relevances() {
+        let mut last = 1.;
+        let expected = [0.95, 0.85, 0.5, 0.1, 0.01];
+        for i in 0..5 {
+            let rel = relevance_from_dist(i);
+            assert!(rel >= expected[i]);
+
+            // Relevance should decrease with distance
+            assert!(rel < last);
+            last = rel;
+        }
     }
 }
