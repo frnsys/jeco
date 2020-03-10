@@ -277,7 +277,7 @@ impl Agent {
                     trust
                 },
                 (SharerType::Publisher, id) => {
-                    publishers[&id].0/c.ads
+                    publishers[&id].0/(c.ads + 1.)
                 }
             };
             // println!("affinity: {:?}, trust: {:?}", affinity, trust);
