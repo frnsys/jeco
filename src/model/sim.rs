@@ -566,7 +566,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_distances() {
+    fn distances() {
         let grid_size = 3;
         let grid = HexGrid::new(grid_size, grid_size);
         let spots = vec![
@@ -585,7 +585,7 @@ mod tests {
     }
 
     #[test]
-    fn test_relevances() {
+    fn relevances() {
         let mut last = 1.;
         let expected = [0.95, 0.85, 0.5, 0.1, 0.01];
         for i in 0..5 {

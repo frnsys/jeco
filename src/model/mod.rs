@@ -44,7 +44,7 @@ mod tests {
 
     // Agents-only
     #[test]
-    fn test_influence() {
+    fn influence() {
         let trust = 1.;
         let gravity_stretch = 10.;
         let max_influence = 0.1;
@@ -87,7 +87,7 @@ mod tests {
     }
 
     #[test]
-    fn test_producers_produce_aligned_content() {
+    fn producers_produce_aligned_content() {
         let conf = SimulationConfig::default();
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
 
@@ -118,7 +118,7 @@ mod tests {
     }
 
     #[test]
-    fn test_polarization() {
+    fn polarization() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
             attention_budget: 100.
@@ -200,7 +200,7 @@ mod tests {
     }
 
     #[test]
-    fn test_high_quality_shared_more() {
+    fn high_quality_shared_more() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
             attention_budget: 100.
@@ -255,7 +255,7 @@ mod tests {
     }
 
     #[test]
-    fn test_low_attention_shared_more() {
+    fn low_attention_shared_more() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
             attention_budget: 100.
@@ -310,7 +310,7 @@ mod tests {
     }
 
     #[test]
-    fn test_more_aligned_shared_more() {
+    fn more_aligned_shared_more() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
             attention_budget: 100.
@@ -364,7 +364,7 @@ mod tests {
     }
 
     #[test]
-    fn test_more_affinity_shared_more() {
+    fn more_affinity_shared_more() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
             attention_budget: 100.
@@ -418,7 +418,7 @@ mod tests {
     }
 
     #[test]
-    fn test_more_relevant_shared_more() {
+    fn more_relevant_shared_more() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
             attention_budget: 100.
@@ -509,7 +509,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rich_produce_more() {
+    fn rich_produce_more() {
         let mut conf = SimulationConfig::default();
         conf.cost_per_quality = 0.2;
         conf.agent = AgentConfig {
@@ -561,7 +561,7 @@ mod tests {
     }
 
     #[test]
-    fn test_alignment_changes_trust() {
+    fn alignment_changes_trust() {
         // Tests both trust of sharer and author
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
@@ -623,7 +623,7 @@ mod tests {
     }
 
     #[test]
-    fn test_affinity_changes_trust() {
+    fn affinity_changes_trust() {
         // Tests both trust of sharer and author
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
