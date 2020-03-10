@@ -1263,6 +1263,153 @@ mod tests {
         assert!(subs[pub_b_id] > subs[pub_a_id]);
         assert_eq!(subs[pub_a_id], 0);
         assert_eq!(subs[pub_b_id], consumers.len() as isize);
+    }
 
+    #[test]
+    fn unsubscribe_from_inactive_publishers() {
+        let mut conf = SimulationConfig::default();
+        conf.agent = AgentConfig {
+            attention_budget: 100.
+        };
+        conf.publisher = PublisherConfig {
+            revenue_per_subscriber: 10.,
+            base_budget: 10000.
+        };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let mut consumers = standard_agents(&conf, &mut rng);
+        for a in &mut consumers {
+            a.relevancies.push(1.0);
+        }
+
+        // Control for location
+        let mut publisher_a = Publisher::new(0, &conf.publisher, &mut rng);
+        publisher_a.location = (0, 0);
+        publisher_a.radius = 1;
+
+        let author_id = consumers.len();
+        let mut subs: Vec<isize> = vec![0];
+        for _ in 0..10 {
+            let content: Vec<SharedContent> = (0..100).map(|i| {
+                let content = Content {
+                    id: ContentId::new_v4(),
+                    publisher: Some(0),
+                    author: author_id,
+                    body: ContentBody {
+                        topics: Topics::from_vec(vec![1., 1.]),
+                        values: Values::from_vec(vec![0., 0.]),
+                        cost: 10.,
+                        quality: 1.,
+                    },
+                    ads: 0.
+                };
+                SharedContent {
+                    content: Rc::new(content),
+                    sharer: (SharerType::Agent, author_id)
+                }
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
+                .map(|c| (None, c)).collect();
+            for a in &consumers {
+                shared.shuffle(&mut rng);
+                let (_, (new_subs, unsubs), _, _, _) = a.consume(&shared, &conf, &mut rng);
+                for pub_id in new_subs {
+                    subs[pub_id] += 1;
+                }
+                for pub_id in unsubs {
+                    subs[pub_id] -= 1;
+                }
+            }
+        }
+        assert_eq!(subs[0], consumers.len() as isize);
+
+        let shared = vec![];
+        for _ in 0..100 {
+            for a in &consumers {
+                let (_, (new_subs, unsubs), _, _, _) = a.consume(&shared, &conf, &mut rng);
+                for pub_id in new_subs {
+                    subs[pub_id] += 1;
+                }
+                for pub_id in unsubs {
+                    subs[pub_id] -= 1;
+                }
+            }
+        }
+        assert_eq!(subs[0], 0);
+    }
+
+    #[test]
+    fn unsubscribe_from_inactive_publishers() {
+        let mut conf = SimulationConfig::default();
+        conf.agent = AgentConfig {
+            attention_budget: 100.
+        };
+        conf.publisher = PublisherConfig {
+            revenue_per_subscriber: 10.,
+            base_budget: 10000.
+        };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let mut consumers = standard_agents(&conf, &mut rng);
+        for a in &mut consumers {
+            a.relevancies.push(1.0);
+        }
+
+        // Control for location
+        let mut publisher_a = Publisher::new(0, &conf.publisher, &mut rng);
+        publisher_a.location = (0, 0);
+        publisher_a.radius = 1;
+
+        let author_id = consumers.len();
+        let mut subs: Vec<isize> = vec![0];
+        for _ in 0..10 {
+            let content: Vec<SharedContent> = (0..100).map(|i| {
+                let content = Content {
+                    id: ContentId::new_v4(),
+                    publisher: Some(0),
+                    author: author_id,
+                    body: ContentBody {
+                        topics: Topics::from_vec(vec![1., 1.]),
+                        values: Values::from_vec(vec![0., 0.]),
+                        cost: 10.,
+                        quality: 1.,
+                    },
+                    ads: 0.
+                };
+                SharedContent {
+                    content: Rc::new(content),
+                    sharer: (SharerType::Agent, author_id)
+                }
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
+                .map(|c| (None, c)).collect();
+            for a in &consumers {
+                shared.shuffle(&mut rng);
+                let (_, (new_subs, unsubs), _, _, _) = a.consume(&shared, &conf, &mut rng);
+                for pub_id in new_subs {
+                    subs[pub_id] += 1;
+                }
+                for pub_id in unsubs {
+                    subs[pub_id] -= 1;
+                }
+            }
+        }
+        assert_eq!(subs[0], consumers.len() as isize);
+
+        let shared = vec![];
+        for _ in 0..100 {
+            for a in &consumers {
+                let (_, (new_subs, unsubs), _, _, _) = a.consume(&shared, &conf, &mut rng);
+                for pub_id in new_subs {
+                    subs[pub_id] += 1;
+                }
+                for pub_id in unsubs {
+                    subs[pub_id] -= 1;
+                }
+            }
+        }
+        assert_eq!(subs[0], 0);
     }
 }
