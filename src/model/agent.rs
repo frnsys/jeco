@@ -198,12 +198,13 @@ impl Agent {
             let align = alignment(&values, &c.body.values);
             let mut react = reactivity(affinity, align, c.body.quality);
 
-            // Update publisher feeling/reputation
+            // Update publisher feeling/reputation/trust
             // and collect ad revenue
             match c.publisher {
                 Some(p_id) => {
-                    let (v, _) = publishers.entry(p_id).or_insert((0.5, 0));
-                    *v = util::ewma(affinity, *v);
+                    let relevancy = self.relevancies[p_id];
+                    let (v, _) = publishers.entry(p_id).or_insert((conf.default_trust, 0));
+                    *v = util::ewma(update_trust(*v, affinity * relevancy, align)/(c.ads + 1.), *v);
 
                     seen_publishers.insert(p_id);
 
@@ -211,7 +212,6 @@ impl Agent {
                         revenue.insert((SharerType::Publisher, p_id), c.ads * conf.revenue_per_ad);
                     }
 
-                    let relevancy = self.relevancies[p_id];
                     react *= relevancy;
                 },
                 None => {
@@ -277,7 +277,7 @@ impl Agent {
                     trust
                 },
                 (SharerType::Publisher, id) => {
-                    publishers[&id].0/(c.ads + 1.)
+                    publishers[&id].0
                 }
             };
             // println!("affinity: {:?}, trust: {:?}", affinity, trust);

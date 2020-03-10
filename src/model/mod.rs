@@ -686,4 +686,296 @@ mod tests {
         assert_eq!(*trust_b.get(&producer_a).unwrap(), conf.default_trust);
         assert_eq!(*trust_b.get(&producer_b).unwrap(), 1.0);
     }
+
+    #[test]
+    fn alignment_changes_publisher_trust() {
+        let mut conf = SimulationConfig::default();
+        conf.agent = AgentConfig {
+            attention_budget: 100.
+        };
+        conf.publisher = PublisherConfig {
+            revenue_per_subscriber: 10.,
+            base_budget: 10000.
+        };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let agent = standard_agents(&conf, &mut rng);
+        let mut agent = Agent::new(0, &conf.agent, &mut rng);
+        agent.values.set(Values::from_vec(vec![0., 0.]));
+        agent.interests = Topics::from_vec(vec![1., 1.]);
+        agent.location = (0, 0);
+        agent.relevancies.push(1.0); // Publisher a
+        agent.relevancies.push(1.0); // Publisher b
+
+        // Control for location
+        let pub_a_id = 0;
+        let mut publisher_a = Publisher::new(pub_a_id, &conf.publisher, &mut rng);
+        publisher_a.location = (0, 0);
+        publisher_a.radius = 1;
+
+        let pub_b_id = 1;
+        let mut publisher_b = Publisher::new(pub_b_id, &conf.publisher, &mut rng);
+        publisher_b.location = (0, 0);
+        publisher_b.radius = 1;
+
+        let author_id = 1;
+        for _ in 0..100 {
+            let content: Vec<SharedContent> = (0..100).map(|i| {
+                let content = Content {
+                    id: ContentId::new_v4(),
+                    publisher: Some(if i < 50 {
+                        pub_a_id
+                    } else {
+                        pub_b_id
+                    }),
+                    author: author_id,
+                    body: ContentBody {
+                        topics: Topics::from_vec(vec![1., 1.]),
+                        values: if i < 50 {
+                            Values::from_vec(vec![0., 0.])
+                        } else {
+                            Values::from_vec(vec![-1., -1.])
+                        },
+                        cost: 10.,
+                        quality: 1.,
+                    },
+                    ads: 0.
+                };
+                SharedContent {
+                    content: Rc::new(content),
+                    sharer: (SharerType::Agent, author_id)
+                }
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
+                .map(|c| (None, c)).collect();
+            shared.shuffle(&mut rng);
+            agent.consume(&shared, &conf, &mut rng);
+        }
+
+        let trust = agent.publishers.borrow();
+        let (pub_a_trust, _) = trust.get(&pub_a_id).unwrap();
+        let (pub_b_trust, _) = trust.get(&pub_b_id).unwrap();
+        println!("trust of p_a:{:?} p_b:{:?}", pub_a_trust, pub_b_trust);
+        assert_eq!(*pub_a_trust, 1.0);
+        assert!(pub_b_trust - conf.default_trust < 0.05);
+    }
+
+    #[test]
+    fn affinity_changes_publisher_trust() {
+        let mut conf = SimulationConfig::default();
+        conf.agent = AgentConfig {
+            attention_budget: 100.
+        };
+        conf.publisher = PublisherConfig {
+            revenue_per_subscriber: 10.,
+            base_budget: 10000.
+        };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let agent = standard_agents(&conf, &mut rng);
+        let mut agent = Agent::new(0, &conf.agent, &mut rng);
+        agent.values.set(Values::from_vec(vec![0., 0.]));
+        agent.interests = Topics::from_vec(vec![1., 1.]);
+        agent.location = (0, 0);
+        agent.relevancies.push(1.0); // Publisher a
+        agent.relevancies.push(1.0); // Publisher b
+
+        // Control for location
+        let pub_a_id = 0;
+        let mut publisher_a = Publisher::new(pub_a_id, &conf.publisher, &mut rng);
+        publisher_a.location = (0, 0);
+        publisher_a.radius = 1;
+
+        let pub_b_id = 1;
+        let mut publisher_b = Publisher::new(pub_b_id, &conf.publisher, &mut rng);
+        publisher_b.location = (0, 0);
+        publisher_b.radius = 1;
+
+        let author_id = 1;
+        for _ in 0..100 {
+            let content: Vec<SharedContent> = (0..100).map(|i| {
+                let content = Content {
+                    id: ContentId::new_v4(),
+                    publisher: Some(if i < 50 {
+                        pub_a_id
+                    } else {
+                        pub_b_id
+                    }),
+                    author: author_id,
+                    body: ContentBody {
+                        topics: if i < 50 {
+                            Topics::from_vec(vec![1., 1.])
+                        } else {
+                            Topics::from_vec(vec![0., 0.])
+                        },
+                        values: Values::from_vec(vec![0., 0.]),
+                        cost: 10.,
+                        quality: 1.,
+                    },
+                    ads: 0.
+                };
+                SharedContent {
+                    content: Rc::new(content),
+                    sharer: (SharerType::Agent, author_id)
+                }
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
+                .map(|c| (None, c)).collect();
+            shared.shuffle(&mut rng);
+            agent.consume(&shared, &conf, &mut rng);
+        }
+
+        let trust = agent.publishers.borrow();
+        let (pub_a_trust, _) = trust.get(&pub_a_id).unwrap();
+        let (pub_b_trust, _) = trust.get(&pub_b_id).unwrap();
+        println!("trust of p_a:{:?} p_b:{:?}", pub_a_trust, pub_b_trust);
+        assert_eq!(*pub_a_trust, 1.0);
+        assert!(pub_b_trust - conf.default_trust < 0.05);
+    }
+
+    #[test]
+    fn relevancy_changes_publisher_trust() {
+        let mut conf = SimulationConfig::default();
+        conf.agent = AgentConfig {
+            attention_budget: 100.
+        };
+        conf.publisher = PublisherConfig {
+            revenue_per_subscriber: 10.,
+            base_budget: 10000.
+        };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let agent = standard_agents(&conf, &mut rng);
+        let mut agent = Agent::new(0, &conf.agent, &mut rng);
+        agent.values.set(Values::from_vec(vec![0., 0.]));
+        agent.interests = Topics::from_vec(vec![1., 1.]);
+        agent.location = (0, 0);
+        agent.relevancies.push(1.0); // Publisher a
+        agent.relevancies.push(0.0); // Publisher b
+
+        // Control for location
+        let pub_a_id = 0;
+        let mut publisher_a = Publisher::new(pub_a_id, &conf.publisher, &mut rng);
+        publisher_a.location = (0, 0);
+        publisher_a.radius = 1;
+
+        let pub_b_id = 1;
+        let mut publisher_b = Publisher::new(pub_b_id, &conf.publisher, &mut rng);
+        publisher_b.location = (0, 0);
+        publisher_b.radius = 1;
+
+        let author_id = 1;
+        for _ in 0..100 {
+            let content: Vec<SharedContent> = (0..100).map(|i| {
+                let content = Content {
+                    id: ContentId::new_v4(),
+                    publisher: Some(if i < 50 {
+                        pub_a_id
+                    } else {
+                        pub_b_id
+                    }),
+                    author: author_id,
+                    body: ContentBody {
+                        topics: Topics::from_vec(vec![1., 1.]),
+                        values: Values::from_vec(vec![0., 0.]),
+                        cost: 10.,
+                        quality: 1.,
+                    },
+                    ads: 0.
+                };
+                SharedContent {
+                    content: Rc::new(content),
+                    sharer: (SharerType::Agent, author_id)
+                }
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
+                .map(|c| (None, c)).collect();
+            shared.shuffle(&mut rng);
+            agent.consume(&shared, &conf, &mut rng);
+        }
+
+        let trust = agent.publishers.borrow();
+        let (pub_a_trust, _) = trust.get(&pub_a_id).unwrap();
+        let (pub_b_trust, _) = trust.get(&pub_b_id).unwrap();
+        println!("trust of p_a:{:?} p_b:{:?}", pub_a_trust, pub_b_trust);
+        assert_eq!(*pub_a_trust, 1.0);
+        assert!(pub_b_trust - conf.default_trust < 0.05);
+    }
+
+    #[test]
+    fn ads_change_publisher_trust() {
+        let mut conf = SimulationConfig::default();
+        conf.agent = AgentConfig {
+            attention_budget: 100.
+        };
+        conf.publisher = PublisherConfig {
+            revenue_per_subscriber: 10.,
+            base_budget: 10000.
+        };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let agent = standard_agents(&conf, &mut rng);
+        let mut agent = Agent::new(0, &conf.agent, &mut rng);
+        agent.values.set(Values::from_vec(vec![0., 0.]));
+        agent.interests = Topics::from_vec(vec![1., 1.]);
+        agent.location = (0, 0);
+        agent.relevancies.push(1.0); // Publisher a
+        agent.relevancies.push(1.0); // Publisher b
+
+        // Control for location
+        let pub_a_id = 0;
+        let mut publisher_a = Publisher::new(pub_a_id, &conf.publisher, &mut rng);
+        publisher_a.location = (0, 0);
+        publisher_a.radius = 1;
+
+        let pub_b_id = 1;
+        let mut publisher_b = Publisher::new(pub_b_id, &conf.publisher, &mut rng);
+        publisher_b.location = (0, 0);
+        publisher_b.radius = 1;
+
+        let author_id = 1;
+        for _ in 0..100 {
+            let content: Vec<SharedContent> = (0..100).map(|i| {
+                let content = Content {
+                    id: ContentId::new_v4(),
+                    publisher: Some(if i < 50 {
+                        pub_a_id
+                    } else {
+                        pub_b_id
+                    }),
+                    author: author_id,
+                    body: ContentBody {
+                        topics: Topics::from_vec(vec![1., 1.]),
+                        values: Values::from_vec(vec![0., 0.]),
+                        cost: 10.,
+                        quality: 1.,
+                    },
+                    ads: if i < 50 {
+                        0.
+                    } else {
+                        10.
+                    }
+                };
+                SharedContent {
+                    content: Rc::new(content),
+                    sharer: (SharerType::Agent, author_id)
+                }
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
+                .map(|c| (None, c)).collect();
+            shared.shuffle(&mut rng);
+            agent.consume(&shared, &conf, &mut rng);
+        }
+
+        let trust = agent.publishers.borrow();
+        let (pub_a_trust, _) = trust.get(&pub_a_id).unwrap();
+        let (pub_b_trust, _) = trust.get(&pub_b_id).unwrap();
+        println!("trust of p_a:{:?} p_b:{:?}", pub_a_trust, pub_b_trust);
+        assert_eq!(*pub_a_trust, 1.0);
+        assert!(*pub_b_trust < 0.05);
+    }
 }
