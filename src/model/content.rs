@@ -5,7 +5,7 @@ use super::publisher::PublisherId;
 
 pub type ContentId = Uuid;
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SharerType {
     Agent,
     Publisher

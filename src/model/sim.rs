@@ -197,40 +197,10 @@ impl Simulation {
             }
         }
 
-        // TODO Ad Market
+        // Ad Market
         let n_new_content = new_content.values().fold(0, |acc, v| acc + v.len());
-        let max_p = 0.95; // Required to avoid beta of 0.0
-        let min_p = 0.05; // Required to avoid alpha of 0.0
-        for ((typ, id), mut contents) in new_content.into_iter() {
-            let z = self.platforms.iter().fold(0., |acc, platform| acc + platform.conversion_rate);
-            let (p, ad_slots) = match typ {
-                SharerType::Publisher => {
-                    // TODO take reach into account
-                    let p = f32::max(min_p,
-                                     f32::min(max_p,
-                                              conf.base_conversion_rate/(conf.base_conversion_rate + z)));
-                    let ad_slots = self.publishers[id].ads;
-                    (p, ad_slots)
-                },
-                SharerType::Agent => {
-                    // TODO what should this be for agents?
-                    let p = f32::max(min_p,
-                                     f32::min(max_p,
-                                              conf.base_conversion_rate/(conf.base_conversion_rate + z)));
-                    let ad_slots = self.agents[id].ads;
-                    (p, ad_slots)
-                }
-            };
-            if ad_slots > 0. {
-                let alpha = p * ad_slots;
-                let beta = (1.-p) * ad_slots;
-                // println!("alpha {:?}, beta {:?}, ad slots {:?}", alpha, beta, ad_slots);
-                let dist = Beta::new(alpha, beta).unwrap();
-                for c in &mut contents {
-                    c.ads = dist.sample(&mut rng);
-                }
-            }
-
+        ad_market(&mut new_content, &self.agents, &self.publishers, &self.platforms, &conf, &mut rng);
+        for ((typ, id), contents) in new_content.into_iter() {
             for c in contents {
                 let content = Rc::new(c);
 
@@ -559,6 +529,41 @@ pub fn set_agent_relevancies(grid: &HexGrid, agents: &mut Vec<Agent>, publishers
     }
 
     distances
+}
+
+pub fn ad_market(content: &mut FnvHashMap<(SharerType, usize), Vec<Content>>, agents: &Vec<Agent>, publishers: &Vec<Publisher>, platforms: &Vec<Platform>, conf: &SimulationConfig, rng: &mut StdRng) {
+    let z = platforms.iter().fold(0., |acc, platform| acc + platform.conversion_rate);
+    let max_p = 0.95; // Required to avoid beta of 0.0
+    let min_p = 0.05; // Required to avoid alpha of 0.0
+    for ((typ, id), ref mut contents) in &mut content.iter_mut() {
+        let (p, ad_slots) = match typ {
+            SharerType::Publisher => {
+                // TODO take reach into account
+                let p = f32::max(min_p,
+                                 f32::min(max_p,
+                                          conf.base_conversion_rate/(conf.base_conversion_rate + z)));
+                let ad_slots = publishers[*id].ads;
+                (p, ad_slots)
+            },
+            SharerType::Agent => {
+                // TODO what should this be for agents?
+                let p = f32::max(min_p,
+                                 f32::min(max_p,
+                                          conf.base_conversion_rate/(conf.base_conversion_rate + z)));
+                let ad_slots = agents[*id].ads;
+                (p, ad_slots)
+            }
+        };
+        if ad_slots > 0. {
+            let alpha = p * ad_slots;
+            let beta = (1.-p) * ad_slots;
+            // println!("alpha {:?}, beta {:?}, ad slots {:?}", alpha, beta, ad_slots);
+            let dist = Beta::new(alpha, beta).unwrap();
+            for c in &mut contents.iter_mut() {
+                c.ads = dist.sample(rng);
+            }
+        }
+    }
 }
 
 #[cfg(test)]

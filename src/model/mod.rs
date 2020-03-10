@@ -22,16 +22,17 @@ mod tests {
     use super::*;
     use super::grid::HexGrid;
     use super::agent::Topics;
-    use super::platform::PlatformId;
+    use super::platform::{Platform, PlatformId};
     use super::config::{AgentConfig, PublisherConfig};
     use super::content::{Content, ContentId, ContentBody, SharedContent, SharerType};
     use self::publisher::Audience;
-    use super::sim::set_agent_relevancies;
+    use super::sim::{set_agent_relevancies, ad_market};
     use super::util::Vector;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
     use rand::seq::SliceRandom;
     use std::rc::Rc;
+    use fnv::FnvHashMap;
 
     fn standard_agents(conf: &SimulationConfig, rng: &mut StdRng) -> Vec<Agent> {
         (0..100).map(|i| {
@@ -1340,8 +1341,9 @@ mod tests {
     }
 
     #[test]
-    fn unsubscribe_from_inactive_publishers() {
+    fn publisher_ad_revenue() {
         let mut conf = SimulationConfig::default();
+        conf.revenue_per_ad = 1.;
         conf.agent = AgentConfig {
             attention_budget: 100.
         };
@@ -1357,12 +1359,12 @@ mod tests {
         }
 
         // Control for location
-        let mut publisher_a = Publisher::new(0, &conf.publisher, &mut rng);
-        publisher_a.location = (0, 0);
-        publisher_a.radius = 1;
+        let mut publisher = Publisher::new(0, &conf.publisher, &mut rng);
+        publisher.location = (0, 0);
+        publisher.radius = 1;
 
+        let mut ad_revenue = 0.;
         let author_id = consumers.len();
-        let mut subs: Vec<isize> = vec![0];
         for _ in 0..10 {
             let content: Vec<SharedContent> = (0..100).map(|i| {
                 let content = Content {
@@ -1375,7 +1377,7 @@ mod tests {
                         cost: 10.,
                         quality: 1.,
                     },
-                    ads: 0.
+                    ads: 1.
                 };
                 SharedContent {
                     content: Rc::new(content),
@@ -1387,29 +1389,127 @@ mod tests {
                 .map(|c| (None, c)).collect();
             for a in &consumers {
                 shared.shuffle(&mut rng);
-                let (_, (new_subs, unsubs), _, _, _) = a.consume(&shared, &conf, &mut rng);
-                for pub_id in new_subs {
-                    subs[pub_id] += 1;
-                }
-                for pub_id in unsubs {
-                    subs[pub_id] -= 1;
-                }
+                let (_, _, _, _, revenue) = a.consume(&shared, &conf, &mut rng);
+                ad_revenue += revenue.get(&(SharerType::Publisher, publisher.id)).unwrap();
             }
         }
-        assert_eq!(subs[0], consumers.len() as isize);
+        println!("ad revenue:{:?}", ad_revenue);
+        assert_eq!(ad_revenue, 1. * 1. * 10. * 100.);
+    }
 
-        let shared = vec![];
-        for _ in 0..100 {
+    #[test]
+    fn publisher_ad_market_platform_impact() {
+        let mut conf = SimulationConfig::default();
+        conf.revenue_per_ad = 1.;
+        conf.max_conversion_rate = 0.05;
+        conf.base_conversion_rate = 0.01;
+        conf.agent = AgentConfig {
+            attention_budget: 100.
+        };
+        conf.publisher = PublisherConfig {
+            revenue_per_subscriber: 10.,
+            base_budget: 10000.
+        };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let mut consumers = standard_agents(&conf, &mut rng);
+        for a in &mut consumers {
+            a.relevancies.push(1.0);
+        }
+
+        // Control for location
+        let pub_id = 0;
+        let mut publisher = Publisher::new(pub_id, &conf.publisher, &mut rng);
+        publisher.location = (0, 0);
+        publisher.radius = 1;
+
+        let publishers = vec![publisher];
+        let platforms = vec![];
+
+        let mut ad_revenue = 0.;
+        let author_id = consumers.len();
+        for _ in 0..10 {
+            let content: Vec<Content> = (0..100).map(|i| {
+                Content {
+                    id: ContentId::new_v4(),
+                    publisher: Some(pub_id),
+                    author: author_id,
+                    body: ContentBody {
+                        topics: Topics::from_vec(vec![1., 1.]),
+                        values: Values::from_vec(vec![0., 0.]),
+                        cost: 10.,
+                        quality: 1.,
+                    },
+                    ads: 0.
+                }
+            }).collect();
+
+            let mut c: FnvHashMap<(SharerType, usize), Vec<Content>> = FnvHashMap::default();
+            c.insert((SharerType::Publisher, pub_id), content);
+
+            ad_market(&mut c, &consumers, &publishers, &platforms, &conf, &mut rng);
+
+            let content = c.remove(&(SharerType::Publisher, pub_id)).unwrap();
+            let shared_content: Vec<SharedContent> = content.into_iter().map(|c| SharedContent {
+                content: Rc::new(c),
+                sharer: (SharerType::Agent, author_id)
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = shared_content.iter()
+                .map(|c| (None, c)).collect();
             for a in &consumers {
-                let (_, (new_subs, unsubs), _, _, _) = a.consume(&shared, &conf, &mut rng);
-                for pub_id in new_subs {
-                    subs[pub_id] += 1;
-                }
-                for pub_id in unsubs {
-                    subs[pub_id] -= 1;
-                }
+                shared.shuffle(&mut rng);
+                let (_, _, _, _, revenue) = a.consume(&shared, &conf, &mut rng);
+                ad_revenue += revenue.get(&(SharerType::Publisher, pub_id)).unwrap();
             }
         }
-        assert_eq!(subs[0], 0);
+        println!("ad revenue:{:?}", ad_revenue);
+        assert!(ad_revenue > 900.);
+
+        let mut platform = Platform::new(0);
+        platform.data = 100000.;
+        platform.update_conversion_rate(conf.max_conversion_rate);
+        let platforms = vec![platform];
+
+        let mut new_ad_revenue = 0.;
+        let author_id = consumers.len();
+        for _ in 0..10 {
+            let content: Vec<Content> = (0..100).map(|i| {
+                Content {
+                    id: ContentId::new_v4(),
+                    publisher: Some(pub_id),
+                    author: author_id,
+                    body: ContentBody {
+                        topics: Topics::from_vec(vec![1., 1.]),
+                        values: Values::from_vec(vec![0., 0.]),
+                        cost: 10.,
+                        quality: 1.,
+                    },
+                    ads: 0.
+                }
+            }).collect();
+
+            let mut c: FnvHashMap<(SharerType, usize), Vec<Content>> = FnvHashMap::default();
+            c.insert((SharerType::Publisher, pub_id), content);
+
+            ad_market(&mut c, &consumers, &publishers, &platforms, &conf, &mut rng);
+
+            let content = c.remove(&(SharerType::Publisher, pub_id)).unwrap();
+            let shared_content: Vec<SharedContent> = content.into_iter().map(|c| SharedContent {
+                content: Rc::new(c),
+                sharer: (SharerType::Agent, author_id)
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = shared_content.iter()
+                .map(|c| (None, c)).collect();
+            for a in &consumers {
+                shared.shuffle(&mut rng);
+                let (_, _, _, _, revenue) = a.consume(&shared, &conf, &mut rng);
+                new_ad_revenue += revenue.get(&(SharerType::Publisher, pub_id)).unwrap();
+            }
+        }
+        println!("new ad revenue:{:?}", new_ad_revenue);
+        assert!(ad_revenue > new_ad_revenue);
+        assert!(new_ad_revenue < 200.);
     }
 }
