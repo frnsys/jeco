@@ -101,7 +101,7 @@ impl SimulationConfig {
             n_publishers: 10,
             n_platforms: 10,
             contact_rate: 0.1,
-            gravity_stretch: 100.,
+            gravity_stretch: 10.,
             max_influence: 0.1,
             content_sample_size: 50,
             base_signup_rate: 0.001,
