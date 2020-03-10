@@ -155,7 +155,7 @@ impl Publisher {
     pub fn update_reach(&mut self) {
         let shares = self.n_shares();
         if shares.len() == 0 {
-            self.reach = 0.;
+            self.reach = ewma(0., self.reach);
         } else {
             let mean_shares = shares.iter().fold(0, |acc, v| acc + v) as f32 / shares.len() as f32;
             self.reach = ewma(mean_shares, self.reach);
