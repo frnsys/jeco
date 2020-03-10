@@ -410,7 +410,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn alignment() {
+    fn test_alignment() {
         let a = Values::from_vec(vec![0., 0.]);
         let b = Values::from_vec(vec![1., 1.]);
         let align = alignment(&a, &b);
@@ -433,7 +433,7 @@ mod tests {
     }
 
     #[test]
-    fn similarity() {
+    fn test_similarity() {
         let mut a = Topics::from_vec(vec![0., 0.]);
         let mut b = Topics::from_vec(vec![1., 1.]);
         let sim = similarity(&a, &b);
@@ -451,7 +451,7 @@ mod tests {
     }
 
     #[test]
-    fn update_trust() {
+    fn test_update_trust() {
         let trust = 0.5;
 
         // Strong affinity and strong alignment
@@ -468,7 +468,7 @@ mod tests {
     }
 
     #[test]
-    fn reactivity() {
+    fn test_reactivity() {
         // Strong affinity, strong alignment, high quality
         assert_eq!(reactivity(1., 1., 1.), 1.);
 
@@ -495,7 +495,7 @@ mod tests {
     }
 
     #[test]
-    fn gravity() {
+    fn test_gravity() {
         let gravity_stretch = 100.;
         let max_influence = 0.1;
 
@@ -515,7 +515,7 @@ mod tests {
 
 
     #[test]
-    fn p_produce() {
+    fn test_p_produce() {
         let mut p = p_produce(0.);
         assert!(p < 0.1 && p > 0.);
 

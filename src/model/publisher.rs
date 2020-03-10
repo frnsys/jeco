@@ -240,7 +240,7 @@ mod tests {
     use super::super::agent::{Topics, Values};
 
     #[test]
-    fn audience_learning() {
+    fn test_audience_learning() {
         let mu = Vector::from_vec(vec![0., 0.]);
         let var = Vector::from_vec(vec![0.5, 0.5]);
         let mut audience = Audience {
@@ -273,7 +273,7 @@ mod tests {
     }
 
     #[test]
-    fn reader_similarity() {
+    fn test_reader_similarity() {
         let mut body = ContentBody {
             cost: 0.,
             quality: 0.,

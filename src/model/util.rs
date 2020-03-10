@@ -217,7 +217,7 @@ mod tests {
     use rand::rngs::StdRng;
 
     #[test]
-    fn limited_queue() {
+    fn test_limited_queue() {
         let mut q = LimitedQueue::new(5);
         for i in 0..8 {
             q.push(i);
@@ -228,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn limited_set() {
+    fn test_limited_set() {
         let mut q = LimitedSet::new(5);
         for i in 0..8 {
             q.insert(i);
@@ -239,7 +239,7 @@ mod tests {
     }
 
     #[test]
-    fn learner() {
+    fn test_learner() {
         let best_arm = LearnerArm{a: 5, b: 5};
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let mut learner = Learner::new(&mut rng);
@@ -283,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn normal_range_mu() {
+    fn test_normal_range_mu() {
         // Check that normal sampler is tight enough
         let mu = 1.;
         let max_distance = 0.1;
@@ -303,7 +303,7 @@ mod tests {
     }
 
     #[test]
-    fn normal_p_mu() {
+    fn test_normal_p_mu() {
         // Check that normal sampler is tight enough
         let mu = 0.5;
         let max_distance = 0.1;
