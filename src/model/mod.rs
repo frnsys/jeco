@@ -128,12 +128,12 @@ mod tests {
 
         // Create centrist agents
         let center_values = vec![
-            vec![-0.3, -0.3],
-            vec![-0.3,  0.3],
-            vec![ 0.3,  0.3],
-            vec![ 0.3, -0.3],
+            vec![-0.25, -0.25],
+            vec![-0.25,  0.25],
+            vec![ 0.25,  0.25],
+            vec![ 0.25, -0.25],
         ];
-        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let mut rng: StdRng = SeedableRng::seed_from_u64(1);
         let consumers: Vec<Agent> = (0..4).map(|i| {
             let agent = Agent::new(i, &conf.agent, &mut rng);
             agent.values.set(Values::from_vec(center_values[i].clone()));
@@ -194,6 +194,7 @@ mod tests {
             let agent = &consumers[i];
             let a_vals = agent.values.get();
             let values = &values[i];
+            // println!("{:?}", a_vals);
             assert!((a_vals[0] - values[0]).abs() <= max_distance && (a_vals[1] - values[1]).abs() <= max_distance);
         }
     }
