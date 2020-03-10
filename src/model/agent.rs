@@ -204,7 +204,8 @@ impl Agent {
                 Some(p_id) => {
                     let relevancy = self.relevancies[p_id];
                     let (v, _) = publishers.entry(p_id).or_insert((conf.default_trust, 0));
-                    *v = util::ewma(update_trust(*v, affinity * relevancy, align)/(c.ads + 1.), *v);
+                    // println!("update: {:?} {:?} {:?} {:?} {:?}", p_id, update_trust(affinity * relevancy, align)/(c.ads + 1.), affinity, relevancy, align);
+                    *v = f32::max(0., util::ewma(update_trust(affinity * relevancy, align)/(c.ads + 1.), *v));
 
                     seen_publishers.insert(p_id);
 
@@ -242,7 +243,8 @@ impl Agent {
                     let mut trust = {
                         let trust = trusts.entry(id).or_insert(conf.default_trust);
                         let old_trust = trust.clone(); // TODO meh
-                        *trust = update_trust(*trust, affinity, align);
+                        // println!("update: {:?} {:?} {:?} {:?}", id, update_trust(affinity, align), affinity, align);
+                        *trust = f32::max(0., util::ewma(update_trust(affinity, align), *trust));
 
                         // If platform is not None,
                         // we are already following the sharer.
@@ -257,7 +259,7 @@ impl Agent {
                     if c.author != id {
                         let author_trust = trusts.entry(c.author).or_insert(conf.default_trust);
                         trust = (trust + *author_trust)/2.;
-                        *author_trust = update_trust(*author_trust, affinity, align);
+                        *author_trust = f32::max(0., util::ewma(update_trust(affinity, align)/(c.ads + 1.), *author_trust));
 
                         // For the author, we don't know
                         // if they're already following or not.
@@ -314,6 +316,7 @@ impl Agent {
         // Decide on subscriptions
         // TODO consider costs of subscription
         for (p_id, (affinity, last_seen)) in publishers.iter() {
+            // println!("{:?} {:?}", p_id, affinity);
             if last_seen >= &conf.unsubscribe_lag {
                 if subscriptions.contains(p_id) {
                     subscriptions.remove(p_id);
@@ -389,9 +392,8 @@ pub fn alignment(a: &Vector, b: &Vector) -> f32 {
     ((1. - distance(a, b)/MAX_VALUE_DISTANCE) - 0.5) * 2.
 }
 
-static EASE_OF_TRUST: f32 = 1./100.;
-pub fn update_trust(trust: f32, affinity: f32, alignment: f32) -> f32 {
-    f32::min(1., f32::max(0., trust + affinity * alignment * EASE_OF_TRUST))
+pub fn update_trust(affinity: f32, alignment: f32) -> f32 {
+    affinity * alignment
 }
 
 pub fn reactivity(affinity: f32, alignment: f32, quality: f32) -> f32 {
@@ -452,19 +454,17 @@ mod tests {
 
     #[test]
     fn test_update_trust() {
-        let trust = 0.5;
-
         // Strong affinity and strong alignment
-        assert!(update_trust(trust, 1., 1.) > trust);
+        assert!(update_trust(1., 1.) > 0.);
 
         // Strong affinity and opposite alignment
-        assert!(update_trust(trust, 1., -1.) < trust);
+        assert!(update_trust(1., -1.) < 0.);
 
         // Weak affinity and strong alignment
-        assert!(update_trust(trust, 0., 1.) == trust);
+        assert!(update_trust(0., 1.) == 0.);
 
         // Weak affinity and opposite alignment
-        assert!(update_trust(trust, 0., -1.) == trust);
+        assert!(update_trust(0., -1.) == 0.);
     }
 
     #[test]
