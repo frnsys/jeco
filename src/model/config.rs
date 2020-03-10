@@ -37,6 +37,9 @@ pub struct SimulationConfig {
     // Revenue generated per ad view
     pub revenue_per_ad: f32,
 
+    // Initialize trust to this value
+    pub default_trust: f32,
+
     // If trust goes below/above this threshold,
     // unfollow/follow that Agent
     pub unfollow_trust: f32,
@@ -105,6 +108,7 @@ impl SimulationConfig {
             data_per_consume: 0.0001,
             max_platforms: 3,
             revenue_per_ad: 0.001,
+            default_trust: 0.4,
             unfollow_trust: 0.1,
             follow_trust: 0.9,
             unsubscribe_trust: 0.1,

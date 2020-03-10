@@ -240,7 +240,7 @@ impl Agent {
                     // network.trust(&self.id, &id); // TODO this is redundant?
 
                     let mut trust = {
-                        let trust = trusts.entry(id).or_insert(0.);
+                        let trust = trusts.entry(id).or_insert(conf.default_trust);
                         let old_trust = trust.clone(); // TODO meh
                         *trust = update_trust(*trust, affinity, align);
 
@@ -255,7 +255,7 @@ impl Agent {
 
                     // Get author as well
                     if c.author != id {
-                        let author_trust = trusts.entry(c.author).or_insert(0.);
+                        let author_trust = trusts.entry(c.author).or_insert(conf.default_trust);
                         trust = (trust + *author_trust)/2.;
                         *author_trust = update_trust(*author_trust, affinity, align);
 

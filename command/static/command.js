@@ -39,6 +39,11 @@ const CONFIG_SPEC = {
     type: 'float',
     desc: 'Horizontal stretching of gravity function. Higher values mean weaker influence at greater distances.'
   },
+  'DEFAULT_TRUST': {
+    key: 'SIMULATION',
+    type: 'float',
+    desc: 'How much agents initially trust each other.'
+  },
   'FOLLOW_TRUST': {
     key: 'SIMULATION',
     type: 'float',
