@@ -15,9 +15,6 @@ pub struct SimulationConfig {
     // higher values mean weaker influence at greater distances
     pub gravity_stretch: f32,
 
-    // Attention budget per Agent
-    pub attention_budget: f32,
-
     // Maximum movement amount
     pub max_influence: f32,
 
@@ -71,6 +68,7 @@ pub struct SimulationConfig {
 
     // See below
     pub publisher: PublisherConfig,
+    pub agent: AgentConfig
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
@@ -82,4 +80,47 @@ pub struct PublisherConfig {
 
     // Base budget for Publishers
     pub base_budget: f32,
+}
+
+
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[serde(rename_all = "UPPERCASE")]
+pub struct AgentConfig {
+    // Attention budget per Agent
+    pub attention_budget: f32,
+}
+
+impl SimulationConfig {
+    pub fn default() -> SimulationConfig {
+        SimulationConfig {
+            grid_size: 3,
+            population: 1000,
+            n_publishers: 10,
+            n_platforms: 10,
+            contact_rate: 0.1,
+            gravity_stretch: 100.,
+            max_influence: 0.1,
+            content_sample_size: 50,
+            base_signup_rate: 0.001,
+            data_per_consume: 0.0001,
+            max_platforms: 3,
+            revenue_per_ad: 0.001,
+            unfollow_trust: 0.1,
+            follow_trust: 0.9,
+            unsubscribe_trust: 0.1,
+            subscribe_trust: 0.9,
+            unsubscribe_lag: 20,
+            base_conversion_rate: 0.01,
+            max_conversion_rate: 0.05,
+            max_shared_content: 200,
+            cost_per_quality: 0.2,
+            publisher: PublisherConfig {
+                revenue_per_subscriber: 1000.,
+                base_budget: 50000.
+            },
+            agent: AgentConfig {
+                attention_budget: 100.
+            }
+        }
+    }
 }

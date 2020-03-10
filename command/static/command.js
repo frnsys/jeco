@@ -25,7 +25,7 @@ const CONFIG_SPEC = {
     desc: 'The base offline contact rate, i.e. probability that two agents share content in a step (without platforms).'
   },
   'ATTENTION_BUDGET': {
-    key: 'SIMULATION',
+    key: 'SIMULATION.AGENT',
     type: 'float',
     desc: 'Attention budget for each agent. Limits how much content an agent can consume.'
   },

@@ -44,7 +44,7 @@ pub struct Simulation {
 impl Simulation {
     pub fn new(conf: &SimulationConfig, mut rng: &mut StdRng) -> Simulation {
         let mut agents: Vec<Agent> = (0..conf.population)
-            .map(|i| Agent::new(i, &conf, &mut rng))
+            .map(|i| Agent::new(i, &conf.agent, &mut rng))
             .collect();
 
         let mut share_queues = FnvHashMap::default();

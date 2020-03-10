@@ -4,8 +4,7 @@ use super::util::{Vector, VECTOR_SIZE, Learner};
 use super::publisher::PublisherId;
 use super::platform::PlatformId;
 use super::content::{Content, ContentId, ContentBody, SharedContent, SharerType};
-use super::network::Network;
-use super::config::SimulationConfig;
+use super::config::{SimulationConfig, AgentConfig};
 use rand::rngs::StdRng;
 use rand::Rng;
 use std::cell::{Cell, RefCell};
@@ -88,7 +87,7 @@ pub fn random_topics(rng: &mut StdRng) -> Topics {
 }
 
 impl Agent {
-    pub fn new(id: AgentId, conf: &SimulationConfig, mut rng: &mut StdRng) -> Agent {
+    pub fn new(id: AgentId, conf: &AgentConfig, mut rng: &mut StdRng) -> Agent {
         let resources = util::normal_p(&mut rng);
         let learner = Learner::new(&mut rng);
 
