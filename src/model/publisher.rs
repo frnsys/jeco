@@ -98,6 +98,7 @@ impl Publisher {
     // An Agent pitches a piece
     // of content to the publisher
     pub fn pitch(&mut self, body: &ContentBody, author: &mut Agent, conf: &SimulationConfig, rng: &mut StdRng) -> Option<Content> {
+        // TODO publisher takes into account author location?
         let cost = (self.quality + body.quality) * conf.cost_per_quality;
         if self.budget < cost { return None; }
 

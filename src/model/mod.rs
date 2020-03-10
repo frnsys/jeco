@@ -25,7 +25,9 @@ mod tests {
     use super::platform::PlatformId;
     use super::config::{AgentConfig, PublisherConfig};
     use super::content::{Content, ContentId, ContentBody, SharedContent, SharerType};
+    use self::publisher::Audience;
     use super::sim::set_agent_relevancies;
+    use super::util::Vector;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
     use rand::seq::SliceRandom;
@@ -698,7 +700,6 @@ mod tests {
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let agent = standard_agents(&conf, &mut rng);
         let mut agent = Agent::new(0, &conf.agent, &mut rng);
         agent.values.set(Values::from_vec(vec![0., 0.]));
         agent.interests = Topics::from_vec(vec![1., 1.]);
@@ -772,7 +773,6 @@ mod tests {
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let agent = standard_agents(&conf, &mut rng);
         let mut agent = Agent::new(0, &conf.agent, &mut rng);
         agent.values.set(Values::from_vec(vec![0., 0.]));
         agent.interests = Topics::from_vec(vec![1., 1.]);
@@ -846,7 +846,6 @@ mod tests {
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let agent = standard_agents(&conf, &mut rng);
         let mut agent = Agent::new(0, &conf.agent, &mut rng);
         agent.values.set(Values::from_vec(vec![0., 0.]));
         agent.interests = Topics::from_vec(vec![1., 1.]);
@@ -916,7 +915,6 @@ mod tests {
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let agent = standard_agents(&conf, &mut rng);
         let mut agent = Agent::new(0, &conf.agent, &mut rng);
         agent.values.set(Values::from_vec(vec![0., 0.]));
         agent.interests = Topics::from_vec(vec![1., 1.]);
@@ -976,5 +974,81 @@ mod tests {
         println!("trust of p_a:{:?} p_b:{:?}", pub_a_trust, pub_b_trust);
         assert_eq!(*pub_a_trust, 1.0);
         assert!(*pub_b_trust < 0.05);
+    }
+
+    #[test]
+    fn publisher_publish_to_audience_tastes() {
+        let mut conf = SimulationConfig::default();
+        conf.agent = AgentConfig {
+            attention_budget: 100.
+        };
+        conf.publisher = PublisherConfig {
+            revenue_per_subscriber: 10.,
+            base_budget: 10000.
+        };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+
+        // Dummy
+        let mut author = Agent::new(0, &conf.agent, &mut rng);
+
+        let mut publisher = Publisher::new(0, &conf.publisher, &mut rng);
+        let mut audience = Audience::new(&mut rng);
+        let var = Vector::from_vec(vec![0.5, 0.5]);
+        audience.values = (Values::from_vec(vec![1., 1.]), var.clone());
+        audience.interests = (Topics::from_vec(vec![0., 1.]), var.clone());
+        publisher.audience = audience;
+
+        let mut match_accepted = 0;
+        let mut similar_accepted = 0;
+        let mut not_match_accepted = 0;
+        let mut pitches: Vec<(usize, ContentBody)> = (0..120).map(|i| {
+            if i < 40 {
+                let body = ContentBody {
+                    quality: 0., // So it costs nothing
+                    topics: Topics::from_vec(vec![0., 1.]),
+                    values: Values::from_vec(vec![1., 1.]),
+                    cost: 10.,
+                };
+                (0, body)
+            } else if i < 80 {
+                let body = ContentBody {
+                    quality: 0., // So it costs nothing
+                    topics: Topics::from_vec(vec![0.5, 0.5]),
+                    values: Values::from_vec(vec![0., 0.]),
+                    cost: 10.,
+                };
+                (1, body)
+            } else {
+                let body = ContentBody {
+                    quality: 0., // So it costs nothing
+                    topics: Topics::from_vec(vec![ 1.,  0.]),
+                    values: Values::from_vec(vec![-1., -1.]),
+                    cost: 10.,
+                };
+                (2, body)
+            }
+        }).collect();
+        pitches.shuffle(&mut rng);
+        for (mtch, body) in pitches {
+            match publisher.pitch(&body, &mut author, &conf, &mut rng) {
+                Some(_) => {
+                    if mtch == 0 {
+                        match_accepted += 1
+                    } else if mtch == 1 {
+                        similar_accepted += 1
+                    } else {
+                        not_match_accepted += 1
+                    }
+                },
+                None => {}
+            };
+        }
+        println!("match:{:?} similar:{:?} not:{:?}", match_accepted, similar_accepted, not_match_accepted);
+        assert!(match_accepted > similar_accepted);
+        assert!(similar_accepted > not_match_accepted);
+        assert!((match_accepted as f32/40.) > 0.9);
+        assert!((similar_accepted as f32/40.) > 0.3 && (similar_accepted as f32/40.) < 0.6);
+        assert!((not_match_accepted as f32/40.) < 0.1);
     }
 }
