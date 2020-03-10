@@ -114,8 +114,25 @@ impl Agent {
         }
     }
 
+    pub fn produce(&self, max_attention: f32, rng: &mut StdRng) -> ContentBody {
+        // Agent produces something around their own interests and values
+        let topics = self.interests.map(|v| util::normal_p_mu(v, rng));
+        let values = self.values.get().map(|v| util::normal_range_mu(v, rng));
+
+        // ENH: Take other factors into account
+        // Attention cost ranges from 0-100
+        let attn_cost = util::normal_p(rng) * max_attention;
+
+        ContentBody {
+            cost: attn_cost,
+            quality: self.quality,
+            topics: topics,
+            values: values,
+        }
+    }
+
     // Return content they create
-    pub fn produce(&mut self, conf: &SimulationConfig, rng: &mut StdRng) -> Option<ContentBody> {
+    pub fn try_produce(&mut self, conf: &SimulationConfig, rng: &mut StdRng) -> Option<ContentBody> {
         let cost = self.quality * conf.cost_per_quality;
         if self.resources < cost { return None }
 
@@ -123,22 +140,10 @@ impl Agent {
         // and resources
         let roll: f32 = rng.gen();
         if roll < p_produce(self.reach/conf.population as f32) {
-            // Agent produces something around their own interests and values
-            let topics = self.interests.map(|v| util::normal_p_mu(v, rng));
-            let values = self.values.get().map(|v| util::normal_range_mu(v, rng));
-
-            // ENH: Take other factors into account
-            // Attention cost ranges from 0-100
-            let attn_cost = util::normal_p(rng) * conf.attention_budget;
-
+            let body = self.produce(conf.agent.attention_budget, rng);
             self.resources -= cost;
 
-            Some(ContentBody {
-                cost: attn_cost,
-                quality: self.quality,
-                topics: topics,
-                values: values,
-            })
+            Some(body)
         } else {
             None
         }
@@ -148,13 +153,12 @@ impl Agent {
     pub fn consume<'a>(
         &'a self,
         content: &Vec<(Option<&PlatformId>, &SharedContent)>,
-        network: &Network,
         conf: &SimulationConfig,
         rng: &mut StdRng,
     ) -> (Vec<Rc<Content>>, (Vec<PublisherId>, Vec<PublisherId>), (FnvHashSet<AgentId>, FnvHashSet<AgentId>), FnvHashMap<PlatformId, f32>, FnvHashMap<(SharerType, usize), f32>) {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
-        let mut values = self.values.get();
+        let values = self.values.get();
         let mut publishers = self.publishers.borrow_mut();
         let mut subscriptions = self.subscriptions.borrow_mut();
         let mut trusts = self.trust.borrow_mut();
@@ -276,10 +280,8 @@ impl Agent {
                     publishers[&id].0/c.ads
                 }
             };
-            values.zip_apply(&c.body.values, |a_v, c_v| {
-                a_v + util::gravity(a_v, c_v, conf.gravity_stretch, conf.max_influence) * affinity * trust
-            });
-            self.values.set(values);
+            // println!("affinity: {:?}, trust: {:?}", affinity, trust);
+            self.be_influenced(&c.body.values, conf.gravity_stretch, conf.max_influence, affinity * trust);
 
             // Generate data for platform
             match platform {
@@ -331,6 +333,14 @@ impl Agent {
         }
 
         (to_share, (new_subs, unsubs), (follows, unfollows), data, revenue)
+    }
+
+    pub fn be_influenced(&self, other: &Values, gravity_stretch: f32, max_influence: f32, trust: f32) {
+        let mut values = self.values.get();
+        values.zip_apply(other, |a_v, c_v| {
+            a_v + util::gravity(a_v, c_v, gravity_stretch, max_influence) * trust
+        });
+        self.values.set(values);
     }
 
     pub fn similarity(&self, other: &Agent) -> f32 {

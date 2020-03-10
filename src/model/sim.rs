@@ -105,22 +105,7 @@ impl Simulation {
             publisher.radius = radius;
         }
 
-        // Distance to a Publisher is
-        // measured against the closest position
-        // within its radius.
-        let distances = compute_distances(
-            &ref_grid,
-            &publishers.iter()
-                .map(|p| (p.location.clone(), p.radius))
-                .collect());
-
-        // Precompute relevancies for each Publisher
-        for agent in &mut agents {
-            for dist in &distances[&agent.location] {
-                let relevance = relevance_from_dist(*dist);
-                agent.relevancies.push(relevance);
-            }
-        }
+        let distances = set_agent_relevancies(&ref_grid, &mut agents, &publishers);
 
         Simulation {
             grid: grid,
@@ -152,7 +137,7 @@ impl Simulation {
             p.n_ads_sold = 0.;
         }
         for mut a in &mut self.agents {
-            match a.produce(&conf, &mut rng) {
+            match a.try_produce(&conf, &mut rng) {
                 Some(body) => {
                     // People give up after not getting anything
                     // published
@@ -390,7 +375,7 @@ impl Simulation {
                 }
             }
 
-            let (will_share, (new_subs, unsubs), (follows, unfollows), data, revenue) = a.consume(to_read, &self.network, &conf, &mut rng);
+            let (will_share, (new_subs, unsubs), (follows, unfollows), data, revenue) = a.consume(to_read, &conf, &mut rng);
             let shareable = will_share.iter().map(|content| {
                 SharedContent {
                     sharer: (SharerType::Agent, a.id),
@@ -553,6 +538,27 @@ fn compute_distances(grid: &HexGrid, spots: &Vec<(Position, usize)>) -> FnvHashM
 fn relevance_from_dist(dist: usize) -> f32 {
     let x = 2*(dist as isize)-4;
     1. - sigmoid(x as f32)
+}
+
+pub fn set_agent_relevancies(grid: &HexGrid, agents: &mut Vec<Agent>, publishers: &Vec<Publisher>) -> FnvHashMap<Position, Vec<usize>> {
+    // Distance to a Publisher is
+    // measured against the closest position
+    // within its radius.
+    let distances = compute_distances(
+        grid,
+        &publishers.iter()
+            .map(|p| (p.location.clone(), p.radius))
+            .collect());
+
+    // Precompute relevancies for each Publisher
+    for agent in agents {
+        for dist in &distances[&agent.location] {
+            let relevance = relevance_from_dist(*dist);
+            agent.relevancies.push(relevance);
+        }
+    }
+
+    distances
 }
 
 #[cfg(test)]
