@@ -46,19 +46,19 @@ mod tests {
     #[test]
     fn test_influence() {
         let trust = 1.;
-        let gravity_stretch = 100.;
+        let gravity_stretch = 10.;
         let max_influence = 0.1;
         let conf = AgentConfig {
             attention_budget: 100.
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let mut consumer = Agent::new(0, &conf, &mut rng);
+        let consumer = Agent::new(0, &conf, &mut rng);
         consumer.values.set(Values::from_vec(vec![0., 0.]));
         let producer = Agent::new(1, &conf, &mut rng);
         producer.values.set(Values::from_vec(vec![-1., -1.]));
 
-        for _ in 0..2000 {
+        for _ in 0..200 {
             let body = producer.produce(conf.attention_budget, &mut rng);
             consumer.be_influenced(&body.values, gravity_stretch, max_influence, trust);
         }
@@ -66,11 +66,13 @@ mod tests {
         // Should both be close to -1.
         let x = consumer.values.get()[0];
         let y = consumer.values.get()[1];
-        assert!(x - -1. < 0.05);
-        assert!(y - -1. < 0.05);
+        println!("x: {:?} ({:?})", x, x - -1.);
+        println!("y: {:?} ({:?})", y, y - -1.);
+        assert!(x - -1. < 0.1);
+        assert!(y - -1. < 0.1);
 
         producer.values.set(Values::from_vec(vec![1., 1.]));
-        for _ in 0..3000 {
+        for _ in 0..500 {
             let body = producer.produce(conf.attention_budget, &mut rng);
             consumer.be_influenced(&body.values, gravity_stretch, max_influence, trust);
         }
@@ -78,8 +80,41 @@ mod tests {
         // Should both be close to 1.
         let x = consumer.values.get()[0];
         let y = consumer.values.get()[1];
-        assert!(x - 1. < 0.05);
-        assert!(y - 1. < 0.05);
+        println!("x: {:?} ({:?})", x, (x - 1.).abs());
+        println!("y: {:?} ({:?})", y, (y - 1.).abs());
+        assert!((x - 1.).abs() < 0.1);
+        assert!((y - 1.).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_producers_produce_aligned_content() {
+        let conf = SimulationConfig::default();
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+
+        let trials = 100;
+        let max_distance = 0.1;
+        let values = vec![
+            vec![-1., -1.],
+            vec![-1.,  1.],
+            vec![ 1.,  1.],
+            vec![ 1., -1.],
+        ];
+        for v in values {
+            let producer = Agent::new(0, &conf.agent, &mut rng);
+            let mut count = 0;
+            producer.values.set(Values::from_vec(v));
+            for _ in 0..trials {
+                let body = producer.produce(conf.agent.attention_budget, &mut rng);
+                let values = body.values;
+                let p_vals = producer.values.get();
+                if (p_vals[0] - values[0]).abs() <= max_distance && (p_vals[1] - values[1]).abs() <= max_distance {
+                    count += 1;
+                }
+            }
+            let p_acceptable = count as f32/trials as f32;
+            // println!("{:?}", p_acceptable);
+            assert!(p_acceptable >= 0.90);
+        }
     }
 
     #[test]
@@ -88,14 +123,22 @@ mod tests {
         conf.agent = AgentConfig {
             attention_budget: 100.
         };
-        conf.gravity_stretch = 100.;
-        conf.max_influence = 0.1;
+        conf.gravity_stretch = 10.;
+        conf.max_influence = 1.0;
 
+        // Create centrist agents
+        let center_values = vec![
+            vec![-0.3, -0.3],
+            vec![-0.3,  0.3],
+            vec![ 0.3,  0.3],
+            vec![ 0.3, -0.3],
+        ];
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let consumers: Vec<Agent> = (0..100).map(|i| Agent::new(i, &conf.agent, &mut rng)).collect();
-        for consumer in &consumers {
-            consumer.values.set(Values::from_vec(vec![0., 0.]));
-        }
+        let consumers: Vec<Agent> = (0..4).map(|i| {
+            let agent = Agent::new(i, &conf.agent, &mut rng);
+            agent.values.set(Values::from_vec(center_values[i].clone()));
+            agent
+        }).collect();
 
         let mut producers: Vec<Agent> = Vec::new();
         let values = vec![
@@ -113,7 +156,7 @@ mod tests {
             }
         }
 
-        for _ in 0..100 {
+        for _ in 0..300 {
             let content: Vec<SharedContent> = producers.iter().map(|p| {
                 // Self-published and no ads only
                 let mut body = p.produce(conf.agent.attention_budget, &mut rng);
@@ -144,10 +187,15 @@ mod tests {
             }
         }
 
-        // TODO
-        // for a in &consumers {
-        //     println!("{:?}", a.values);
-        // }
+        // Assert agent values are now
+        // within max_distance of the extremes
+        let max_distance = 0.15;
+        for i in 0..4 {
+            let agent = &consumers[i];
+            let a_vals = agent.values.get();
+            let values = &values[i];
+            assert!((a_vals[0] - values[0]).abs() <= max_distance && (a_vals[1] - values[1]).abs() <= max_distance);
+        }
     }
 
     #[test]
@@ -509,5 +557,132 @@ mod tests {
 
         println!("rich:{:?} poor:{:?}", rich_content, poor_content);
         assert!(rich_content > poor_content);
+    }
+
+    #[test]
+    fn test_alignment_changes_trust() {
+        // Tests both trust of sharer and author
+        let mut conf = SimulationConfig::default();
+        conf.agent = AgentConfig {
+            attention_budget: 100.
+        };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+
+        let agent_a = Agent::new(0, &conf.agent, &mut rng);
+        agent_a.values.set(Values::from_vec(vec![-1., -1.]));
+
+        let agent_b = Agent::new(1, &conf.agent, &mut rng);
+        agent_b.values.set(Values::from_vec(vec![ 1.,  1.]));
+
+        let producer_a = 2;
+        let producer_b = 3;
+        for _ in 0..100 {
+            let content: Vec<SharedContent> = (0..100).map(|i| {
+                let author_id = if i < 50 {producer_a} else {producer_b};
+                let content = Content {
+                    id: ContentId::new_v4(),
+                    publisher: None,
+                    author: author_id,
+                    body: ContentBody {
+                        topics: Topics::from_vec(vec![1., 1.]),
+                        values: if i < 50 {
+                            Values::from_vec(vec![-1., -1.])
+                        } else {
+                            Values::from_vec(vec![ 1.,  1.])
+                        },
+                        cost: 10.,
+                        quality: 1.,
+                    },
+                    ads: 0.
+                };
+                SharedContent {
+                    content: Rc::new(content),
+                    sharer: (SharerType::Agent, author_id)
+                }
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
+                .map(|c| (None, c)).collect();
+            shared.shuffle(&mut rng);
+            agent_a.consume(&shared, &conf, &mut rng);
+            shared.shuffle(&mut rng);
+            agent_b.consume(&shared, &conf, &mut rng);
+        }
+
+        let trust_a = agent_a.trust.borrow();
+        println!("a trust of p_a:{:?} p_b:{:?}", trust_a.get(&producer_a).unwrap(), trust_a.get(&producer_b).unwrap());
+        assert_eq!(*trust_a.get(&producer_a).unwrap(), 1.0);
+        assert_eq!(*trust_a.get(&producer_b).unwrap(), 0.0);
+
+        let trust_b = agent_b.trust.borrow();
+        println!("b trust of p_a:{:?} p_b:{:?}", trust_b.get(&producer_a).unwrap(), trust_b.get(&producer_b).unwrap());
+        assert_eq!(*trust_b.get(&producer_a).unwrap(), 0.0);
+        assert_eq!(*trust_b.get(&producer_b).unwrap(), 1.0);
+    }
+
+    #[test]
+    fn test_affinity_changes_trust() {
+        // Tests both trust of sharer and author
+        let mut conf = SimulationConfig::default();
+        conf.agent = AgentConfig {
+            attention_budget: 100.
+        };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+
+        let mut agent_a = Agent::new(0, &conf.agent, &mut rng);
+        agent_a.interests = Topics::from_vec(vec![ 0., 1.]);
+
+        let mut agent_b = Agent::new(1, &conf.agent, &mut rng);
+        agent_b.interests = Topics::from_vec(vec![ 1., 0.]);
+
+        let producer_a = 2;
+        let producer_b = 3;
+        for _ in 0..100 {
+            let content: Vec<SharedContent> = (0..100).map(|i| {
+                let author_id = if i < 50 {producer_a} else {producer_b};
+                let content = Content {
+                    id: ContentId::new_v4(),
+                    publisher: None,
+                    author: author_id,
+                    body: ContentBody {
+                        topics: if i < 50 {
+                            Topics::from_vec(vec![ 0., 1.])
+                        } else {
+                            Topics::from_vec(vec![ 1., 0.])
+                        },
+                        values: Values::from_vec(vec![0., 0.]),
+                        cost: 10.,
+                        quality: 1.,
+                    },
+                    ads: 0.
+                };
+                SharedContent {
+                    content: Rc::new(content),
+                    sharer: (SharerType::Agent, author_id)
+                }
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
+                .map(|c| (None, c)).collect();
+            shared.shuffle(&mut rng);
+            agent_a.consume(&shared, &conf, &mut rng);
+            shared.shuffle(&mut rng);
+            agent_b.consume(&shared, &conf, &mut rng);
+        }
+
+        // No affinity does not penalize trust
+        // (i.e. can't have a negative effect),
+        // but it doesn't change it either.
+        let trust_a = agent_a.trust.borrow();
+        println!("a trust of p_a:{:?} p_b:{:?}", trust_a.get(&producer_a).unwrap(), trust_a.get(&producer_b).unwrap());
+        assert_eq!(*trust_a.get(&producer_a).unwrap(), 1.0);
+        assert_eq!(*trust_a.get(&producer_b).unwrap(), conf.default_trust);
+
+        let trust_b = agent_b.trust.borrow();
+        println!("b trust of p_a:{:?} p_b:{:?}", trust_b.get(&producer_a).unwrap(), trust_b.get(&producer_b).unwrap());
+        assert_eq!(*trust_b.get(&producer_a).unwrap(), conf.default_trust);
+        assert_eq!(*trust_b.get(&producer_b).unwrap(), 1.0);
     }
 }
