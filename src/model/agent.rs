@@ -411,23 +411,23 @@ mod tests {
 
     #[test]
     fn test_alignment() {
-        let mut a = Values::from_vec(vec![0., 0.]);
-        let mut b = Values::from_vec(vec![1., 1.]);
+        let a = Values::from_vec(vec![0., 0.]);
+        let b = Values::from_vec(vec![1., 1.]);
         let align = alignment(&a, &b);
         assert_eq!(align, 0.);
 
-        a = Values::from_vec(vec![0., 0.]);
-        b = Values::from_vec(vec![-1., -1.]);
+        let a = Values::from_vec(vec![0., 0.]);
+        let b = Values::from_vec(vec![-1., -1.]);
         let align = alignment(&a, &b);
         assert_eq!(align, 0.);
 
-        let mut a = Values::from_vec(vec![0., 0.]);
-        let mut b = Values::from_vec(vec![0., 0.]);
+        let a = Values::from_vec(vec![0., 0.]);
+        let b = Values::from_vec(vec![0., 0.]);
         let align = alignment(&a, &b);
         assert_eq!(align, 1.);
 
-        let mut a = Values::from_vec(vec![1., 1.]);
-        let mut b = Values::from_vec(vec![-1., -1.]);
+        let a = Values::from_vec(vec![1., 1.]);
+        let b = Values::from_vec(vec![-1., -1.]);
         let align = alignment(&a, &b);
         assert_eq!(align, -1.);
     }
