@@ -30,6 +30,7 @@ pub struct Simulation {
     // Stats
     pub n_produced: usize,
     pub n_pitched: usize,
+    pub n_published: usize,
 
     // Content Agents will share in the next step.
     // Emptied each step.
@@ -134,6 +135,7 @@ impl Simulation {
             platforms: platforms,
             n_produced: 0,
             n_pitched: 0,
+            n_published: 0,
         }
     }
 
@@ -144,6 +146,7 @@ impl Simulation {
 
     pub fn produce(&mut self, conf: &SimulationConfig, mut rng: &mut StdRng) {
         let mut n_pitched = 0;
+        let mut n_published = 0;
         let mut new_content: FnvHashMap<(SharerType, usize), Vec<Content>> = FnvHashMap::default();
         for p in &mut self.publishers {
             p.n_ads_sold = 0.;
@@ -198,6 +201,8 @@ impl Simulation {
                         let val = new_content.entry((SharerType::Agent, a.id))
                             .or_insert(Vec::new());
                         (*val).push(content);
+                    } else {
+                        n_published += 1;
                     }
 
                     // Update reach
@@ -278,6 +283,7 @@ impl Simulation {
 
         self.n_pitched = n_pitched;
         self.n_produced = n_new_content;
+        self.n_published = n_published;
     }
 
     pub fn consume(&mut self,

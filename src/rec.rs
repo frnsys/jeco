@@ -215,7 +215,9 @@ impl Recorder {
                 "sample": platforms
             },
             "p_produced": sim.n_produced as f32/sim.agents.len() as f32,
-            "p_pitched": sim.n_pitched as f32/sim.agents.len() as f32,
+            "p_pitched": sim.n_pitched as f32/sim.n_produced as f32,
+            "p_published": sim.n_published as f32/sim.n_produced as f32,
+            "n_published": sim.n_published,
             "to_share": sim.n_will_share(),
             "top_content": content
         });
