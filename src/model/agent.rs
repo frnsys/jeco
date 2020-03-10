@@ -391,7 +391,7 @@ pub fn alignment(a: &Vector, b: &Vector) -> f32 {
 
 static EASE_OF_TRUST: f32 = 1./100.;
 pub fn update_trust(trust: f32, affinity: f32, alignment: f32) -> f32 {
-    trust + affinity * alignment * EASE_OF_TRUST
+    f32::min(1., f32::max(0., trust + affinity * alignment * EASE_OF_TRUST))
 }
 
 pub fn reactivity(affinity: f32, alignment: f32, quality: f32) -> f32 {
@@ -452,7 +452,7 @@ mod tests {
 
     #[test]
     fn test_update_trust() {
-        let trust = 0.;
+        let trust = 0.5;
 
         // Strong affinity and strong alignment
         assert!(update_trust(trust, 1., 1.) > trust);
