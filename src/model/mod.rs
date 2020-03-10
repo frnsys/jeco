@@ -215,7 +215,7 @@ mod tests {
         let mut low_quality_shares = 0;
 
         let author_id = consumers.len();
-        for _ in 0..100 {
+        for _ in 0..10 {
             let content: Vec<SharedContent> = (0..100).map(|i| {
                 let content = Content {
                     id: ContentId::new_v4(),
@@ -270,7 +270,7 @@ mod tests {
         let mut low_attention_shares = 0;
 
         let author_id = consumers.len();
-        for _ in 0..100 {
+        for _ in 0..10 {
             let content: Vec<SharedContent> = (0..100).map(|i| {
                 let content = Content {
                     id: ContentId::new_v4(),
@@ -325,7 +325,7 @@ mod tests {
         let mut not_aligned_shares = 0;
 
         let author_id = consumers.len();
-        for _ in 0..100 {
+        for _ in 0..10 {
             let content: Vec<SharedContent> = (0..100).map(|i| {
                 let content = Content {
                     id: ContentId::new_v4(),
@@ -379,7 +379,7 @@ mod tests {
         let mut not_aligned_shares = 0;
 
         let author_id = consumers.len();
-        for _ in 0..100 {
+        for _ in 0..10 {
             let content: Vec<SharedContent> = (0..100).map(|i| {
                 let content = Content {
                     id: ContentId::new_v4(),
@@ -454,9 +454,8 @@ mod tests {
         let mut medium_shares = 0;
         let mut far_shares = 0;
 
-
         let author_id = consumers.len();
-        for _ in 0..100 {
+        for _ in 0..10 {
             let content: Vec<SharedContent> = (0..120).map(|i| {
                 let content = Content {
                     id: ContentId::new_v4(),
