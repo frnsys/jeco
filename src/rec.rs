@@ -93,8 +93,7 @@ impl Recorder {
             acc
         });
 
-        let sim_platforms = sim.platforms.lock().unwrap();
-        let platforms = sim_platforms.iter().fold(FnvHashMap::default(), |mut acc, p| {
+        let platforms = sim.platforms.iter().fold(FnvHashMap::default(), |mut acc, p| {
             acc.insert(p.id, json!({
                 "users": p.n_users(),
                 "data": p.data,
@@ -124,7 +123,7 @@ impl Recorder {
             *count += 1;
         }
 
-        let n_followers: Vec<usize> = sim_platforms.iter().flat_map(|p| p.n_followers()).collect();
+        let n_followers: Vec<usize> = sim.platforms.iter().flat_map(|p| p.n_followers()).collect();
         let mut follower_dist: FnvHashMap<usize, usize> = FnvHashMap::default();
         for followers in &n_followers {
             let count = follower_dist.entry(*followers).or_insert(0);

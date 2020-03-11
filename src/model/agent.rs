@@ -150,9 +150,9 @@ impl Agent {
     pub fn consume(
         &mut self,
         content: &Vec<(Option<&PlatformId>, &SharedContent)>,
-        conf: &SimulationConfig
+        conf: &SimulationConfig,
+        rng: &mut StdRng
     ) -> (Vec<Arc<Content>>, (Vec<PublisherId>, Vec<PublisherId>), (FnvHashSet<AgentId>, FnvHashSet<AgentId>), FnvHashMap<PlatformId, f32>, FnvHashMap<(SharerType, usize), f32>) {
-        let mut rng = rand::thread_rng();
         let mut attention = self.attention;
         let mut to_share = Vec::new();
         let mut new_subs = Vec::new();
