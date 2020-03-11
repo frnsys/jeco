@@ -142,7 +142,7 @@ impl Simulation {
                     // People give up after not getting anything
                     // published
                     let mut published = false;
-                    if a.publishability > 0. { // 0.1
+                    if a.publishability > 0.1 {
                         n_pitched += 1;
                         // Decide to pitch to publisher
                         let publishers = self.publishers.iter()

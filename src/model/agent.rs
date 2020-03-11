@@ -119,8 +119,8 @@ impl Agent {
 
     pub fn produce(&self, max_attention: f32, rng: &mut StdRng) -> ContentBody {
         // Agent produces something around their own interests and values
-        let topics = self.interests.map(|v| util::normal_p_mu(v, rng));
-        let values = self.values.get().map(|v| util::normal_range_mu(v, rng));
+        let topics = self.interests.map(|v| util::normal_p_mu_tight(v, rng));
+        let values = self.values.get().map(|v| util::normal_range_mu_tight(v, rng));
 
         // ENH: Take other factors into account
         // Attention cost ranges from 0-100

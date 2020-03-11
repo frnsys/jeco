@@ -61,7 +61,8 @@ pub fn sigmoid(x: f32) -> f32 {
     1./(1.+E.powf(-x))
 }
 
-static NORMAL_SCALE: f32 = 0.05;
+static NORMAL_SCALE: f32 = 0.8;
+static NORMAL_SCALE_TIGHT: f32 = 0.05;
 pub fn normal_range(rng: &mut StdRng) -> f32 {
     let mut val: f32 = rng.sample(StandardNormal);
     val *= NORMAL_SCALE;
@@ -71,6 +72,13 @@ pub fn normal_range(rng: &mut StdRng) -> f32 {
 pub fn normal_range_mu(mu: f32, rng: &mut StdRng) -> f32 {
     let mut val: f32 = rng.sample(StandardNormal);
     val *= NORMAL_SCALE;
+    val += mu;
+    clamp(val, -1., 1.)
+}
+
+pub fn normal_range_mu_tight(mu: f32, rng: &mut StdRng) -> f32 {
+    let mut val: f32 = rng.sample(StandardNormal);
+    val *= NORMAL_SCALE_TIGHT;
     val += mu;
     clamp(val, -1., 1.)
 }
@@ -89,6 +97,12 @@ pub fn normal_p_mu(mu: f32, rng: &mut StdRng) -> f32 {
     clamp(val, 0., 1.)
 }
 
+pub fn normal_p_mu_tight(mu: f32, rng: &mut StdRng) -> f32 {
+    let mut val = rng.sample(StandardNormal);
+    val *= NORMAL_SCALE_TIGHT;
+    val += mu;
+    clamp(val, 0., 1.)
+}
 
 #[derive(Debug)]
 pub struct LimitedQueue<T> {
@@ -215,7 +229,7 @@ impl Learner {
 
     pub fn decide(&mut self, rng: &mut StdRng) {
         let keys: Vec<&ParamsKey> = self.history.keys().collect();
-        let key = keys.choose_weighted(rng, |k| self.history.get(k).unwrap() + 1.).unwrap();
+        let key = keys.choose_weighted(rng, |k| f32::max(0., *self.history.get(k).unwrap()) + 1.).unwrap();
         self.params = **key;
     }
 
@@ -293,7 +307,7 @@ mod tests {
     }
 
     #[test]
-    fn test_normal_range_mu() {
+    fn test_normal_range_mu_tight() {
         // Check that normal sampler is tight enough
         let mu = 1.;
         let max_distance = 0.1;
@@ -301,7 +315,7 @@ mod tests {
         let mut count = 0;
         let total = 100;
         for _ in 0..total {
-            let v = normal_range_mu(mu, &mut rng);
+            let v = normal_range_mu_tight(mu, &mut rng);
             if (mu - v).abs() <= max_distance {
                 count += 1;
             }
@@ -313,7 +327,7 @@ mod tests {
     }
 
     #[test]
-    fn test_normal_p_mu() {
+    fn test_normal_p_mu_tight() {
         // Check that normal sampler is tight enough
         let mu = 0.5;
         let max_distance = 0.1;
@@ -321,7 +335,7 @@ mod tests {
         let mut count = 0;
         let total = 100;
         for _ in 0..total {
-            let v = normal_p_mu(mu, &mut rng);
+            let v = normal_p_mu_tight(mu, &mut rng);
             if (mu - v).abs() <= max_distance {
                 count += 1;
             }
