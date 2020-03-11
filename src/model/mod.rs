@@ -31,13 +31,13 @@ mod tests {
     use rand::rngs::StdRng;
     use rand::SeedableRng;
     use rand::seq::SliceRandom;
-    use std::rc::Rc;
+    use std::sync::Arc;
     use fnv::FnvHashMap;
 
     fn standard_agents(conf: &SimulationConfig, rng: &mut StdRng) -> Vec<Agent> {
         (0..100).map(|i| {
             let mut agent = Agent::new(i, &conf.agent, rng);
-            agent.values.set(Values::from_vec(vec![0., 0.]));
+            agent.values = Values::from_vec(vec![0., 0.]);
             agent.interests = Topics::from_vec(vec![1., 1.]);
             agent.attention = 100.;
             agent.location = (0, 0);
@@ -56,10 +56,10 @@ mod tests {
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let consumer = Agent::new(0, &conf, &mut rng);
-        consumer.values.set(Values::from_vec(vec![0., 0.]));
-        let producer = Agent::new(1, &conf, &mut rng);
-        producer.values.set(Values::from_vec(vec![-1., -1.]));
+        let mut consumer = Agent::new(0, &conf, &mut rng);
+        consumer.values = Values::from_vec(vec![0., 0.]);
+        let mut producer = Agent::new(1, &conf, &mut rng);
+        producer.values = Values::from_vec(vec![-1., -1.]);
 
         for _ in 0..200 {
             let body = producer.produce(conf.attention_budget, &mut rng);
@@ -67,22 +67,22 @@ mod tests {
         }
 
         // Should both be close to -1.
-        let x = consumer.values.get()[0];
-        let y = consumer.values.get()[1];
+        let x = consumer.values[0];
+        let y = consumer.values[1];
         println!("x: {:?} ({:?})", x, x - -1.);
         println!("y: {:?} ({:?})", y, y - -1.);
         assert!(x - -1. < 0.1);
         assert!(y - -1. < 0.1);
 
-        producer.values.set(Values::from_vec(vec![1., 1.]));
+        producer.values = Values::from_vec(vec![1., 1.]);
         for _ in 0..500 {
             let body = producer.produce(conf.attention_budget, &mut rng);
             consumer.be_influenced(&body.values, gravity_stretch, max_influence, trust);
         }
 
         // Should both be close to 1.
-        let x = consumer.values.get()[0];
-        let y = consumer.values.get()[1];
+        let x = consumer.values[0];
+        let y = consumer.values[1];
         println!("x: {:?} ({:?})", x, (x - 1.).abs());
         println!("y: {:?} ({:?})", y, (y - 1.).abs());
         assert!((x - 1.).abs() < 0.1);
@@ -103,13 +103,13 @@ mod tests {
             vec![ 1., -1.],
         ];
         for v in values {
-            let producer = Agent::new(0, &conf.agent, &mut rng);
             let mut count = 0;
-            producer.values.set(Values::from_vec(v));
+            let mut producer = Agent::new(0, &conf.agent, &mut rng);
+            producer.values = Values::from_vec(v);
             for _ in 0..trials {
                 let body = producer.produce(conf.agent.attention_budget, &mut rng);
                 let values = body.values;
-                let p_vals = producer.values.get();
+                let p_vals = producer.values;
                 if (p_vals[0] - values[0]).abs() <= max_distance && (p_vals[1] - values[1]).abs() <= max_distance {
                     count += 1;
                 }
@@ -137,9 +137,9 @@ mod tests {
             vec![ 0.25, -0.25],
         ];
         let mut rng: StdRng = SeedableRng::seed_from_u64(1);
-        let consumers: Vec<Agent> = (0..4).map(|i| {
-            let agent = Agent::new(i, &conf.agent, &mut rng);
-            agent.values.set(Values::from_vec(center_values[i].clone()));
+        let mut consumers: Vec<Agent> = (0..4).map(|i| {
+            let mut agent = Agent::new(i, &conf.agent, &mut rng);
+            agent.values = Values::from_vec(center_values[i].clone());
             agent
         }).collect();
 
@@ -153,8 +153,8 @@ mod tests {
         for i in 0..10 {
             for j in 0..4 {
                 let id =  consumers.len() + (i * 4) + j;
-                let producer = Agent::new(id, &conf.agent, &mut rng);
-                producer.values.set(Values::from_vec(values[j].clone()));
+                let mut producer = Agent::new(id, &conf.agent, &mut rng);
+                producer.values = Values::from_vec(values[j].clone());
                 producers.push(producer);
             }
         }
@@ -177,14 +177,14 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, p.id)
                 }
             }).collect();
 
             let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
                 .map(|c| (None, c)).collect();
-            for a in &consumers {
+            for a in &mut consumers {
                 shared.shuffle(&mut rng);
                 a.consume(&shared, &conf, &mut rng);
             }
@@ -195,7 +195,7 @@ mod tests {
         let max_distance = 0.15;
         for i in 0..4 {
             let agent = &consumers[i];
-            let a_vals = agent.values.get();
+            let a_vals = agent.values;
             let values = &values[i];
             // println!("{:?}", a_vals);
             assert!((a_vals[0] - values[0]).abs() <= max_distance && (a_vals[1] - values[1]).abs() <= max_distance);
@@ -210,7 +210,7 @@ mod tests {
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let consumers = standard_agents(&conf, &mut rng);
+        let mut consumers = standard_agents(&conf, &mut rng);
 
         let low = 0.1;
         let high = 1.0;
@@ -234,14 +234,14 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
 
             let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
                 .map(|c| (None, c)).collect();
-            for a in &consumers {
+            for a in &mut consumers {
                 shared.shuffle(&mut rng);
                 let (will_share, _, _, _, _) = a.consume(&shared, &conf, &mut rng);
                 for shared in will_share {
@@ -265,7 +265,7 @@ mod tests {
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let consumers = standard_agents(&conf, &mut rng);
+        let mut consumers = standard_agents(&conf, &mut rng);
 
         let low = 0.1;
         let high = 10.0;
@@ -289,14 +289,14 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
 
             let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
                 .map(|c| (None, c)).collect();
-            for a in &consumers {
+            for a in &mut consumers {
                 shared.shuffle(&mut rng);
                 let (will_share, _, _, _, _) = a.consume(&shared, &conf, &mut rng);
                 for shared in will_share {
@@ -320,7 +320,7 @@ mod tests {
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let consumers = standard_agents(&conf, &mut rng);
+        let mut consumers = standard_agents(&conf, &mut rng);
 
         let aligned = Values::from_vec(vec![0., 0.]);
         let not_aligned = Values::from_vec(vec![-1., -1.]);
@@ -343,14 +343,14 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
 
             let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
                 .map(|c| (None, c)).collect();
-            for a in &consumers {
+            for a in &mut consumers {
                 shared.shuffle(&mut rng);
                 let (will_share, _, _, _, _) = a.consume(&shared, &conf, &mut rng);
                 for shared in will_share {
@@ -374,7 +374,7 @@ mod tests {
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
-        let consumers = standard_agents(&conf, &mut rng);
+        let mut consumers = standard_agents(&conf, &mut rng);
 
         let aligned = Topics::from_vec(vec![1., 1.]);
         let not_aligned = Topics::from_vec(vec![0., 0.]);
@@ -397,14 +397,14 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
 
             let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
                 .map(|c| (None, c)).collect();
-            for a in &consumers {
+            for a in &mut consumers {
                 shared.shuffle(&mut rng);
                 let (will_share, _, _, _, _) = a.consume(&shared, &conf, &mut rng);
                 for shared in will_share {
@@ -479,14 +479,14 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
 
             let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
                 .map(|c| (None, c)).collect();
-            for a in &consumers {
+            for a in &mut consumers {
                 shared.shuffle(&mut rng);
                 let (will_share, _, _, _, _) = a.consume(&shared, &conf, &mut rng);
                 for shared in will_share {
@@ -573,11 +573,11 @@ mod tests {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
 
         let mut agent_a = Agent::new(0, &conf.agent, &mut rng);
-        agent_a.values.set(Values::from_vec(vec![-1., -1.]));
+        agent_a.values = Values::from_vec(vec![-1., -1.]);
         agent_a.interests = Topics::from_vec(vec![1., 1.]);
 
         let mut agent_b = Agent::new(1, &conf.agent, &mut rng);
-        agent_b.values.set(Values::from_vec(vec![ 1.,  1.]));
+        agent_b.values = Values::from_vec(vec![ 1.,  1.]);
         agent_b.interests = Topics::from_vec(vec![1., 1.]);
 
         let producer_a = 2;
@@ -602,7 +602,7 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
@@ -615,14 +615,14 @@ mod tests {
             agent_b.consume(&shared, &conf, &mut rng);
         }
 
-        let trust_a = agent_a.trust.borrow();
+        let trust_a = agent_a.trust;
         let trust_a__a = trust_a.get(&producer_a).unwrap();
         let trust_a__b = trust_a.get(&producer_b).unwrap();
         println!("a trust of p_a:{:?} p_b:{:?}", trust_a__a, trust_a__b);
         assert!(*trust_a__a > 0.8);
         assert_eq!(*trust_a__b, 0.0);
 
-        let trust_b = agent_b.trust.borrow();
+        let trust_b = agent_b.trust;
         let trust_b__a = trust_b.get(&producer_a).unwrap();
         let trust_b__b = trust_b.get(&producer_b).unwrap();
         println!("b trust of p_a:{:?} p_b:{:?}", trust_b__a, trust_b__b);
@@ -668,7 +668,7 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
@@ -681,12 +681,12 @@ mod tests {
             agent_b.consume(&shared, &conf, &mut rng);
         }
 
-        let trust_a = agent_a.trust.borrow();
+        let trust_a = agent_a.trust;
         println!("a trust of p_a:{:?} p_b:{:?}", trust_a.get(&producer_a).unwrap(), trust_a.get(&producer_b).unwrap());
         assert!(*trust_a.get(&producer_a).unwrap() > 0.8);
         assert_eq!(*trust_a.get(&producer_b).unwrap(), 0.0);
 
-        let trust_b = agent_b.trust.borrow();
+        let trust_b = agent_b.trust;
         println!("b trust of p_a:{:?} p_b:{:?}", trust_b.get(&producer_a).unwrap(), trust_b.get(&producer_b).unwrap());
         assert_eq!(*trust_b.get(&producer_a).unwrap(), 0.0);
         assert!(*trust_b.get(&producer_b).unwrap() > 0.8);
@@ -705,7 +705,7 @@ mod tests {
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let mut agent = Agent::new(0, &conf.agent, &mut rng);
-        agent.values.set(Values::from_vec(vec![0., 0.]));
+        agent.values = Values::from_vec(vec![0., 0.]);
         agent.interests = Topics::from_vec(vec![1., 1.]);
         agent.location = (0, 0);
         agent.relevancies.push(1.0); // Publisher a
@@ -746,7 +746,7 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
@@ -757,7 +757,7 @@ mod tests {
             agent.consume(&shared, &conf, &mut rng);
         }
 
-        let trust = agent.publishers.borrow();
+        let trust = agent.publishers;
         let (pub_a_trust, _) = trust.get(&pub_a_id).unwrap();
         let (pub_b_trust, _) = trust.get(&pub_b_id).unwrap();
         println!("trust of p_a:{:?} p_b:{:?}", pub_a_trust, pub_b_trust);
@@ -778,7 +778,7 @@ mod tests {
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let mut agent = Agent::new(0, &conf.agent, &mut rng);
-        agent.values.set(Values::from_vec(vec![0., 0.]));
+        agent.values = Values::from_vec(vec![0., 0.]);
         agent.interests = Topics::from_vec(vec![1., 1.]);
         agent.location = (0, 0);
         agent.relevancies.push(1.0); // Publisher a
@@ -819,7 +819,7 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
@@ -830,7 +830,7 @@ mod tests {
             agent.consume(&shared, &conf, &mut rng);
         }
 
-        let trust = agent.publishers.borrow();
+        let trust = agent.publishers;
         let (pub_a_trust, _) = trust.get(&pub_a_id).unwrap();
         let (pub_b_trust, _) = trust.get(&pub_b_id).unwrap();
         println!("trust of p_a:{:?} p_b:{:?}", pub_a_trust, pub_b_trust);
@@ -851,7 +851,7 @@ mod tests {
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let mut agent = Agent::new(0, &conf.agent, &mut rng);
-        agent.values.set(Values::from_vec(vec![0., 0.]));
+        agent.values = Values::from_vec(vec![0., 0.]);
         agent.interests = Topics::from_vec(vec![1., 1.]);
         agent.location = (0, 0);
         agent.relevancies.push(1.0); // Publisher a
@@ -888,7 +888,7 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
@@ -899,7 +899,7 @@ mod tests {
             agent.consume(&shared, &conf, &mut rng);
         }
 
-        let trust = agent.publishers.borrow();
+        let trust = agent.publishers;
         let (pub_a_trust, _) = trust.get(&pub_a_id).unwrap();
         let (pub_b_trust, _) = trust.get(&pub_b_id).unwrap();
         println!("trust of p_a:{:?} p_b:{:?}", pub_a_trust, pub_b_trust);
@@ -920,7 +920,7 @@ mod tests {
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let mut agent = Agent::new(0, &conf.agent, &mut rng);
-        agent.values.set(Values::from_vec(vec![0., 0.]));
+        agent.values = Values::from_vec(vec![0., 0.]);
         agent.interests = Topics::from_vec(vec![1., 1.]);
         agent.location = (0, 0);
         agent.relevancies.push(1.0); // Publisher a
@@ -961,7 +961,7 @@ mod tests {
                     }
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
@@ -972,7 +972,7 @@ mod tests {
             agent.consume(&shared, &conf, &mut rng);
         }
 
-        let trust = agent.publishers.borrow();
+        let trust = agent.publishers;
         let (pub_a_trust, _) = trust.get(&pub_a_id).unwrap();
         let (pub_b_trust, _) = trust.get(&pub_b_id).unwrap();
         println!("trust of p_a:{:?} p_b:{:?}", pub_a_trust, pub_b_trust);
@@ -1099,7 +1099,7 @@ mod tests {
                     },
                     ads: 0.
                 };
-                let content = Rc::new(content);
+                let content = Arc::new(content);
                 publisher.content.push(content.clone());
 
                 let to_share = SharedContent {
@@ -1109,7 +1109,7 @@ mod tests {
                 shared.push(to_share);
             }
 
-            for a in &consumers {
+            for a in &mut consumers {
                 let mut s: Vec<(Option<&PlatformId>, &SharedContent)> = shared.iter()
                     .map(|c| (None, c)).collect();
                 s.shuffle(&mut rng);
@@ -1193,7 +1193,7 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
@@ -1201,7 +1201,7 @@ mod tests {
 
             let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
                 .map(|c| (None, c)).collect();
-            for a in &consumers {
+            for a in &mut consumers {
                 shared.shuffle(&mut rng);
                 let (_, (new_subs, unsubs), _, _, _) = a.consume(&shared, &conf, &mut rng);
                 for pub_id in new_subs {
@@ -1246,7 +1246,7 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
@@ -1254,7 +1254,7 @@ mod tests {
 
             let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
                 .map(|c| (None, c)).collect();
-            for a in &consumers {
+            for a in &mut consumers {
                 shared.shuffle(&mut rng);
                 let (_, (new_subs, unsubs), _, _, _) = a.consume(&shared, &conf, &mut rng);
                 for pub_id in new_subs {
@@ -1311,14 +1311,14 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
 
             let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
                 .map(|c| (None, c)).collect();
-            for a in &consumers {
+            for a in &mut consumers {
                 shared.shuffle(&mut rng);
                 let (_, (new_subs, unsubs), _, _, _) = a.consume(&shared, &conf, &mut rng);
                 for pub_id in new_subs {
@@ -1333,7 +1333,7 @@ mod tests {
 
         let shared = vec![];
         for _ in 0..100 {
-            for a in &consumers {
+            for a in &mut consumers {
                 let (_, (new_subs, unsubs), _, _, _) = a.consume(&shared, &conf, &mut rng);
                 for pub_id in new_subs {
                     subs[pub_id] += 1;
@@ -1386,14 +1386,14 @@ mod tests {
                     ads: 1.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, author_id)
                 }
             }).collect();
 
             let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
                 .map(|c| (None, c)).collect();
-            for a in &consumers {
+            for a in &mut consumers {
                 shared.shuffle(&mut rng);
                 let (_, _, _, _, revenue) = a.consume(&shared, &conf, &mut rng);
                 ad_revenue += revenue.get(&(SharerType::Publisher, publisher.id)).unwrap();
@@ -1458,13 +1458,13 @@ mod tests {
 
             let content = c.remove(&(SharerType::Publisher, pub_id)).unwrap();
             let shared_content: Vec<SharedContent> = content.into_iter().map(|c| SharedContent {
-                content: Rc::new(c),
+                content: Arc::new(c),
                 sharer: (SharerType::Agent, author_id)
             }).collect();
 
             let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = shared_content.iter()
                 .map(|c| (None, c)).collect();
-            for a in &consumers {
+            for a in &mut consumers {
                 shared.shuffle(&mut rng);
                 let (_, _, _, _, revenue) = a.consume(&shared, &conf, &mut rng);
                 ad_revenue += revenue.get(&(SharerType::Publisher, pub_id)).unwrap();
@@ -1503,13 +1503,13 @@ mod tests {
 
             let content = c.remove(&(SharerType::Publisher, pub_id)).unwrap();
             let shared_content: Vec<SharedContent> = content.into_iter().map(|c| SharedContent {
-                content: Rc::new(c),
+                content: Arc::new(c),
                 sharer: (SharerType::Agent, author_id)
             }).collect();
 
             let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = shared_content.iter()
                 .map(|c| (None, c)).collect();
-            for a in &consumers {
+            for a in &mut consumers {
                 shared.shuffle(&mut rng);
                 let (_, _, _, _, revenue) = a.consume(&shared, &conf, &mut rng);
                 new_ad_revenue += revenue.get(&(SharerType::Publisher, pub_id)).unwrap();
@@ -1553,14 +1553,14 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, sharer_id)
                 }
             }).collect();
 
             let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
                 .map(|c| (None, c)).collect();
-            for a in &consumers {
+            for a in &mut consumers {
                 shared.shuffle(&mut rng);
                 let (_, _, (follows, unfollows), _, _) = a.consume(&shared, &conf, &mut rng);
                 for id in follows {
@@ -1599,14 +1599,14 @@ mod tests {
                     ads: 0.
                 };
                 SharedContent {
-                    content: Rc::new(content),
+                    content: Arc::new(content),
                     sharer: (SharerType::Agent, sharer_id)
                 }
             }).collect();
 
             let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
                 .map(|c| (None, c)).collect();
-            for a in &consumers {
+            for a in &mut consumers {
                 shared.shuffle(&mut rng);
                 let (_, _, (follows, unfollows), _, _) = a.consume(&shared, &conf, &mut rng);
                 for id in follows {
