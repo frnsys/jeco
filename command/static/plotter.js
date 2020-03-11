@@ -100,8 +100,11 @@ class Plotter {
       c.chart.data.datasets.forEach((dataset, i) => {
         states.forEach((s) => {
           let value = valueFromKeyPath(s, c.key);
-          let pt = value[i][c.itemKey];
-          dataset.data.push({x: pt[0], y: pt[1]});
+          let item = value[i];
+          if (item) {
+            let pt = item[c.itemKey];
+            dataset.data.push({x: pt[0], y: pt[1]});
+          }
         });
         if (c.panel) {
           dataset.pointRadius = dataset.data.map(() => POINT_RADIUS/4);

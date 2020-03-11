@@ -128,14 +128,14 @@ impl Agent {
     }
 
     // Return content they create
-    pub fn try_produce(&mut self, conf: &SimulationConfig, rng: &mut StdRng) -> Option<ContentBody> {
+    pub fn try_produce(&mut self, population: usize, conf: &SimulationConfig, rng: &mut StdRng) -> Option<ContentBody> {
         let cost = self.quality * conf.cost_per_quality;
         if self.resources < cost { return None }
 
         // Agent produces depending on expected reach
         // and resources
         let roll: f32 = rng.gen();
-        if roll < p_produce(self.reach/conf.population as f32) {
+        if roll < p_produce(self.reach/population as f32) {
             let body = self.produce(conf.agent.attention_budget, rng);
             self.resources -= cost;
             self.expenses += cost;

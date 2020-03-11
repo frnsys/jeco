@@ -61,7 +61,7 @@ pub fn sigmoid(x: f32) -> f32 {
     1./(1.+E.powf(-x))
 }
 
-static NORMAL_SCALE: f32 = 1.2;
+static NORMAL_SCALE: f32 = 1.0;
 static NORMAL_SCALE_TIGHT: f32 = 0.05;
 pub fn normal_range(rng: &mut StdRng) -> f32 {
     let mut val: f32 = rng.sample(StandardNormal);

@@ -8,6 +8,7 @@ use rand::Rng;
 pub struct Network {
     incoming: FnvHashMap<AgentId, FnvHashSet<AgentId>>,
     outgoing: FnvHashMap<AgentId, FnvHashSet<AgentId>>,
+    total_edges: f32,
 }
 
 impl Network {
@@ -15,6 +16,7 @@ impl Network {
         Network {
             incoming: FnvHashMap::default(),
             outgoing: FnvHashMap::default(),
+            total_edges: 0.,
         }
     }
 
@@ -29,17 +31,23 @@ impl Network {
 
         let incoming = self.incoming.get_mut(b).unwrap();
         incoming.insert(*a);
+
+        self.total_edges += 1.;
     }
 
     pub fn preferential_attachment(&mut self, agents: &Vec<Agent>, max_friends: usize, mut rng: &mut StdRng) {
+        let mut new = Vec::new();
+
         // Network of agents, with trust as weight
-        for agent in agents.iter() {
-            self.add_node(agent.id);
+        for agent in agents {
+            if !self.incoming.contains_key(&agent.id) {
+                self.add_node(agent.id);
+                new.push(agent);
+            }
         }
 
         // Social network formation (preferential attachment)
-        let mut total_edges = 1.;
-        for agent in agents.iter() {
+        for agent in new {
             let idx = &agent.id;
             let sample_size = (rng.gen::<f32>() * max_friends as f32).floor() as usize;
             let candidates = agents.choose_multiple(&mut rng, sample_size);
@@ -51,12 +59,11 @@ impl Network {
                 // 3. if they are at the same location
                 let c_idx = &candidate.id;
                 let sim = agent.similarity(&candidate);
-                let pref = (self.incoming[c_idx].len() as f32) / total_edges;
+                let pref = (self.incoming[c_idx].len() as f32) / self.total_edges;
                 let same_location = if agent.location == candidate.location { 1. } else { 0. };
                 let p = (sim + pref + same_location) / 3.;
                 if rng.gen::<f32>() < p {
                     self.add_edge(idx, c_idx);
-                    total_edges += 1.;
                 }
             }
         }

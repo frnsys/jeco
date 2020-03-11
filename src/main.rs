@@ -40,7 +40,7 @@ fn main() {
                         command.set_running().unwrap();
                         for policy in command.policies.drain(..) {
                             println!("Applying policy {:?}", policy);
-                            sim.apply_policy(&policy);
+                            sim.apply_policy(&policy, &conf.simulation, &mut rng);
                         }
                         for _ in 0..steps {
                             sim.step(&conf.simulation, &mut rng);

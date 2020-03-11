@@ -80,15 +80,7 @@ impl Simulation {
             grid.insert(pos, Vec::new());
         }
 
-        // Randomly assign agents by density
-        for agent in &mut agents {
-            let weights: Vec<(Position, usize)> = grid.iter()
-                .map(|(pos, agents)| (*pos, agents.len() + 1))
-                .collect();
-            let pos = weights.choose_weighted(&mut rng, |item| item.1).unwrap().0;
-            grid.get_mut(&pos).unwrap().push(agent.id);
-            agent.location = pos;
-        }
+        distribute_agents(&mut agents, &mut grid, rng);
 
         // Randomly assign publishers by density
         let mut already_occupied: Vec<Position> = Vec::new();
@@ -110,7 +102,16 @@ impl Simulation {
             publisher.radius = radius;
         }
 
-        let distances = set_agent_relevancies(&ref_grid, &mut agents, &publishers);
+        // Distance to a Publisher is
+        // measured against the closest position
+        // within its radius.
+        let distances = compute_distances(
+            &ref_grid,
+            &publishers.iter()
+                .map(|p| (p.location.clone(), p.radius))
+                .collect());
+
+        set_agent_relevancies(&distances, &mut agents);
 
         Simulation {
             grid: grid,
@@ -142,8 +143,9 @@ impl Simulation {
         for p in &mut self.publishers {
             p.n_ads_sold = 0.;
         }
+        let population = self.agents.len();
         for mut a in &mut self.agents {
-            match a.try_produce(&conf, &mut rng) {
+            match a.try_produce(population, &conf, &mut rng) {
                 Some(body) => {
                     // People give up after not getting anything
                     // published
@@ -481,12 +483,31 @@ impl Simulation {
         self.content.iter().sorted_by(|a, b| Arc::strong_count(b).cmp(&Arc::strong_count(a)))
     }
 
-    pub fn apply_policy(&mut self, policy: &Policy) {
+    pub fn apply_policy(&mut self, policy: &Policy, conf: &SimulationConfig, rng: &mut StdRng) {
         match policy {
             Policy::FoundPlatforms(n) => {
                 for _ in 0..*n {
                     let platform = Platform::new(self.platforms.len());
                     self.platforms.push(platform);
+                }
+            },
+
+            Policy::PopulationChange(n) => {
+                if *n > 0 {
+                    let mut new_agents: Vec<Agent> = (0..(*n as usize))
+                        .map(|i| Agent::new(i, &conf.agent, rng))
+                        .collect();
+
+                    distribute_agents(&mut new_agents, &mut self.grid, rng);
+                    set_agent_relevancies(&self.distances, &mut new_agents);
+
+                    for a in new_agents {
+                        self.agent_platforms.push(FnvHashSet::default());
+                        self.share_queues.push(Vec::new());
+                        self.agents.push(a);
+                    }
+
+                    self.network.preferential_attachment(&self.agents, MAX_FRIENDS, rng);
                 }
             },
 
@@ -518,25 +539,25 @@ fn relevance_from_dist(dist: usize) -> f32 {
     1. - sigmoid(x as f32)
 }
 
-pub fn set_agent_relevancies(grid: &HexGrid, agents: &mut Vec<Agent>, publishers: &Vec<Publisher>) -> FnvHashMap<Position, Vec<usize>> {
-    // Distance to a Publisher is
-    // measured against the closest position
-    // within its radius.
-    let distances = compute_distances(
-        grid,
-        &publishers.iter()
-            .map(|p| (p.location.clone(), p.radius))
-            .collect());
-
-    // Precompute relevancies for each Publisher
+pub fn set_agent_relevancies(distances: &FnvHashMap<Position, Vec<usize>>, agents: &mut Vec<Agent>) {
     for agent in agents {
         for dist in &distances[&agent.location] {
             let relevance = relevance_from_dist(*dist);
             agent.relevancies.push(relevance);
         }
     }
+}
 
-    distances
+fn distribute_agents(agents: &mut Vec<Agent>, grid: &mut FnvHashMap<Position, Vec<AgentId>>, rng: &mut StdRng) {
+    // Randomly assign agents by density
+    for agent in agents {
+        let weights: Vec<(Position, usize)> = grid.iter()
+            .map(|(pos, agents)| (*pos, agents.len() + 1))
+            .collect();
+        let pos = weights.choose_weighted(rng, |item| item.1).unwrap().0;
+        grid.get_mut(&pos).unwrap().push(agent.id);
+        agent.location = pos;
+    }
 }
 
 pub fn ad_market(content: &mut FnvHashMap<(SharerType, usize), Vec<Content>>, agents: &Vec<Agent>, publishers: &Vec<Publisher>, platforms: &Vec<Platform>, conf: &SimulationConfig, rng: &mut StdRng) {
