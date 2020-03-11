@@ -6,5 +6,5 @@ pub enum Policy {
     PopulationChange(isize),
     SubsidizeProduction(f32),
     TaxAdvertising(f32),
-    FoundPlatform,
+    FoundPlatforms(usize),
 }

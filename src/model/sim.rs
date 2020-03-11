@@ -488,9 +488,11 @@ impl Simulation {
 
     pub fn apply_policy(&mut self, policy: &Policy) {
         match policy {
-            Policy::FoundPlatform => {
-                let platform = Platform::new(self.platforms.len());
-                self.platforms.push(platform);
+            Policy::FoundPlatforms(n) => {
+                for _ in 0..*n {
+                    let platform = Platform::new(self.platforms.len());
+                    self.platforms.push(platform);
+                }
             },
 
             // TODO

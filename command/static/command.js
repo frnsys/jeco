@@ -154,9 +154,14 @@ const POLICY_SPEC = {
       default: 0.1
     }]
   },
-  'FoundPlatform': {
-    desc: 'Create a new social media platform.',
-    args: []
+  'FoundPlatforms': {
+    desc: 'Create new social media platforms.',
+    args: [{
+      min: 0,
+      type: 'int',
+      name: 'amount',
+      default: 5
+    }]
   }
 };
 
