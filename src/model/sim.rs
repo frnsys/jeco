@@ -32,6 +32,9 @@ pub struct Simulation {
     pub n_pitched: usize,
     pub n_published: usize,
 
+    // Policies
+    advertising_tax: f32,
+
     // Content Agents will share in the next step.
     // Emptied each step.
     share_queues: Vec<Vec<SharedContent>>,
@@ -128,6 +131,7 @@ impl Simulation {
             n_pitched: 0,
             n_published: 0,
             agent_platforms: agent_platforms,
+            advertising_tax: 0.,
         }
     }
 
@@ -260,7 +264,7 @@ impl Simulation {
 
         let mut platforms: FnvHashMap<PlatformId, usize> = FnvHashMap::default();
         let mut all_data: FnvHashMap<PlatformId, f32> = FnvHashMap::default();
-        let mut all_revenue: FnvHashMap<(SharerType, usize), f32> = FnvHashMap::default();
+        let mut ad_revenue: FnvHashMap<(SharerType, usize), f32> = FnvHashMap::default();
 
         // Hack to mutably iterate
         let mut agents: Vec<Agent> = self.agents.drain(..).collect();
@@ -380,7 +384,7 @@ impl Simulation {
 
             // Aggregate ad revenue
             for (tid, r) in revenue {
-                let r_ = all_revenue.entry(tid).or_insert(0.);
+                let r_ = ad_revenue.entry(tid).or_insert(0.);
                 *r_ += r;
             }
 
@@ -432,8 +436,9 @@ impl Simulation {
         }
 
         // Distribute ad revenue
-        for ((typ, id), r) in all_revenue {
+        for ((typ, id), r) in ad_revenue {
             let update = rng.gen::<f32>() < 0.1;
+            let r = r * (1.-self.advertising_tax);
             match typ {
                 SharerType::Publisher => {
                     self.publishers[id].budget += r;
@@ -490,6 +495,10 @@ impl Simulation {
                     let platform = Platform::new(self.platforms.len());
                     self.platforms.push(platform);
                 }
+            },
+
+            Policy::TaxAdvertising(tax) => {
+                self.advertising_tax = *tax;
             },
 
             Policy::PopulationChange(n) => {
