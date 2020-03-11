@@ -1030,7 +1030,7 @@ mod tests {
         pitches.shuffle(&mut rng);
         for (mtch, body) in pitches {
             match publisher.pitch(&body, &mut author, &conf, &mut rng) {
-                Some(_) => {
+                (Some(_), _) => {
                     if mtch == 0 {
                         match_accepted += 1
                     } else if mtch == 1 {
@@ -1039,7 +1039,7 @@ mod tests {
                         not_match_accepted += 1
                     }
                 },
-                None => {}
+                (None, _) => {}
             };
         }
         println!("match:{:?} similar:{:?} not:{:?}", match_accepted, similar_accepted, not_match_accepted);
