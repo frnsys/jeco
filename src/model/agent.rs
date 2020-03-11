@@ -209,7 +209,10 @@ impl Agent {
                     let relevancy = self.relevancies[p_id];
                     let (v, _) = publishers.entry(p_id).or_insert((conf.default_trust, 0));
                     // println!("update: {:?} {:?} {:?} {:?} {:?}", p_id, update_trust(affinity * relevancy, align)/(c.ads + 1.), affinity, relevancy, align);
-                    *v = f32::max(0., util::ewma(update_trust(affinity * relevancy, align)/(c.ads + 1.), *v));
+                    // *v = f32::max(0., util::ewma(update_trust(affinity * relevancy, align)/(c.ads + 1.), *v));
+                    // println!("af:{:?} re:{:?} al:{:?}", affinity, relevancy, align);
+                    *v = f32::max(0., util::ewma(update_trust((affinity+relevancy)/2., align)/(c.ads/10. + 1.), *v));
+                    // *v = f32::max(0., util::ewma(1., *v));
 
                     seen_publishers.insert(p_id);
 
@@ -309,7 +312,7 @@ impl Agent {
 
         // Update which Publishers we've seen recently
         for &p_id in subscriptions.iter() {
-            let (_, last_seen) = publishers.entry(p_id).or_insert((0.5, 0));
+            let (_, last_seen) = publishers.entry(p_id).or_insert((conf.default_trust, 0));
             if seen_publishers.contains(&p_id) {
                 *last_seen = 0;
             } else {
@@ -356,10 +359,7 @@ impl Agent {
     }
 
     pub fn n_shares(&self) -> Vec<usize> {
-        // -1 to account for reference in self.content
-        // -1 to account for reference in Sim's self.content
-        // there may be 1 extra for a Publisher, but there isn't always one
-        self.content.iter().map(|c| Rc::strong_count(c) - 2).collect()
+        self.content.iter().map(|c| Rc::strong_count(c)).collect()
     }
 
     pub fn update_reach(&mut self) {

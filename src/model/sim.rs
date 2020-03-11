@@ -142,7 +142,7 @@ impl Simulation {
                     // People give up after not getting anything
                     // published
                     let mut published = false;
-                    if a.publishability > 0.1 {
+                    if a.publishability > 0.2 {
                         n_pitched += 1;
                         // Decide to pitch to publisher
                         let publishers = self.publishers.iter()
@@ -155,7 +155,7 @@ impl Simulation {
                             .sorted_by(|(_, _, ev), (_, _, ev_)| ev_.partial_cmp(ev).unwrap());
                         for (pub_id, p, _) in publishers {
                             match self.publishers[pub_id].pitch(&body, &mut a, &conf, &mut rng) {
-                                Some(content) => {
+                                (Some(content), _) => {
                                     published = true;
                                     a.publishabilities.insert(pub_id, ewma(1., p));
                                     a.publishability = ewma(1., a.publishability);
@@ -165,8 +165,12 @@ impl Simulation {
                                     (*val).push(content);
                                     break;
                                 },
-                                None => {
-                                    a.publishabilities.insert(pub_id, ewma(0., p));
+                                (None, could_afford) => {
+                                    if could_afford {
+                                        // Only consider it a rejection if
+                                        // they had budget for the piece
+                                        a.publishabilities.insert(pub_id, ewma(0., p));
+                                    }
                                 }
                             }
                         }
@@ -418,7 +422,7 @@ impl Simulation {
             p.subscribers = std::cmp::max(0, p.subscribers as isize + sub_changes[p.id]) as usize;
 
             p.n_last_published = self.outboxes[&p.id].len();
-            p.budget = p.operating_budget();
+            p.budget += p.regular_revenue();
 
             // ENH: Publisher pushes content
             // for multiple steps?
@@ -475,11 +479,7 @@ impl Simulation {
     }
 
     pub fn n_shares(&self) -> Vec<usize> {
-        // -1 to account for reference in self.content
-        // Note that content from Publishers and Agents will have an extra +1
-        // because of their publisher.content or agent.content reference.
-        // But that should be negligible
-        self.content.iter().map(|c| Rc::strong_count(c) - 1).collect()
+        self.content.iter().map(|c| Rc::strong_count(c)).collect()
     }
 
     pub fn content_by_popularity(&self) -> std::vec::IntoIter<&Rc<Content>> {

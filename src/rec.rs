@@ -87,7 +87,8 @@ impl Recorder {
                 "budget": p.budget,
                 "ads": p.ads,
                 "quality": p.quality,
-                "ads_sold": p.n_ads_sold
+                "ads_sold": p.n_ads_sold,
+                "subscribers": p.subscribers
             }));
             acc
         });
@@ -103,7 +104,7 @@ impl Recorder {
         // Top 10
         let content: Vec<Value> = sim.content_by_popularity().take(10).map(|c| {
             json!({
-                "shares": Rc::strong_count(c) - 1,
+                "shares": Rc::strong_count(c),
                 "topics": c.body.topics,
                 "values": c.body.values,
                 "attention_cost": c.body.cost

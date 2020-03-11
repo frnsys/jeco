@@ -100,10 +100,10 @@ impl Publisher {
 
     // An Agent pitches a piece
     // of content to the publisher
-    pub fn pitch(&mut self, body: &ContentBody, author: &mut Agent, conf: &SimulationConfig, rng: &mut StdRng) -> Option<Content> {
+    pub fn pitch(&mut self, body: &ContentBody, author: &mut Agent, conf: &SimulationConfig, rng: &mut StdRng) -> (Option<Content>, bool) {
         // TODO publisher takes into account author location?
         let cost = (self.quality + body.quality) * conf.cost_per_quality;
-        if self.budget < cost { return None; }
+        if self.budget < cost { return (None, false); }
 
         // TODO this doesn't necessarily need to be random?
         // Could just be based on a threshold
@@ -127,13 +127,13 @@ impl Publisher {
             // Deduct from budget
             self.budget -= cost;
             self.expenses += cost;
-            Some(content)
+            (Some(content), true)
         } else {
-            None
+            (None, true)
         }
     }
 
-    pub fn operating_budget(&self) -> f32 {
+    pub fn regular_revenue(&self) -> f32 {
         self.subscribers as f32 * self.revenue_per_subscriber
     }
 
@@ -151,10 +151,7 @@ impl Publisher {
     }
 
     pub fn n_shares(&self) -> Vec<usize> {
-        // -1 to account for reference in self.content
-        // -1 to account for reference in Sim's self.content
-        // -1 to account for reference in authors's self.content
-        self.content.iter().map(|c| Rc::strong_count(c) - 3).collect()
+        self.content.iter().map(|c| Rc::strong_count(c)).collect()
     }
 
     pub fn update_reach(&mut self) {
