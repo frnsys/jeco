@@ -153,6 +153,10 @@ const POLICY_SPEC = {
       name: 'tax',
       default: 0.1
     }]
+  },
+  'FoundPlatform': {
+    desc: 'Create a new social media platform.',
+    args: []
   }
 };
 

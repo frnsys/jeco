@@ -487,7 +487,15 @@ impl Simulation {
     }
 
     pub fn apply_policy(&mut self, policy: &Policy) {
-        // TODO
+        match policy {
+            Policy::FoundPlatform => {
+                let platform = Platform::new(self.platforms.len());
+                self.platforms.push(platform);
+            },
+
+            // TODO
+            _ => {}
+        }
     }
 }
 
