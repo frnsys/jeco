@@ -41,7 +41,7 @@ impl Recorder {
             .choose_multiple(&mut rng, a_sample_size)
             .map(|a| a.id)
             .collect();
-        let init_values = agents.iter().map(|id| sim.agents[*id].values.get()).collect();
+        let init_values = agents.iter().map(|id| sim.agents[*id].values).collect();
 
         let p_sample_size = 10;
         let publishers: Vec<PublisherId> = sim.publishers
@@ -93,7 +93,8 @@ impl Recorder {
             acc
         });
 
-        let platforms = sim.platforms.iter().fold(FnvHashMap::default(), |mut acc, p| {
+        let sim_platforms = sim.platforms.lock().unwrap();
+        let platforms = sim_platforms.iter().fold(FnvHashMap::default(), |mut acc, p| {
             acc.insert(p.id, json!({
                 "users": p.n_users(),
                 "data": p.data,
@@ -114,7 +115,7 @@ impl Recorder {
         let space: Vec<(Position, usize)> = sim.grid.iter().map(|(pos, agents)| (*pos, agents.len())).collect();
 
         let value_shifts: Vec<f32> = agents.iter().zip(self.init_values.iter())
-            .map(|(a, b)| 1. - a.values.get().normalize().dot(&b.normalize())).collect();
+            .map(|(a, b)| 1. - a.values.normalize().dot(&b.normalize())).collect();
 
         let n_shares = sim.n_shares();
         let mut share_dist: FnvHashMap<usize, usize> = FnvHashMap::default();
@@ -123,7 +124,7 @@ impl Recorder {
             *count += 1;
         }
 
-        let n_followers: Vec<usize> = sim.platforms.iter().flat_map(|p| p.n_followers()).collect();
+        let n_followers: Vec<usize> = sim_platforms.iter().flat_map(|p| p.n_followers()).collect();
         let mut follower_dist: FnvHashMap<usize, usize> = FnvHashMap::default();
         for followers in &n_followers {
             let count = follower_dist.entry(*followers).or_insert(0);

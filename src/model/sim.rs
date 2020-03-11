@@ -15,15 +15,16 @@ use itertools::Itertools;
 use rand_distr::{Distribution, Beta};
 use std::sync::{Mutex, Arc};
 use std::thread;
+use rayon::prelude::*;
 
 static MAX_FRIENDS: usize = 120;
 
 pub struct Simulation {
-    pub network: Network,
+    pub network: Arc<Mutex<Network>>,
     pub agents: Vec<Agent>,
     content: Vec<Arc<Content>>,
     pub publishers: Vec<Publisher>,
-    pub platforms: Vec<Platform>,
+    pub platforms: Arc<Mutex<Vec<Platform>>>,
     pub ref_grid: HexGrid,
     pub grid: FnvHashMap<Position, Vec<AgentId>>,
     pub distances: FnvHashMap<Position, Vec<usize>>,
@@ -35,11 +36,11 @@ pub struct Simulation {
 
     // Content Agents will share in the next step.
     // Emptied each step.
-    share_queues: FnvHashMap<AgentId, Vec<SharedContent>>,
+    share_queues: Arc<Mutex<FnvHashMap<AgentId, Vec<SharedContent>>>>,
 
     // Store content the Publisher will
     // publish in the next step. Emptied each step.
-    outboxes: FnvHashMap<PublisherId, Vec<SharedContent>>,
+    outboxes: Arc<Mutex<FnvHashMap<PublisherId, Vec<SharedContent>>>>,
 }
 
 
@@ -112,13 +113,13 @@ impl Simulation {
             grid: grid,
             ref_grid: ref_grid,
             distances: distances,
-            network: network,
+            network: Arc::new(Mutex::new(network)),
             content: Vec::new(),
             agents: agents,
-            share_queues: share_queues,
-            outboxes: outboxes,
+            share_queues: Arc::new(Mutex::new(share_queues)),
+            outboxes: Arc::new(Mutex::new(outboxes)),
             publishers: publishers,
-            platforms: platforms,
+            platforms: Arc::new(Mutex::new(platforms)),
             n_produced: 0,
             n_pitched: 0,
             n_published: 0,
@@ -204,7 +205,7 @@ impl Simulation {
 
         // Ad Market
         let n_new_content = new_content.values().fold(0, |acc, v| acc + v.len());
-        ad_market(&mut new_content, &self.agents, &self.publishers, &self.platforms, &conf, &mut rng);
+        ad_market(&mut new_content, &self.agents, &self.publishers, &self.platforms.lock().unwrap(), &conf, &mut rng);
         for ((typ, id), contents) in new_content.into_iter() {
             for c in contents {
                 let content = Arc::new(c);
@@ -212,7 +213,7 @@ impl Simulation {
                 self.content.push(content.clone());
 
                 // TODO
-                match self.share_queues.get_mut(&content.author) {
+                match self.share_queues.lock().unwrap().get_mut(&content.author) {
                     Some(to_share) => {
                         to_share.push(SharedContent {
                             content: content.clone(),
@@ -226,7 +227,7 @@ impl Simulation {
                     SharerType::Publisher => {
                         self.publishers[id].n_ads_sold += content.ads;
                         self.publishers[id].content.push(content.clone());
-                        match self.outboxes.get_mut(&id) {
+                        match self.outboxes.lock().unwrap().get_mut(&id) {
                             Some(to_share) => {
                                 to_share.push(SharedContent {
                                     content: content.clone(),
@@ -255,28 +256,46 @@ impl Simulation {
         let mut follow_changes: FnvHashMap<AgentId, (FnvHashSet<AgentId>, FnvHashSet<AgentId>)> = FnvHashMap::default();
 
         let mut signups: FnvHashMap<AgentId, PlatformId> = FnvHashMap::default();
-        let mut platforms: FnvHashMap<PlatformId, usize> = FnvHashMap::default();
         let mut all_data: FnvHashMap<PlatformId, f32> = FnvHashMap::default();
         let mut all_revenue: FnvHashMap<(SharerType, usize), f32> = FnvHashMap::default();
-        let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = Vec::new();
-        for a in &self.agents {
-            let to_read = &mut shared;
+
+        // TODO TEMP
+        let agent_platforms: Arc<Mutex<FnvHashMap<AgentId, FnvHashSet<PlatformId>>>> = Arc::new(Mutex::new(FnvHashMap::default()));
+        {
+            let mut agent_platforms = agent_platforms.lock().unwrap();
+            for a in &self.agents {
+                agent_platforms.insert(a.id, FnvHashSet::default());
+            }
+        }
+
+        let agents: Vec<Agent> = self.agents.drain(..).collect();
+        let handles: Vec<(Agent, (Vec<Arc<Content>>, (Vec<PublisherId>, Vec<PublisherId>), (FnvHashSet<AgentId>, FnvHashSet<AgentId>), FnvHashMap<PlatformId, f32>, FnvHashMap<(SharerType, usize), f32>))> = agents.into_par_iter().map(|mut a| {
+            let conf = conf.clone();
+            let network = self.network.clone();
+            let share_queues = self.share_queues.clone();
+            let outboxes = self.outboxes.clone();
+            let platforms = self.platforms.clone();
+            let agent_platforms = agent_platforms.clone();
+
+            let mut rng = rand::thread_rng(); // TODO how to use seedable rng?
+            let mut to_read: Vec<(Option<&PlatformId>, &SharedContent)> = Vec::new();
 
             // Agent encounters shared content
-            let following = self.network.following_ids(&a.id).clone();
+            let following = network.lock().unwrap().following_ids(&a.id).clone();
 
             // "Offline" encounters
-            to_read.clear();
+            let share_queues = share_queues.lock().unwrap();
             to_read.extend(following.iter()
                 .filter(|_| rng.gen::<f32>() < conf.contact_rate)
-                .flat_map(|a_id| self.share_queues[a_id].iter().map(|sc| (None, sc))));
+                .flat_map(|a_id| share_queues[a_id].iter().map(|sc| (None, sc))));
 
             // Subscribed publishers
             // ENH: Publishers on all platforms.
             // e.g. outbox.iter().flat_map(|sc| a.platforms.iter().map(|p_id| (p_id, sc.clone())))
             // Although maybe it's not worth the additional overhead?
-            to_read.extend(a.subscriptions.borrow().iter()
-                          .flat_map(|p_id| self.outboxes[p_id].iter().map(|sc| (None, sc))));
+            let outboxes = outboxes.lock().unwrap();
+            to_read.extend(a.subscriptions.iter()
+                          .flat_map(|p_id| outboxes[p_id].iter().map(|sc| (None, sc))));
 
             // Platforms
             // We basically assume that if someone shares something,
@@ -285,16 +304,18 @@ impl Simulation {
             // Unlike offline encounters, we roll per shared content
             // rather than per agent.
             // ENH: Agents may develop a preference for a platform?
-            to_read.extend(a.platforms.iter()
-                .flat_map(|p_id| self.platforms[*p_id].following_ids(&a.id).into_iter()
+            let platforms = platforms.lock().unwrap();
+            let agent_platforms = agent_platforms.lock().unwrap();
+            to_read.extend(agent_platforms[&a.id].iter()
+                .flat_map(|p_id| platforms[*p_id].following_ids(&a.id).into_iter()
                           .map(move |a_id| (p_id, a_id)))
-                .flat_map(|(p_id, a_id)| self.share_queues[a_id].iter().map(move |sc| (Some(p_id), sc)))
+                .flat_map(|(p_id, a_id)| share_queues[a_id].iter().map(move |sc| (Some(p_id), sc)))
                 .filter(|(_, sc)| {
                     // "Algorithmic" rating based on Agent's trust of Agent B.
                     // ENH: Trust values should be platform-specific,
                     // to capture that platforms have incomplete/noisy information about
                     // "trust" between users.
-                    rng.gen::<f32>() < conf.contact_rate + match a.trust.borrow().get(&sc.sharer.1) {
+                    rng.gen::<f32>() < conf.contact_rate + match a.trust.get(&sc.sharer.1) {
                         Some(v) => *v,
                         None => 0.
                     }
@@ -306,54 +327,61 @@ impl Simulation {
 
             // Only consider signing up to new platforms
             // if Agent is not platform-saturated
-            if a.platforms.len() < conf.max_platforms {
-                for p in &self.platforms {
-                    platforms.insert(p.id, 0);
-                }
+            // if agent_platforms[&a.id].len() < conf.max_platforms {
+            //     let ps = platforms.lock().unwrap();
+            //     let mut platforms: FnvHashMap<PlatformId, usize> = FnvHashMap::default();
+            //     for p in &ps {
+            //         platforms.insert(p.id, 0);
+            //     }
 
-                // See what platforms friends are on
-                following.iter()
-                    .flat_map(|a_id| &self.agents[*a_id].platforms)
-                    .fold(&mut platforms, |acc, p_id| {
-                        // Only consider platforms the agent
-                        // isn't already signed up to
-                        if !a.platforms.contains(p_id) {
-                            *(acc.entry(*p_id).or_insert(0)) += 1;
-                        }
-                        acc
-                    });
+            //     // See what platforms friends are on
+            //     following.iter()
+            //         .flat_map(|a_id| &agent_platforms[a_id])
+            //         .fold(&mut platforms, |acc, p_id| {
+            //             // Only consider platforms the agent
+            //             // isn't already signed up to
+            //             if !agent_platforms[&a.id].contains(p_id) {
+            //                 *(acc.entry(*p_id).or_insert(0)) += 1;
+            //             }
+            //             acc
+            //         });
 
-                // Get platform with most friends
-                // If no friends, choose a random one
-                if platforms.values().all(|v| *v == 0) {
-                    let p_ids: Vec<&PlatformId> = platforms.keys().collect();
-                    let p_id = p_ids.choose(&mut rng);
-                    match p_id {
-                        Some(p_id) => {
-                            let roll: f32 = rng.gen();
-                            if roll < conf.base_signup_rate {
-                                signups.insert(a.id, **p_id);
-                            }
-                        },
-                        None => {}
-                    }
-                } else {
-                    match platforms.iter().max_by_key(|&(_, v)| v) {
-                        Some((p_id, count)) => {
-                            let roll: f32 = rng.gen();
-                            if roll < (conf.base_signup_rate + (*count as f32)/(following.len() as f32)) {
-                                signups.insert(a.id, *p_id);
-                            }
-                        },
-                        None => {}
-                    }
-                }
-            }
+            //     // Get platform with most friends
+            //     // If no friends, choose a random one
+            //     if platforms.values().all(|v| *v == 0) {
+            //         let p_ids: Vec<&PlatformId> = platforms.keys().collect();
+            //         let p_id = p_ids.choose(&mut rng);
+            //         match p_id {
+            //             Some(p_id) => {
+            //                 let roll: f32 = rng.gen();
+            //                 if roll < conf.base_signup_rate {
+            //                     signups.insert(a.id, **p_id);
+            //                 }
+            //             },
+            //             None => {}
+            //         }
+            //     } else {
+            //         match platforms.iter().max_by_key(|&(_, v)| v) {
+            //             Some((p_id, count)) => {
+            //                 let roll: f32 = rng.gen();
+            //                 if roll < (conf.base_signup_rate + (*count as f32)/(following.len() as f32)) {
+            //                     signups.insert(a.id, *p_id);
+            //                 }
+            //             },
+            //             None => {}
+            //         }
+            //     }
+            // }
 
-            let (will_share, (new_subs, unsubs), (follows, unfollows), data, revenue) = a.consume(to_read, &conf, &mut rng);
+            let results = a.consume(&to_read, &conf);
+            (a, results)
+        }).collect();
+
+        for (agent, results) in handles {
+            let (will_share, (new_subs, unsubs), (follows, unfollows), data, revenue) = results;
             let shareable = will_share.iter().map(|content| {
                 SharedContent {
-                    sharer: (SharerType::Agent, a.id),
+                    sharer: (SharerType::Agent, agent.id),
                     content: content.clone(),
                 }
             }).collect();
@@ -364,7 +392,7 @@ impl Simulation {
                 sub_changes[pub_id] -= 1;
             }
 
-            follow_changes.insert(a.id, (follows, unfollows));
+            follow_changes.insert(agent.id, (follows, unfollows));
 
             // Aggregate generated data
             for (p_id, d) in data {
@@ -378,29 +406,35 @@ impl Simulation {
                 *r_ += r;
             }
 
-            new_to_share.insert(a.id, shareable);
+            new_to_share.insert(agent.id, shareable);
+
+            // Add agent back
+            self.agents.push(agent);
         }
 
         // Update share lists
+        let mut share_queues = self.share_queues.lock().unwrap();
         for (a_id, mut to_share_) in new_to_share {
-            match self.share_queues.get_mut(&a_id) {
+            match share_queues.get_mut(&a_id) {
                 Some(to_share) => {
                     to_share.clear();
                     to_share.append(&mut to_share_);
                 },
                 None => {
-                    self.share_queues.insert(a_id, to_share_);
+                    share_queues.insert(a_id, to_share_);
                 }
             }
         }
 
         // Update follows
         // TODO this feels very messy
+        let mut platforms = self.platforms.lock().unwrap();
+        let mut agent_platforms = agent_platforms.lock().unwrap();
         for (a_id, (follows, unfollows)) in follow_changes {
             if follows.len() > 0 || unfollows.len() > 0 {
-                let p_ids: Vec<&PlatformId> = self.agents[a_id].platforms.iter().collect();
+                let p_ids: Vec<&PlatformId> = agent_platforms[&a_id].iter().collect();
                 for p_id in p_ids {
-                    let pfrm = &mut self.platforms[*p_id];
+                    let pfrm = &mut platforms[*p_id];
                     for b_id in &follows {
                         if pfrm.is_signed_up(b_id) {
                             pfrm.follow(&a_id, &b_id);
@@ -415,6 +449,7 @@ impl Simulation {
             }
         }
 
+        let mut outboxes = self.outboxes.lock().unwrap();
         for p in &mut self.publishers {
             p.audience_survey(conf.content_sample_size);
             p.update_reach();
@@ -422,12 +457,12 @@ impl Simulation {
             // Update subscribers
             p.subscribers = std::cmp::max(0, p.subscribers as isize + sub_changes[p.id]) as usize;
 
-            p.n_last_published = self.outboxes[&p.id].len();
+            p.n_last_published = outboxes[&p.id].len();
             p.budget += p.regular_revenue();
 
             // ENH: Publisher pushes content
             // for multiple steps?
-            match self.outboxes.get_mut(&p.id) {
+            match outboxes.get_mut(&p.id) {
                 Some(outbox) => outbox.clear(),
                 None => {}
             }
@@ -451,19 +486,20 @@ impl Simulation {
         }
 
         // Add data to platforms
-        for p in &mut self.platforms {
+        for p in platforms.iter_mut() { // TODO?
             p.data += *all_data.entry(p.id).or_insert(0.);
             p.update_conversion_rate(conf.max_conversion_rate);
         }
 
         // Sign up agents and follow friends
         // ENH: Maybe not all friends should be followed
+        let network = self.network.lock().unwrap();
         for (a_id, p_id) in signups {
-            if !self.platforms[p_id].is_signed_up(&a_id) {
-                self.platforms[p_id].signup(self.agents[a_id].id);
-                self.agents[a_id].platforms.insert(p_id);
-                for b_id in self.network.following_ids(&self.agents[a_id].id) {
-                    let platform = &mut self.platforms[p_id];
+            if !platforms[p_id].is_signed_up(&a_id) {
+                platforms[p_id].signup(self.agents[a_id].id);
+                agent_platforms.get_mut(&a_id).unwrap().insert(p_id);
+                for b_id in network.following_ids(&self.agents[a_id].id) {
+                    let platform = &mut platforms[p_id];
                     if platform.is_signed_up(b_id) {
                         platform.follow(&a_id, b_id);
                         platform.follow(b_id, &a_id);
@@ -474,7 +510,7 @@ impl Simulation {
     }
 
     pub fn n_will_share(&self) -> usize {
-        self.share_queues.values().fold(0, |acc, v| acc + v.len())
+        self.share_queues.lock().unwrap().values().fold(0, |acc, v| acc + v.len())
     }
 
     pub fn n_shares(&self) -> Vec<usize> {
@@ -486,11 +522,12 @@ impl Simulation {
     }
 
     pub fn apply_policy(&mut self, policy: &Policy) {
+        let mut platforms = self.platforms.lock().unwrap();
         match policy {
             Policy::FoundPlatforms(n) => {
                 for _ in 0..*n {
-                    let platform = Platform::new(self.platforms.len());
-                    self.platforms.push(platform);
+                    let platform = Platform::new(platforms.len());
+                    platforms.push(platform);
                 }
             },
 
