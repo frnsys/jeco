@@ -1,13 +1,13 @@
 use super::agent::{Agent, AgentId};
-use fnv::{FnvHashMap, FnvHashSet};
+use fnv::FnvHashMap;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::Rng;
 
 #[derive(Debug)]
 pub struct Network {
-    incoming: FnvHashMap<AgentId, FnvHashSet<AgentId>>,
-    outgoing: FnvHashMap<AgentId, FnvHashSet<AgentId>>,
+    incoming: FnvHashMap<AgentId, Vec<AgentId>>,
+    outgoing: FnvHashMap<AgentId, Vec<AgentId>>,
     total_edges: f32,
 }
 
@@ -21,16 +21,16 @@ impl Network {
     }
 
     pub fn add_node(&mut self, id: usize) {
-        self.incoming.insert(id, FnvHashSet::default());
-        self.outgoing.insert(id, FnvHashSet::default());
+        self.incoming.insert(id, Vec::new());
+        self.outgoing.insert(id, Vec::new());
     }
 
     pub fn add_edge(&mut self, a: &usize, b: &usize) {
         let outgoing = self.outgoing.get_mut(a).unwrap();
-        outgoing.insert(*b);
+        outgoing.push(*b);
 
         let incoming = self.incoming.get_mut(b).unwrap();
-        incoming.insert(*a);
+        incoming.push(*a);
 
         self.total_edges += 1.;
     }
@@ -86,15 +86,15 @@ impl Network {
         self.incoming.values().map(|v| v.len()).collect()
     }
 
-    pub fn following_ids(&self, a: &AgentId) -> &FnvHashSet<usize> { //impl Iterator<Item=&usize> {
+    pub fn following_ids(&self, a: &AgentId) -> &Vec<usize> { //impl Iterator<Item=&usize> {
         &self.outgoing[a]
     }
 
     pub fn remove_edges(&mut self, a: &AgentId, b: &AgentId) {
         let outgoing = self.outgoing.get_mut(a).unwrap();
-        outgoing.remove(b);
+        outgoing.retain(|x| x != b);
 
         let incoming = self.incoming.get_mut(b).unwrap();
-        incoming.remove(a);
+        incoming.retain(|x| x != a);
     }
 }

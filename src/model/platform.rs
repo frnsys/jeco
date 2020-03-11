@@ -1,4 +1,3 @@
-use fnv::FnvHashSet;
 use super::agent::AgentId;
 use super::network::Network;
 use super::util;
@@ -43,7 +42,7 @@ impl Platform {
         self.network.add_edge(a, b);
     }
 
-    pub fn following_ids(&self, a: &AgentId) -> &FnvHashSet<usize> {
+    pub fn following_ids(&self, a: &AgentId) -> &Vec<usize> {
         self.network.following_ids(a)
     }
 

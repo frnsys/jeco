@@ -26,7 +26,7 @@ mod tests {
     use super::config::{AgentConfig, PublisherConfig};
     use super::content::{Content, ContentId, ContentBody, SharedContent, SharerType};
     use self::publisher::Audience;
-    use super::sim::{set_agent_relevancies, ad_market};
+    use super::sim::{compute_distances, set_agent_relevancies, ad_market};
     use super::util::Vector;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
@@ -451,7 +451,12 @@ mod tests {
 
         let grid = HexGrid::new(8, 8);
         let publishers = vec![publisher_near, publisher_medium, publisher_far];
-        set_agent_relevancies(&grid, &mut consumers, &publishers);
+        let distances = compute_distances(
+            &grid,
+            &publishers.iter()
+                .map(|p| (p.location.clone(), p.radius))
+                .collect());
+        set_agent_relevancies(&distances, &mut consumers);
 
         let mut near_shares = 0;
         let mut medium_shares = 0;
@@ -542,16 +547,17 @@ mod tests {
 
         let mut rich_content = 0;
         let mut poor_content = 0;
+        let population = rich.len() + poor.len();
         for _ in 0..100 {
             for a in &mut rich {
-                match a.try_produce(&conf, &mut rng) {
+                match a.try_produce(population, &conf, &mut rng) {
                     Some(_) => rich_content += 1,
                     None => {}
                 }
             }
 
             for a in &mut poor {
-                match a.try_produce(&conf, &mut rng) {
+                match a.try_produce(population, &conf, &mut rng) {
                     Some(_) => poor_content += 1,
                     None => {}
                 }

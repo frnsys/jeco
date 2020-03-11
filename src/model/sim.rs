@@ -12,7 +12,7 @@ use super::content::{Content, ContentId, SharedContent, SharerType};
 use super::util::{ewma, sigmoid};
 use super::config::SimulationConfig;
 use itertools::Itertools;
-use rand_distr::{Distribution, Beta};
+use rand_distr::{Distribution, Beta, Binomial};
 use std::sync::Arc;
 
 static MAX_FRIENDS: usize = 120;
@@ -269,6 +269,7 @@ impl Simulation {
         let mut ad_revenue: FnvHashMap<(SharerType, usize), f32> = FnvHashMap::default();
 
         // Hack to mutably iterate
+        let contact_rate = conf.contact_rate as f64;
         let mut agents: Vec<Agent> = self.agents.drain(..).collect();
         for mut a in agents.drain(..) {
             let mut to_read: Vec<(Option<&PlatformId>, &SharedContent)> = Vec::new();
@@ -279,8 +280,10 @@ impl Simulation {
 
             // "Offline" encounters
             to_read.clear();
-            to_read.extend(following.iter()
-                .filter(|_| rng.gen::<f32>() < conf.contact_rate)
+            let n = following.len() as u64;
+            let n_encounters = Binomial::new(n, contact_rate).unwrap().sample(rng);
+            to_read.extend(
+                following.choose_multiple(rng, n_encounters as usize)
                 .flat_map(|a_id| self.share_queues[*a_id].iter().map(|sc| (None, sc))));
 
             // Subscribed publishers
@@ -300,17 +303,24 @@ impl Simulation {
             to_read.extend(self.agent_platforms[a.id].iter()
                 .flat_map(|p_id| self.platforms[*p_id].following_ids(&a.id).into_iter()
                           .map(move |a_id| (p_id, a_id)))
-                .flat_map(|(p_id, a_id)| self.share_queues[*a_id].iter().map(move |sc| (Some(p_id), sc)))
-                .filter(|(_, sc)| {
+                .flat_map(|(p_id, a_id)| {
                     // "Algorithmic" rating based on Agent's trust of Agent B.
                     // ENH: Trust values should be platform-specific,
                     // to capture that platforms have incomplete/noisy information about
                     // "trust" between users.
-                    rng.gen::<f32>() < conf.contact_rate + match a.trust.get(&sc.sharer.1) {
+                    let contact_rate = f32::min(1., conf.contact_rate + match a.trust.get(a_id) {
                         Some(v) => *v,
                         None => 0.
-                    }
-                }));
+                    });
+
+                    let to_share = &self.share_queues[*a_id];
+                    let n_encounters = Binomial::new(
+                        to_share.len() as u64,
+                        contact_rate as f64).unwrap().sample(rng);
+
+                    to_share.choose_multiple(rng, n_encounters as usize)
+                        .map(move |sc| (Some(p_id), sc))
+                    }));
 
             // Avoid ordering bias
             to_read.shuffle(&mut rng);
@@ -523,15 +533,12 @@ impl Simulation {
 
                     self.network.preferential_attachment(&self.agents, MAX_FRIENDS, rng);
                 }
-            },
-
-            // TODO
-            _ => {}
+            }
         }
     }
 }
 
-fn compute_distances(grid: &HexGrid, spots: &Vec<(Position, usize)>) -> FnvHashMap<Position, Vec<usize>> {
+pub fn compute_distances(grid: &HexGrid, spots: &Vec<(Position, usize)>) -> FnvHashMap<Position, Vec<usize>> {
     let mut distances = FnvHashMap::default();
     for pos in grid.positions().iter() {
         let mut dists = Vec::new();
