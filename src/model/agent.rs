@@ -267,10 +267,10 @@ impl Agent {
 
                         // For the author, we don't know
                         // if they're already following or not.
-                        if trust < conf.unfollow_trust {
-                            unfollows.insert(id);
-                        } else if trust > conf.follow_trust {
-                            follows.insert(id);
+                        if *author_trust < conf.unfollow_trust {
+                            unfollows.insert(c.author);
+                        } else if *author_trust > conf.follow_trust {
+                            follows.insert(c.author);
                         }
                     }
 

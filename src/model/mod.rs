@@ -1513,4 +1513,115 @@ mod tests {
         assert!(ad_revenue > new_ad_revenue);
         assert!(new_ad_revenue < 200.);
     }
+
+    #[test]
+    fn follow_trusted() {
+        let mut conf = SimulationConfig::default();
+        conf.agent = AgentConfig {
+            attention_budget: 100.
+        };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let mut consumers = standard_agents(&conf, &mut rng);
+        for a in &mut consumers {
+            a.relevancies.push(1.0);
+        }
+
+        let author_id = consumers.len();
+        let sharer_id = author_id + 1;
+
+        // Assume all consumers follow sharer initially
+        let mut followers = vec![0, consumers.len() as isize];
+        for _ in 0..10 {
+            let content: Vec<SharedContent> = (0..100).map(|i| {
+                let content = Content {
+                    id: ContentId::new_v4(),
+                    publisher: Some(0),
+                    author: author_id,
+                    body: ContentBody {
+                        topics: Topics::from_vec(vec![1., 1.]),
+                        values: Values::from_vec(vec![0., 0.]),
+                        cost: 10.,
+                        quality: 1.,
+                    },
+                    ads: 0.
+                };
+                SharedContent {
+                    content: Rc::new(content),
+                    sharer: (SharerType::Agent, sharer_id)
+                }
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
+                .map(|c| (None, c)).collect();
+            for a in &consumers {
+                shared.shuffle(&mut rng);
+                let (_, _, (follows, unfollows), _, _) = a.consume(&shared, &conf, &mut rng);
+                for id in follows {
+                    if id == author_id {
+                        followers[0] += 1;
+                    } else {
+                        followers[1] += 1;
+                    }
+                }
+                for id in unfollows {
+                    if id == author_id {
+                        followers[0] -= 1;
+                    } else {
+                        followers[1] -= 1;
+                    }
+                }
+            }
+        }
+
+        // May be redundant follows b/c we aren't checking if already following
+        assert!(followers[0] >= consumers.len() as isize);
+        assert_eq!(followers[1], consumers.len() as isize); // Shouldn't have changed
+
+        for _ in 0..10 {
+            let content: Vec<SharedContent> = (0..100).map(|i| {
+                let content = Content {
+                    id: ContentId::new_v4(),
+                    publisher: Some(0),
+                    author: author_id,
+                    body: ContentBody {
+                        topics: Topics::from_vec(vec![ 0., 0.]),
+                        values: Values::from_vec(vec![-1., -1.]),
+                        cost: 10.,
+                        quality: 1.,
+                    },
+                    ads: 0.
+                };
+                SharedContent {
+                    content: Rc::new(content),
+                    sharer: (SharerType::Agent, sharer_id)
+                }
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
+                .map(|c| (None, c)).collect();
+            for a in &consumers {
+                shared.shuffle(&mut rng);
+                let (_, _, (follows, unfollows), _, _) = a.consume(&shared, &conf, &mut rng);
+                for id in follows {
+                    if id == author_id {
+                        followers[0] += 1;
+                    } else {
+                        followers[1] += 1;
+                    }
+                }
+                for id in unfollows {
+                    if id == author_id {
+                        followers[0] -= 1;
+                    } else {
+                        followers[1] -= 1;
+                    }
+                }
+            }
+        }
+
+        // May be redundant unfollows b/c we aren't checking if already not following
+        assert!(followers[0] <= 0);
+        assert!(followers[1] <= 0);
+    }
 }
