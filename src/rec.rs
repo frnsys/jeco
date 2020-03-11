@@ -122,7 +122,7 @@ impl Recorder {
             *count += 1;
         }
 
-        let n_followers = sim.network.n_followers();
+        let n_followers: Vec<usize> = sim.platforms.iter().flat_map(|p| p.n_followers()).collect();
         let mut follower_dist: FnvHashMap<usize, usize> = FnvHashMap::default();
         for followers in &n_followers {
             let count = follower_dist.entry(*followers).or_insert(0);

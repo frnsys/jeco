@@ -50,6 +50,10 @@ impl Platform {
         self.network.n_nodes()
     }
 
+    pub fn n_followers(&self) -> Vec<usize> {
+        self.network.n_followers()
+    }
+
     pub fn update_conversion_rate(&mut self, max_conversion_rate: f32) {
         self.conversion_rate = util::sigmoid(self.data-0.5) * max_conversion_rate;
     }
