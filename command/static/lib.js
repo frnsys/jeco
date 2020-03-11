@@ -45,7 +45,7 @@ function htmlToElement(html) {
 function valueFromKeyPath(obj, keyPath) {
   keyPath = keyPath.split('.');
   return keyPath.slice(1)
-    .reduce((acc, k) => acc[k], obj[keyPath[0]]);
+    .reduce((acc, k) => acc[k] || {}, obj[keyPath[0]]);
 }
 
 function setValueFromKeyPath(obj, keyPath, val) {
