@@ -23,6 +23,7 @@ pub struct Agent {
     pub values: Cell<Values>,
     pub attention: f32,
     pub resources: f32,
+    pub expenses: f32,
     pub location: Position,
     pub relevancies: Vec<f32>, // Indexed by PublisherId
 
@@ -90,6 +91,7 @@ impl Agent {
     pub fn new(id: AgentId, conf: &AgentConfig, mut rng: &mut StdRng) -> Agent {
         let resources = util::normal_p(&mut rng);
         let learner = Learner::new(&mut rng);
+        let params = learner.get_params();
 
         Agent {
             id: id,
@@ -97,11 +99,12 @@ impl Agent {
             interests: random_topics(&mut rng),
             values: Cell::new(random_values(&mut rng)),
             reach: 100.,
-            ads: learner.arm.a as f32,
-            quality: learner.arm.b as f32,
+            ads: params.1,
+            quality: params.0,
             learner: learner,
             attention: conf.attention_budget,
             resources: resources * 100.,
+            expenses: 0.,
             publishability: 1.,
             publishabilities: FnvHashMap::default(),
             publishers: RefCell::new(FnvHashMap::default()),
@@ -142,6 +145,7 @@ impl Agent {
         if roll < p_produce(self.reach/conf.population as f32) {
             let body = self.produce(conf.agent.attention_budget, rng);
             self.resources -= cost;
+            self.expenses += cost;
 
             Some(body)
         } else {
@@ -368,13 +372,17 @@ impl Agent {
         }
     }
 
-    pub fn learn(&mut self, revenue: f32) {
+    pub fn learn(&mut self, revenue: f32, update: bool, rng: &mut StdRng) {
         // Assume reach has been updated
-        // TODO more balanced mixture of the two?
-        let outcome = revenue * self.reach;
-        self.learner.learn(outcome as f64);
-        self.ads = self.learner.arm.a as f32;
-        self.quality = self.learner.arm.b as f32;
+        // Assume expenses are correct
+        let profit = revenue - self.expenses;
+        self.learner.learn(profit);
+        if update {
+            self.learner.decide(rng);
+            let params = self.learner.get_params();
+            self.quality = params.0;
+            self.ads = params.1;
+        }
     }
 }
 

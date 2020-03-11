@@ -430,14 +430,17 @@ impl Simulation {
 
         // Distribute ad revenue
         for ((typ, id), r) in all_revenue {
+            let update = rng.gen::<f32>() < 0.1;
             match typ {
                 SharerType::Publisher => {
                     self.publishers[id].budget += r;
-                    self.publishers[id].learn(r);
+                    self.publishers[id].learn(r, update, &mut rng);
+                    self.publishers[id].expenses = 0.;
                 },
                 SharerType::Agent => {
                     self.agents[id].resources += r;
-                    self.agents[id].learn(r);
+                    self.agents[id].learn(r, update, &mut rng);
+                    self.agents[id].expenses = 0.;
                 }
             }
         }

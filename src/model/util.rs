@@ -3,11 +3,9 @@ use rand::rngs::StdRng;
 use std::f32::consts::E;
 use rand_distr::StandardNormal;
 use std::collections::VecDeque;
-use fnv::FnvHashSet;
+use fnv::{FnvHashMap, FnvHashSet};
 use std::hash::Hash;
 use rand::seq::SliceRandom;
-use bandit::{MultiArmedBandit, Identifiable, DEFAULT_BANDIT_CONFIG};
-use bandit::softmax::{AnnealingSoftmax, AnnealingSoftmaxConfig};
 use nalgebra::{Matrix, Dynamic, U2, VecStorage, VectorN, RowVectorN};
 
 // 2 so can be plotted in 2d
@@ -172,39 +170,64 @@ impl<T: Eq + Hash + Clone> LimitedSet<T> {
     }
 }
 
-#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
-pub struct LearnerArm {
-    pub a: u32,
-    pub b: u32
-}
-
-impl Identifiable for LearnerArm {
-    fn ident(&self) -> String {
-        format!("arm:{}:{}", self.a, self.b)
-    }
-}
+// Quality, Ads
+// ParamsKey is separate b/c f32s aren't hashable
+pub type Params = (f32, f32);
+pub type ParamsKey = (usize, usize);
 
 #[derive(Debug)]
 pub struct Learner {
-    bandit: AnnealingSoftmax<LearnerArm>,
-    pub arm: LearnerArm
+    params: ParamsKey,
+    history: FnvHashMap<ParamsKey, f32>,
 }
 
+static MIN_QUALITY: usize = 0;
+static MAX_QUALITY: usize = 1;
+static STEPS_QUALITY: usize = 10;
+
+static MIN_ADS: usize = 0;
+static MAX_ADS: usize = 10;
+static STEPS_ADS: usize = 10;
+
+
 impl Learner {
-    pub fn new(mut rng: &mut StdRng) -> Learner {
-        let arms: Vec<LearnerArm> = (0..10).flat_map(|i| (0..10).map(move |j| LearnerArm{a: i, b: j})).collect();
-        let arm = arms.choose(&mut rng).unwrap().clone();
+    pub fn new(rng: &mut StdRng) -> Learner {
+        let keys: Vec<ParamsKey> = (0..STEPS_QUALITY+1)
+            .flat_map(|i| (0..STEPS_ADS+1).map(move |j| (i, j))).collect();
+
+        let mut history = FnvHashMap::default();
+        for k in &keys {
+            history.insert(*k, 0.);
+        }
+
+        let key = keys.choose(rng).unwrap();
         Learner {
-            bandit: AnnealingSoftmax::new(arms, DEFAULT_BANDIT_CONFIG.clone(), AnnealingSoftmaxConfig {
-                cooldown_factor: 0.5
-            }),
-            arm: arm,
+            params: *key,
+            history: history
         }
     }
 
-    pub fn learn(&mut self, reward: f64) {
-        self.bandit.update(self.arm, reward);
-        self.arm = self.bandit.select_arm();
+    pub fn learn(&mut self, reward: f32) {
+        // TODO ensure reward is revenue/cost, not just revenue
+        let v = self.history.get_mut(&self.params).unwrap();
+        *v = ewma(reward, *v);
+    }
+
+    pub fn decide(&mut self, rng: &mut StdRng) {
+        let keys: Vec<&ParamsKey> = self.history.keys().collect();
+        let key = keys.choose_weighted(rng, |k| self.history.get(k).unwrap() + 1.).unwrap();
+        self.params = **key;
+    }
+
+    pub fn get_params(&self) -> Params {
+        self.to_params(&self.params)
+    }
+
+    fn to_params(&self, key: &ParamsKey) -> Params {
+        let (i, j) = key;
+        let quality = MIN_QUALITY as f32 + (MAX_QUALITY as f32)/(STEPS_QUALITY as f32) * *i as f32;
+        let ads = MIN_ADS as f32 + (MAX_ADS as f32)/(STEPS_ADS as f32) * *j as f32;
+        (quality, ads)
     }
 }
 
@@ -212,7 +235,6 @@ impl Learner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fnv::FnvHashMap;
     use rand::SeedableRng;
     use rand::rngs::StdRng;
 
@@ -240,46 +262,34 @@ mod tests {
 
     #[test]
     fn test_learner() {
-        let best_arm = LearnerArm{a: 5, b: 5};
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let mut learner = Learner::new(&mut rng);
-        let mut arm_counts: FnvHashMap<LearnerArm, usize> = FnvHashMap::default();
-        for _ in 0..1000 {
-            if learner.arm == best_arm {
-                learner.learn(1000.);
-            } else {
-                learner.learn(0.);
-            }
-            *arm_counts.entry(learner.arm).or_insert(0) += 1;
-        }
-        let (max_arm, _) = arm_counts.iter().fold((best_arm, 0), |(acc, c), (arm, count)| {
-            if count > &c {
-                (*arm, *count)
-            } else {
-                (acc, c)
-            }
-        });
-        assert_eq!(best_arm, max_arm);
+        for i in 0..2000 {
+            let (x, y) = learner.get_params();
 
-        let new_best_arm = LearnerArm{a: 0, b: 0};
-        for _ in 0..5000 {
-            if learner.arm == best_arm {
-                learner.learn(-1000.);
-            } else if learner.arm == new_best_arm {
-                learner.learn(2000.);
-            } else {
-                learner.learn(0.);
+            // Mock reward function
+            let x_r = (-(4.*x-2.).powf(2.)+4.); // Peak should be at x=0.5
+            let y_r = (-(4.*y/MAX_ADS as f32-2.).powf(2.)+4.); // Peak should be at y=5.0
+            let reward = x_r + y_r;
+
+            learner.learn(reward);
+            if i % 2 == 0 {
+                learner.decide(&mut rng);
             }
-            *arm_counts.entry(learner.arm).or_insert(0) += 1;
         }
-        let (new_max_arm, _) = arm_counts.iter().fold((best_arm, 0), |(acc, c), (arm, count)| {
-            if count > &c {
-                (*arm, *count)
-            } else {
-                (acc, c)
-            }
-        });
-        assert_eq!(new_best_arm, new_max_arm);
+
+        // Hack to get around f32 comparisons
+        let best = learner.history.keys()
+            .max_by_key(|k| (learner.history.get(k).unwrap() * 1000.) as isize)
+            .unwrap();
+
+        // for (k, v) in learner.history.iter() {
+        //     println!("{:?}: {:?}", learner.to_params(k), v);
+        // }
+
+        let best = learner.to_params(best);
+        println!("best:{:?}", best);
+        assert_eq!(best, (0.5, 5.0));
     }
 
     #[test]

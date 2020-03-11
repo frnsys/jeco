@@ -30,6 +30,7 @@ pub struct Publisher {
     // can be published per step
     // and at what quality.
     pub budget: f32,
+    pub expenses: f32,
     revenue_per_subscriber: f32,
 
     // The content quality the Publisher
@@ -71,18 +72,20 @@ pub struct Publisher {
 impl Publisher {
     pub fn new(id: PublisherId, conf: &PublisherConfig, mut rng: &mut StdRng) -> Publisher {
         let learner = Learner::new(&mut rng);
+        let params = learner.get_params();
         Publisher {
             id: id,
 
             radius: 0,
             location: (0, 0),
 
+            expenses: 0.,
             budget: conf.base_budget,
             revenue_per_subscriber: conf.revenue_per_subscriber,
             reach: 0.,
 
-            ads: learner.arm.a as f32,
-            quality: learner.arm.b as f32,
+            ads: params.1,
+            quality: params.0,
             learner: learner,
             n_ads_sold: 0.,
 
@@ -123,6 +126,7 @@ impl Publisher {
 
             // Deduct from budget
             self.budget -= cost;
+            self.expenses += cost;
             Some(content)
         } else {
             None
@@ -163,13 +167,17 @@ impl Publisher {
         }
     }
 
-    pub fn learn(&mut self, revenue: f32) {
+    pub fn learn(&mut self, revenue: f32, update: bool, rng: &mut StdRng) {
         // Assume reach has been updated
-        // TODO more balanced mixture of the two?
-        let outcome = revenue * self.reach;
-        self.learner.learn(outcome as f64);
-        self.ads = self.learner.arm.a as f32;
-        self.quality = self.learner.arm.b as f32;
+        // Assume expenses are correct
+        let profit = revenue - self.expenses;
+        self.learner.learn(profit);
+        if update {
+            self.learner.decide(rng);
+            let params = self.learner.get_params();
+            self.quality = params.0;
+            self.ads = params.1;
+        }
     }
 }
 
@@ -229,9 +237,6 @@ pub fn reader_similarity(body: &ContentBody, audience: &Audience) -> f32 {
 
 pub fn accept_prob(body: &ContentBody, audience: &Audience) -> f32 {
     let sim = reader_similarity(body, audience);
-
-    // TODO this doesn't necessarily need to be random?
-    // Could just be based on a threshold
     sigmoid(8.*(sim-0.5))
 }
 

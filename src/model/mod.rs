@@ -1422,6 +1422,7 @@ mod tests {
         let mut publisher = Publisher::new(pub_id, &conf.publisher, &mut rng);
         publisher.location = (0, 0);
         publisher.radius = 1;
+        publisher.ads = 10.;
 
         let publishers = vec![publisher];
         let platforms = vec![];
