@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 use redis::Commands;
 
 pub struct Recorder {
@@ -41,7 +41,7 @@ impl Recorder {
             .choose_multiple(&mut rng, a_sample_size)
             .map(|a| a.id)
             .collect();
-        let init_values = agents.iter().map(|id| sim.agents[*id].values.get()).collect();
+        let init_values = agents.iter().map(|id| sim.agents[*id].values).collect();
 
         let p_sample_size = 10;
         let publishers: Vec<PublisherId> = sim.publishers
@@ -104,7 +104,7 @@ impl Recorder {
         // Top 10
         let content: Vec<Value> = sim.content_by_popularity().take(10).map(|c| {
             json!({
-                "shares": Rc::strong_count(c),
+                "shares": Arc::strong_count(c),
                 "topics": c.body.topics,
                 "values": c.body.values,
                 "attention_cost": c.body.cost
@@ -114,7 +114,7 @@ impl Recorder {
         let space: Vec<(Position, usize)> = sim.grid.iter().map(|(pos, agents)| (*pos, agents.len())).collect();
 
         let value_shifts: Vec<f32> = agents.iter().zip(self.init_values.iter())
-            .map(|(a, b)| 1. - a.values.get().normalize().dot(&b.normalize())).collect();
+            .map(|(a, b)| 1. - a.values.normalize().dot(&b.normalize())).collect();
 
         let n_shares = sim.n_shares();
         let mut share_dist: FnvHashMap<usize, usize> = FnvHashMap::default();

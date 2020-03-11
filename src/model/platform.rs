@@ -1,3 +1,4 @@
+use fnv::FnvHashSet;
 use super::agent::AgentId;
 use super::network::Network;
 use super::util;
@@ -27,7 +28,7 @@ impl Platform {
     }
 
     pub fn signup(&mut self, a: AgentId) {
-        self.network.add(a);
+        self.network.add_node(a);
     }
 
     pub fn is_signed_up(&self, a: &AgentId) -> bool {
@@ -38,11 +39,11 @@ impl Platform {
         self.network.remove_edges(a, b);
     }
 
-    pub fn follow(&mut self, a: &AgentId, b: &AgentId, weight: f32) {
-        self.network.add_edge(a, b, weight);
+    pub fn follow(&mut self, a: &AgentId, b: &AgentId) {
+        self.network.add_edge(a, b);
     }
 
-    pub fn following_ids(&self, a: &AgentId) -> Vec<&usize> {
+    pub fn following_ids(&self, a: &AgentId) -> &FnvHashSet<usize> {
         self.network.following_ids(a)
     }
 

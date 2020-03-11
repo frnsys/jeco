@@ -1,11 +1,10 @@
 use rand::Rng;
-use std::rc::Rc;
 use fnv::{FnvHashMap, FnvHashSet};
 use super::agent::{Agent, AgentId};
 use super::policy::Policy;
 use super::network::Network;
 use super::platform::{Platform, PlatformId};
-use super::publisher::{Publisher, PublisherId};
+use super::publisher::Publisher;
 use super::grid::{HexGrid, Position, hexagon_dist};
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
@@ -14,13 +13,14 @@ use super::util::{ewma, sigmoid};
 use super::config::SimulationConfig;
 use itertools::Itertools;
 use rand_distr::{Distribution, Beta};
+use std::sync::Arc;
 
 static MAX_FRIENDS: usize = 120;
 
 pub struct Simulation {
     pub network: Network,
     pub agents: Vec<Agent>,
-    content: Vec<Rc<Content>>,
+    content: Vec<Arc<Content>>,
     pub publishers: Vec<Publisher>,
     pub platforms: Vec<Platform>,
     pub ref_grid: HexGrid,
@@ -34,11 +34,14 @@ pub struct Simulation {
 
     // Content Agents will share in the next step.
     // Emptied each step.
-    share_queues: FnvHashMap<AgentId, Vec<SharedContent>>,
+    share_queues: Vec<Vec<SharedContent>>,
 
     // Store content the Publisher will
     // publish in the next step. Emptied each step.
-    outboxes: FnvHashMap<PublisherId, Vec<SharedContent>>,
+    outboxes: Vec<Vec<SharedContent>>,
+
+    // Agents and the platforms they're on
+    agent_platforms: Vec<FnvHashSet<PlatformId>>,
 }
 
 
@@ -48,18 +51,20 @@ impl Simulation {
             .map(|i| Agent::new(i, &conf.agent, &mut rng))
             .collect();
 
-        let mut share_queues = FnvHashMap::default();
-        for agent in agents.iter() {
-            share_queues.insert(agent.id, Vec::new());
+        let mut agent_platforms = Vec::new();
+        let mut share_queues = Vec::new();
+        for _ in &agents {
+            agent_platforms.push(FnvHashSet::default());
+            share_queues.push(Vec::new());
         }
 
         let mut publishers: Vec<Publisher> = (0..conf.n_publishers)
             .map(|i| Publisher::new(i, &conf.publisher, &mut rng))
             .collect();
 
-        let mut outboxes = FnvHashMap::default();
-        for publisher in publishers.iter() {
-            outboxes.insert(publisher.id, Vec::new());
+        let mut outboxes = Vec::new();
+        for _ in &publishers {
+            outboxes.push(Vec::new());
         }
 
         let platforms: Vec<Platform> = (0..conf.n_platforms)
@@ -121,6 +126,7 @@ impl Simulation {
             n_produced: 0,
             n_pitched: 0,
             n_published: 0,
+            agent_platforms: agent_platforms,
         }
     }
 
@@ -206,34 +212,26 @@ impl Simulation {
         ad_market(&mut new_content, &self.agents, &self.publishers, &self.platforms, &conf, &mut rng);
         for ((typ, id), contents) in new_content.into_iter() {
             for c in contents {
-                let content = Rc::new(c);
+                let content = Arc::new(c);
 
                 self.content.push(content.clone());
 
                 // TODO
-                match self.share_queues.get_mut(&content.author) {
-                    Some(to_share) => {
-                        to_share.push(SharedContent {
-                            content: content.clone(),
-                            sharer: (SharerType::Agent, content.author)
-                        });
-                    },
-                    None => {}
-                }
+                let to_share = &mut self.share_queues[content.author];
+                to_share.push(SharedContent {
+                    content: content.clone(),
+                    sharer: (SharerType::Agent, content.author)
+                });
                 self.agents[content.author].content.push(content.clone());
                 match typ {
                     SharerType::Publisher => {
                         self.publishers[id].n_ads_sold += content.ads;
                         self.publishers[id].content.push(content.clone());
-                        match self.outboxes.get_mut(&id) {
-                            Some(to_share) => {
-                                to_share.push(SharedContent {
-                                    content: content.clone(),
-                                    sharer: (SharerType::Publisher, id)
-                                });
-                            },
-                            None => {}
-                        }
+                        let to_share = &mut self.outboxes[id];
+                        to_share.push(SharedContent {
+                            content: content.clone(),
+                            sharer: (SharerType::Publisher, id)
+                        });
                     },
                     SharerType::Agent => {}
                 }
@@ -248,18 +246,25 @@ impl Simulation {
     pub fn consume(&mut self,
                    conf: &SimulationConfig,
                    mut rng: &mut StdRng) {
-        let mut new_to_share: FnvHashMap<AgentId, Vec<SharedContent>> = FnvHashMap::default();
         let mut sub_changes: Vec<isize> = vec![0; self.publishers.len()];
 
-        let mut follow_changes: FnvHashMap<AgentId, (FnvHashSet<AgentId>, FnvHashSet<AgentId>)> = FnvHashMap::default();
+        // Note the way these are added to assumes that agents are iterated
+        // over sequentially, i.e agent.id=0, agent.id=1, etc...
+        // and that each agent adds to the vec.
+        let mut new_to_share: Vec<Vec<SharedContent>> = Vec::with_capacity(self.agents.len());
+        let mut follow_changes: Vec<(FnvHashSet<AgentId>, FnvHashSet<AgentId>)> = Vec::with_capacity(self.agents.len());
 
         let mut signups: FnvHashMap<AgentId, PlatformId> = FnvHashMap::default();
+
         let mut platforms: FnvHashMap<PlatformId, usize> = FnvHashMap::default();
         let mut all_data: FnvHashMap<PlatformId, f32> = FnvHashMap::default();
         let mut all_revenue: FnvHashMap<(SharerType, usize), f32> = FnvHashMap::default();
-        let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = Vec::new();
-        for a in &self.agents {
-            let to_read = &mut shared;
+
+        // Hack to mutably iterate
+        let mut agents: Vec<Agent> = self.agents.drain(..).collect();
+        for mut a in agents.drain(..) {
+            let mut to_read: Vec<(Option<&PlatformId>, &SharedContent)> = Vec::new();
+            // let to_read = &mut shared;
 
             // Agent encounters shared content
             let following = self.network.following_ids(&a.id).clone();
@@ -268,14 +273,14 @@ impl Simulation {
             to_read.clear();
             to_read.extend(following.iter()
                 .filter(|_| rng.gen::<f32>() < conf.contact_rate)
-                .flat_map(|a_id| self.share_queues[a_id].iter().map(|sc| (None, sc))));
+                .flat_map(|a_id| self.share_queues[*a_id].iter().map(|sc| (None, sc))));
 
             // Subscribed publishers
             // ENH: Publishers on all platforms.
             // e.g. outbox.iter().flat_map(|sc| a.platforms.iter().map(|p_id| (p_id, sc.clone())))
             // Although maybe it's not worth the additional overhead?
-            to_read.extend(a.subscriptions.borrow().iter()
-                          .flat_map(|p_id| self.outboxes[p_id].iter().map(|sc| (None, sc))));
+            to_read.extend(a.subscriptions.iter()
+                          .flat_map(|p_id| self.outboxes[*p_id].iter().map(|sc| (None, sc))));
 
             // Platforms
             // We basically assume that if someone shares something,
@@ -284,16 +289,16 @@ impl Simulation {
             // Unlike offline encounters, we roll per shared content
             // rather than per agent.
             // ENH: Agents may develop a preference for a platform?
-            to_read.extend(a.platforms.iter()
+            to_read.extend(self.agent_platforms[a.id].iter()
                 .flat_map(|p_id| self.platforms[*p_id].following_ids(&a.id).into_iter()
                           .map(move |a_id| (p_id, a_id)))
-                .flat_map(|(p_id, a_id)| self.share_queues[a_id].iter().map(move |sc| (Some(p_id), sc)))
+                .flat_map(|(p_id, a_id)| self.share_queues[*a_id].iter().map(move |sc| (Some(p_id), sc)))
                 .filter(|(_, sc)| {
                     // "Algorithmic" rating based on Agent's trust of Agent B.
                     // ENH: Trust values should be platform-specific,
                     // to capture that platforms have incomplete/noisy information about
                     // "trust" between users.
-                    rng.gen::<f32>() < conf.contact_rate + match a.trust.borrow().get(&sc.sharer.1) {
+                    rng.gen::<f32>() < conf.contact_rate + match a.trust.get(&sc.sharer.1) {
                         Some(v) => *v,
                         None => 0.
                     }
@@ -305,18 +310,18 @@ impl Simulation {
 
             // Only consider signing up to new platforms
             // if Agent is not platform-saturated
-            if a.platforms.len() < conf.max_platforms {
+            if self.agent_platforms[a.id].len() < conf.max_platforms {
                 for p in &self.platforms {
                     platforms.insert(p.id, 0);
                 }
 
                 // See what platforms friends are on
                 following.iter()
-                    .flat_map(|a_id| &self.agents[**a_id].platforms)
+                    .flat_map(|a_id| &self.agent_platforms[*a_id])
                     .fold(&mut platforms, |acc, p_id| {
                         // Only consider platforms the agent
                         // isn't already signed up to
-                        if !a.platforms.contains(p_id) {
+                        if !self.agent_platforms[a.id].contains(p_id) {
                             *(acc.entry(*p_id).or_insert(0)) += 1;
                         }
                         acc
@@ -349,7 +354,7 @@ impl Simulation {
                 }
             }
 
-            let (will_share, (new_subs, unsubs), (follows, unfollows), data, revenue) = a.consume(to_read, &conf, &mut rng);
+            let (will_share, (new_subs, unsubs), (follows, unfollows), data, revenue) = a.consume(&to_read, &conf, &mut rng);
             let shareable = will_share.iter().map(|content| {
                 SharedContent {
                     sharer: (SharerType::Agent, a.id),
@@ -363,7 +368,7 @@ impl Simulation {
                 sub_changes[pub_id] -= 1;
             }
 
-            follow_changes.insert(a.id, (follows, unfollows));
+            follow_changes.push((follows, unfollows));
 
             // Aggregate generated data
             for (p_id, d) in data {
@@ -377,35 +382,30 @@ impl Simulation {
                 *r_ += r;
             }
 
-            new_to_share.insert(a.id, shareable);
+            new_to_share.push(shareable);
+            self.agents.push(a);
         }
 
         // Update share lists
-        for (a_id, mut to_share_) in new_to_share {
-            match self.share_queues.get_mut(&a_id) {
-                Some(to_share) => {
-                    to_share.clear();
-                    to_share.append(&mut to_share_);
-                },
-                None => {
-                    self.share_queues.insert(a_id, to_share_);
-                }
-            }
+        for (a_id, mut to_share_) in new_to_share.into_iter().enumerate() {
+            let to_share = &mut self.share_queues[a_id];
+            to_share.clear();
+            to_share.append(&mut to_share_);
         }
 
         // Update follows
         // TODO this feels very messy
-        for (a_id, (follows, unfollows)) in follow_changes {
+        for (a_id, (follows, unfollows)) in follow_changes.iter().enumerate() {
             if follows.len() > 0 || unfollows.len() > 0 {
-                let p_ids: Vec<&PlatformId> = self.agents[a_id].platforms.iter().collect();
+                let p_ids: Vec<&PlatformId> = self.agent_platforms[a_id].iter().collect();
                 for p_id in p_ids {
                     let pfrm = &mut self.platforms[*p_id];
-                    for b_id in &follows {
+                    for b_id in follows {
                         if pfrm.is_signed_up(b_id) {
-                            pfrm.follow(&a_id, &b_id, 1.); // TODO diff weights?
+                            pfrm.follow(&a_id, &b_id);
                         }
                     }
-                    for b_id in &unfollows {
+                    for b_id in unfollows {
                         if pfrm.is_signed_up(b_id) {
                             pfrm.unfollow(&a_id, &b_id);
                         }
@@ -421,15 +421,12 @@ impl Simulation {
             // Update subscribers
             p.subscribers = std::cmp::max(0, p.subscribers as isize + sub_changes[p.id]) as usize;
 
-            p.n_last_published = self.outboxes[&p.id].len();
+            p.n_last_published = self.outboxes[p.id].len();
             p.budget += p.regular_revenue();
 
             // ENH: Publisher pushes content
             // for multiple steps?
-            match self.outboxes.get_mut(&p.id) {
-                Some(outbox) => outbox.clear(),
-                None => {}
-            }
+            self.outboxes[p.id].clear();
         }
 
         // Distribute ad revenue
@@ -460,14 +457,12 @@ impl Simulation {
         for (a_id, p_id) in signups {
             if !self.platforms[p_id].is_signed_up(&a_id) {
                 self.platforms[p_id].signup(self.agents[a_id].id);
-                self.agents[a_id].platforms.insert(p_id);
+                self.agent_platforms[a_id].insert(p_id);
                 for b_id in self.network.following_ids(&self.agents[a_id].id) {
                     let platform = &mut self.platforms[p_id];
                     if platform.is_signed_up(b_id) {
-                        let trust_a = self.network.trust(&a_id, b_id);
-                        let trust_b = self.network.trust(b_id, &a_id);
-                        platform.follow(&a_id, b_id, trust_a); // TODO what should this weight be?
-                        platform.follow(b_id, &a_id, trust_b); // TODO what should this weight be?
+                        platform.follow(&a_id, b_id);
+                        platform.follow(b_id, &a_id);
                     }
                 }
             }
@@ -475,15 +470,15 @@ impl Simulation {
     }
 
     pub fn n_will_share(&self) -> usize {
-        self.share_queues.values().fold(0, |acc, v| acc + v.len())
+        self.share_queues.iter().fold(0, |acc, v| acc + v.len())
     }
 
     pub fn n_shares(&self) -> Vec<usize> {
-        self.content.iter().map(|c| Rc::strong_count(c)).collect()
+        self.content.iter().map(|c| Arc::strong_count(c)).collect()
     }
 
-    pub fn content_by_popularity(&self) -> std::vec::IntoIter<&Rc<Content>> {
-        self.content.iter().sorted_by(|a, b| Rc::strong_count(b).cmp(&Rc::strong_count(a)))
+    pub fn content_by_popularity(&self) -> std::vec::IntoIter<&Arc<Content>> {
+        self.content.iter().sorted_by(|a, b| Arc::strong_count(b).cmp(&Arc::strong_count(a)))
     }
 
     pub fn apply_policy(&mut self, policy: &Policy) {

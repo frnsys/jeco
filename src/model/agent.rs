@@ -7,9 +7,8 @@ use super::content::{Content, ContentId, ContentBody, SharedContent, SharerType}
 use super::config::{SimulationConfig, AgentConfig};
 use rand::rngs::StdRng;
 use rand::Rng;
-use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
-use std::rc::Rc;
+use std::sync::Arc;
 use super::util;
 
 pub type Topics = Vector;
@@ -20,7 +19,7 @@ pub type AgentId = usize;
 pub struct Agent {
     pub id: AgentId,
     pub interests: Topics,
-    pub values: Cell<Values>,
+    pub values: Values,
     pub attention: f32,
     pub resources: f32,
     pub expenses: f32,
@@ -28,11 +27,7 @@ pub struct Agent {
     pub relevancies: Vec<f32>, // Indexed by PublisherId
 
     // Publishers the Agent is subscribed to
-    // TODO would like to not use a RefCell if possible
-    pub subscriptions: RefCell<FnvHashSet<PublisherId>>,
-
-    // Platforms the Agent is on
-    pub platforms: FnvHashSet<PlatformId>,
+    pub subscriptions: FnvHashSet<PublisherId>,
 
     // Agent's estimate of how likely
     // a Publisher is to publish their content
@@ -41,12 +36,11 @@ pub struct Agent {
 
     // Track trust/feelings towards Publishers
     // and steps since last seeing content from them
-    // TODO would like to not use a RefCell if possible
-    pub publishers: RefCell<FnvHashMap<PublisherId, (f32, usize)>>,
+    pub publishers: FnvHashMap<PublisherId, (f32, usize)>,
 
     // EWMA of trust
     // TODO would like to not use a RefCell if possible
-    pub trust: RefCell<FnvHashMap<AgentId, f32>>,
+    pub trust: FnvHashMap<AgentId, f32>,
 
     // An Agent's "reach" is the mean shared
     // count of their content per step
@@ -61,10 +55,10 @@ pub struct Agent {
     pub ads: f32,
 
     // Track most recent content
-    pub content: util::LimitedQueue<Rc<Content>>,
+    pub content: util::LimitedQueue<Arc<Content>>,
 
     // Track recently encountered content
-    pub seen_content: RefCell<util::LimitedSet<ContentId>>,
+    pub seen_content: util::LimitedSet<ContentId>,
 
     // Params for estimating quality/ads mix
     learner: Learner,
@@ -97,7 +91,7 @@ impl Agent {
             id: id,
             location: (0, 0),
             interests: random_topics(&mut rng),
-            values: Cell::new(random_values(&mut rng)),
+            values: random_values(&mut rng),
             reach: 100.,
             ads: params.1,
             quality: params.0,
@@ -107,12 +101,11 @@ impl Agent {
             expenses: 0.,
             publishability: 1.,
             publishabilities: FnvHashMap::default(),
-            publishers: RefCell::new(FnvHashMap::default()),
-            subscriptions: RefCell::new(FnvHashSet::default()),
-            trust: RefCell::new(FnvHashMap::default()),
-            platforms: FnvHashSet::default(),
+            publishers: FnvHashMap::default(),
+            subscriptions: FnvHashSet::default(),
+            trust: FnvHashMap::default(),
             content: util::LimitedQueue::new(10),
-            seen_content: RefCell::new(util::LimitedSet::new(100)),
+            seen_content: util::LimitedSet::new(100),
             relevancies: Vec::new()
         }
     }
@@ -120,7 +113,7 @@ impl Agent {
     pub fn produce(&self, max_attention: f32, rng: &mut StdRng) -> ContentBody {
         // Agent produces something around their own interests and values
         let topics = self.interests.map(|v| util::normal_p_mu_tight(v, rng));
-        let values = self.values.get().map(|v| util::normal_range_mu_tight(v, rng));
+        let values = self.values.map(|v| util::normal_range_mu_tight(v, rng));
 
         // ENH: Take other factors into account
         // Attention cost ranges from 0-100
@@ -154,24 +147,19 @@ impl Agent {
     }
 
     // Return content they decide to share
-    pub fn consume<'a>(
-        &'a self,
+    pub fn consume(
+        &mut self,
         content: &Vec<(Option<&PlatformId>, &SharedContent)>,
         conf: &SimulationConfig,
-        rng: &mut StdRng,
-    ) -> (Vec<Rc<Content>>, (Vec<PublisherId>, Vec<PublisherId>), (FnvHashSet<AgentId>, FnvHashSet<AgentId>), FnvHashMap<PlatformId, f32>, FnvHashMap<(SharerType, usize), f32>) {
+        rng: &mut StdRng
+    ) -> (Vec<Arc<Content>>, (Vec<PublisherId>, Vec<PublisherId>), (FnvHashSet<AgentId>, FnvHashSet<AgentId>), FnvHashMap<PlatformId, f32>, FnvHashMap<(SharerType, usize), f32>) {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
-        let values = self.values.get();
-        let mut publishers = self.publishers.borrow_mut();
-        let mut subscriptions = self.subscriptions.borrow_mut();
-        let mut trusts = self.trust.borrow_mut();
         let mut new_subs = Vec::new();
         let mut unsubs = Vec::new();
         let mut unfollows = FnvHashSet::default();
         let mut follows = FnvHashSet::default();
         let mut seen_publishers = FnvHashSet::default();
-        let mut seen_content = self.seen_content.borrow_mut();
 
         // Data generated for platforms
         let mut data = FnvHashMap::default();
@@ -193,13 +181,13 @@ impl Agent {
             }
 
             // Skip already-read content
-            if seen_content.contains(&c.id) {
+            if self.seen_content.contains(&c.id) {
                 continue;
             }
-            seen_content.insert(c.id);
+            self.seen_content.insert(c.id);
 
             let affinity = similarity(&self.interests, &c.body.topics);
-            let align = alignment(&values, &c.body.values);
+            let align = alignment(&self.values, &c.body.values);
             let mut react = reactivity(affinity, align, c.body.quality);
 
             // Update publisher feeling/reputation/trust
@@ -207,7 +195,7 @@ impl Agent {
             match c.publisher {
                 Some(p_id) => {
                     let relevancy = self.relevancies[p_id];
-                    let (v, _) = publishers.entry(p_id).or_insert((conf.default_trust, 0));
+                    let (v, _) = self.publishers.entry(p_id).or_insert((conf.default_trust, 0));
                     // println!("update: {:?} {:?} {:?} {:?} {:?}", p_id, update_trust(affinity * relevancy, align)/(c.ads + 1.), affinity, relevancy, align);
                     // *v = f32::max(0., util::ewma(update_trust(affinity * relevancy, align)/(c.ads + 1.), *v));
                     // println!("af:{:?} re:{:?} al:{:?}", affinity, relevancy, align);
@@ -248,7 +236,7 @@ impl Agent {
                     // network.trust(&self.id, &id); // TODO this is redundant?
 
                     let mut trust = {
-                        let trust = trusts.entry(id).or_insert(conf.default_trust);
+                        let trust = self.trust.entry(id).or_insert(conf.default_trust);
                         let old_trust = trust.clone(); // TODO meh
                         // println!("update: {:?} {:?} {:?} {:?}", id, update_trust(affinity, align), affinity, align);
                         *trust = f32::max(0., util::ewma(update_trust(affinity, align), *trust));
@@ -264,7 +252,7 @@ impl Agent {
 
                     // Get author as well
                     if c.author != id {
-                        let author_trust = trusts.entry(c.author).or_insert(conf.default_trust);
+                        let author_trust = self.trust.entry(c.author).or_insert(conf.default_trust);
                         trust = (trust + *author_trust)/2.;
                         *author_trust = f32::max(0., util::ewma(update_trust(affinity, align)/(c.ads + 1.), *author_trust));
 
@@ -286,7 +274,7 @@ impl Agent {
                     trust
                 },
                 (SharerType::Publisher, id) => {
-                    publishers[&id].0
+                    self.publishers[&id].0
                 }
             };
             // println!("affinity: {:?}, trust: {:?}", affinity, trust);
@@ -311,8 +299,8 @@ impl Agent {
         }
 
         // Update which Publishers we've seen recently
-        for &p_id in subscriptions.iter() {
-            let (_, last_seen) = publishers.entry(p_id).or_insert((conf.default_trust, 0));
+        for &p_id in self.subscriptions.iter() {
+            let (_, last_seen) = self.publishers.entry(p_id).or_insert((conf.default_trust, 0));
             if seen_publishers.contains(&p_id) {
                 *last_seen = 0;
             } else {
@@ -322,21 +310,21 @@ impl Agent {
 
         // Decide on subscriptions
         // TODO consider costs of subscription
-        for (p_id, (affinity, last_seen)) in publishers.iter() {
+        for (p_id, (affinity, last_seen)) in self.publishers.iter() {
             // println!("{:?} {:?}", p_id, affinity);
             if last_seen >= &conf.unsubscribe_lag {
-                if subscriptions.contains(p_id) {
-                    subscriptions.remove(p_id);
+                if self.subscriptions.contains(p_id) {
+                    self.subscriptions.remove(p_id);
                     unsubs.push(*p_id);
                 }
             } else if affinity > &conf.subscribe_trust {
-                if !subscriptions.contains(p_id) {
-                    subscriptions.insert(*p_id);
+                if !self.subscriptions.contains(p_id) {
+                    self.subscriptions.insert(*p_id);
                     new_subs.push(*p_id);
                 }
             } else if affinity < &conf.unsubscribe_trust {
-                if subscriptions.contains(p_id) {
-                    subscriptions.remove(p_id);
+                if self.subscriptions.contains(p_id) {
+                    self.subscriptions.remove(p_id);
                     unsubs.push(*p_id);
                 }
             }
@@ -345,21 +333,19 @@ impl Agent {
         (to_share, (new_subs, unsubs), (follows, unfollows), data, revenue)
     }
 
-    pub fn be_influenced(&self, other: &Values, gravity_stretch: f32, max_influence: f32, trust: f32) {
-        let mut values = self.values.get();
-        values.zip_apply(other, |a_v, c_v| {
+    pub fn be_influenced(&mut self, other: &Values, gravity_stretch: f32, max_influence: f32, trust: f32) {
+        self.values.zip_apply(other, |a_v, c_v| {
             a_v + util::gravity(a_v, c_v, gravity_stretch, max_influence) * trust
         });
-        self.values.set(values);
     }
 
     pub fn similarity(&self, other: &Agent) -> f32 {
         // TODO need to normalize?
-        (self.interests.dot(&other.interests) + self.values.get().dot(&other.values.get())) / 2.
+        (self.interests.dot(&other.interests) + self.values.dot(&other.values)) / 2.
     }
 
     pub fn n_shares(&self) -> Vec<usize> {
-        self.content.iter().map(|c| Rc::strong_count(c)).collect()
+        self.content.iter().map(|c| Arc::strong_count(c)).collect()
     }
 
     pub fn update_reach(&mut self) {
