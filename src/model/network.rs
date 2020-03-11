@@ -59,7 +59,7 @@ impl Network {
                 // 3. if they are at the same location
                 let c_idx = &candidate.id;
                 let sim = agent.similarity(&candidate);
-                let pref = (self.incoming[c_idx].len() as f32) / self.total_edges;
+                let pref = (self.incoming[c_idx].len() as f32) / (self.total_edges + 1.);
                 let same_location = if agent.location == candidate.location { 1. } else { 0. };
                 let p = (sim + pref + same_location) / 3.;
                 if rng.gen::<f32>() < p {
