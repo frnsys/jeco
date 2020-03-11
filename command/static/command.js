@@ -137,12 +137,12 @@ const POLICY_SPEC = {
     }]
   },
   'SubsidizeProduction': {
-    desc: 'Increase the resources of all agents by the specified amount.',
+    desc: 'Increase the resources of publishers by the specified amount.',
     args: [{
       min: 0,
       type: 'float',
-      name: 'resources',
-      default: 0.5
+      name: 'amount',
+      default: 100
     }]
   },
   'TaxAdvertising': {

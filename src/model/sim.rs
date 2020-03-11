@@ -34,6 +34,7 @@ pub struct Simulation {
 
     // Policies
     advertising_tax: f32,
+    subsidy: f32,
 
     // Content Agents will share in the next step.
     // Emptied each step.
@@ -132,6 +133,7 @@ impl Simulation {
             n_published: 0,
             agent_platforms: agent_platforms,
             advertising_tax: 0.,
+            subsidy: 0.,
         }
     }
 
@@ -428,7 +430,7 @@ impl Simulation {
             p.subscribers = std::cmp::max(0, p.subscribers as isize + sub_changes[p.id]) as usize;
 
             p.n_last_published = self.outboxes[p.id].len();
-            p.budget += p.regular_revenue();
+            p.budget += p.regular_revenue() + self.subsidy;
 
             // ENH: Publisher pushes content
             // for multiple steps?
@@ -499,6 +501,9 @@ impl Simulation {
 
             Policy::TaxAdvertising(tax) => {
                 self.advertising_tax = *tax;
+            },
+            Policy::SubsidizeProduction(amount) => {
+                self.subsidy = *amount;
             },
 
             Policy::PopulationChange(n) => {
