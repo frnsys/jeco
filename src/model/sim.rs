@@ -1,5 +1,4 @@
 use rand::Rng;
-use std::rc::Rc;
 use fnv::{FnvHashMap, FnvHashSet};
 use super::agent::{Agent, AgentId};
 use super::policy::Policy;
@@ -14,13 +13,15 @@ use super::util::{ewma, sigmoid};
 use super::config::SimulationConfig;
 use itertools::Itertools;
 use rand_distr::{Distribution, Beta};
+use std::sync::{Mutex, Arc};
+use std::thread;
 
 static MAX_FRIENDS: usize = 120;
 
 pub struct Simulation {
     pub network: Network,
     pub agents: Vec<Agent>,
-    content: Vec<Rc<Content>>,
+    content: Vec<Arc<Content>>,
     pub publishers: Vec<Publisher>,
     pub platforms: Vec<Platform>,
     pub ref_grid: HexGrid,
@@ -206,7 +207,7 @@ impl Simulation {
         ad_market(&mut new_content, &self.agents, &self.publishers, &self.platforms, &conf, &mut rng);
         for ((typ, id), contents) in new_content.into_iter() {
             for c in contents {
-                let content = Rc::new(c);
+                let content = Arc::new(c);
 
                 self.content.push(content.clone());
 
@@ -477,11 +478,11 @@ impl Simulation {
     }
 
     pub fn n_shares(&self) -> Vec<usize> {
-        self.content.iter().map(|c| Rc::strong_count(c)).collect()
+        self.content.iter().map(|c| Arc::strong_count(c)).collect()
     }
 
-    pub fn content_by_popularity(&self) -> std::vec::IntoIter<&Rc<Content>> {
-        self.content.iter().sorted_by(|a, b| Rc::strong_count(b).cmp(&Rc::strong_count(a)))
+    pub fn content_by_popularity(&self) -> std::vec::IntoIter<&Arc<Content>> {
+        self.content.iter().sorted_by(|a, b| Arc::strong_count(b).cmp(&Arc::strong_count(a)))
     }
 
     pub fn apply_policy(&mut self, policy: &Policy) {

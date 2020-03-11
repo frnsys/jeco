@@ -1,5 +1,5 @@
 use rand::Rng;
-use std::rc::Rc;
+use std::sync::Arc;
 use rand::rngs::StdRng;
 use itertools::Itertools;
 use super::agent::{Agent, similarity, alignment};
@@ -61,7 +61,7 @@ pub struct Publisher {
 
     // Archive of content the Publisher
     // has published
-    pub content: LimitedQueue<Rc<Content>>,
+    pub content: LimitedQueue<Arc<Content>>,
 
     // Publisher tries to guess
     // the distribution of their
@@ -142,16 +142,16 @@ impl Publisher {
     // to look at. Ideally also weight content by shares.
     pub fn audience_survey(&mut self, sample_size: usize) {
         if self.content.len() == 0 { return }
-        let sample: Vec<Rc<Content>> = self.content_by_popularity().take(sample_size).cloned().collect();
+        let sample: Vec<Arc<Content>> = self.content_by_popularity().take(sample_size).cloned().collect();
         self.audience.update(sample);
     }
 
-    pub fn content_by_popularity(&self) -> std::vec::IntoIter<&Rc<Content>> {
-        self.content.iter().sorted_by(|a, b| Rc::strong_count(b).cmp(&Rc::strong_count(a)))
+    pub fn content_by_popularity(&self) -> std::vec::IntoIter<&Arc<Content>> {
+        self.content.iter().sorted_by(|a, b| Arc::strong_count(b).cmp(&Arc::strong_count(a)))
     }
 
     pub fn n_shares(&self) -> Vec<usize> {
-        self.content.iter().map(|c| Rc::strong_count(c)).collect()
+        self.content.iter().map(|c| Arc::strong_count(c)).collect()
     }
 
     pub fn update_reach(&mut self) {
@@ -209,7 +209,7 @@ impl Audience {
         }
     }
 
-    pub fn update<'a >(&mut self, sample: Vec<Rc<Content>>) {
+    pub fn update<'a >(&mut self, sample: Vec<Arc<Content>>) {
         self.val_sample.clear();
         self.int_sample.clear();
 
@@ -255,8 +255,8 @@ mod tests {
         };
 
         for _ in 0..10 {
-            let sample: Vec<Rc<Content>> = (0..2).map(|_| {
-                Rc::new(Content {
+            let sample: Vec<Arc<Content>> = (0..2).map(|_| {
+                Arc::new(Content {
                     id: ContentId::new_v4(),
                     publisher: Some(0),
                     body: ContentBody {

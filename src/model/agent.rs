@@ -9,7 +9,7 @@ use rand::rngs::StdRng;
 use rand::Rng;
 use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
-use std::rc::Rc;
+use std::sync::Arc;
 use super::util;
 
 pub type Topics = Vector;
@@ -61,7 +61,7 @@ pub struct Agent {
     pub ads: f32,
 
     // Track most recent content
-    pub content: util::LimitedQueue<Rc<Content>>,
+    pub content: util::LimitedQueue<Arc<Content>>,
 
     // Track recently encountered content
     pub seen_content: RefCell<util::LimitedSet<ContentId>>,
@@ -159,7 +159,7 @@ impl Agent {
         content: &Vec<(Option<&PlatformId>, &SharedContent)>,
         conf: &SimulationConfig,
         rng: &mut StdRng,
-    ) -> (Vec<Rc<Content>>, (Vec<PublisherId>, Vec<PublisherId>), (FnvHashSet<AgentId>, FnvHashSet<AgentId>), FnvHashMap<PlatformId, f32>, FnvHashMap<(SharerType, usize), f32>) {
+    ) -> (Vec<Arc<Content>>, (Vec<PublisherId>, Vec<PublisherId>), (FnvHashSet<AgentId>, FnvHashSet<AgentId>), FnvHashMap<PlatformId, f32>, FnvHashMap<(SharerType, usize), f32>) {
         let mut attention = self.attention;
         let mut to_share = Vec::new();
         let values = self.values.get();
@@ -359,7 +359,7 @@ impl Agent {
     }
 
     pub fn n_shares(&self) -> Vec<usize> {
-        self.content.iter().map(|c| Rc::strong_count(c)).collect()
+        self.content.iter().map(|c| Arc::strong_count(c)).collect()
     }
 
     pub fn update_reach(&mut self) {

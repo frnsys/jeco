@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 use redis::Commands;
 
 pub struct Recorder {
@@ -104,7 +104,7 @@ impl Recorder {
         // Top 10
         let content: Vec<Value> = sim.content_by_popularity().take(10).map(|c| {
             json!({
-                "shares": Rc::strong_count(c),
+                "shares": Arc::strong_count(c),
                 "topics": c.body.topics,
                 "values": c.body.values,
                 "attention_cost": c.body.cost

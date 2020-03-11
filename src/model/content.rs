@@ -1,5 +1,5 @@
 use uuid::Uuid;
-use std::rc::Rc;
+use std::sync::Arc;
 use super::agent::{Topics, Values, AgentId};
 use super::publisher::PublisherId;
 
@@ -30,6 +30,6 @@ pub struct ContentBody {
 
 #[derive(Debug)]
 pub struct SharedContent {
-    pub content: Rc<Content>,
+    pub content: Arc<Content>,
     pub sharer: (SharerType, usize),
 }
