@@ -312,7 +312,7 @@ impl Simulation {
 
                 // See what platforms friends are on
                 following.iter()
-                    .flat_map(|a_id| &self.agents[**a_id].platforms)
+                    .flat_map(|a_id| &self.agents[*a_id].platforms)
                     .fold(&mut platforms, |acc, p_id| {
                         // Only consider platforms the agent
                         // isn't already signed up to
@@ -402,7 +402,7 @@ impl Simulation {
                     let pfrm = &mut self.platforms[*p_id];
                     for b_id in &follows {
                         if pfrm.is_signed_up(b_id) {
-                            pfrm.follow(&a_id, &b_id, 1.); // TODO diff weights?
+                            pfrm.follow(&a_id, &b_id);
                         }
                     }
                     for b_id in &unfollows {
@@ -464,10 +464,8 @@ impl Simulation {
                 for b_id in self.network.following_ids(&self.agents[a_id].id) {
                     let platform = &mut self.platforms[p_id];
                     if platform.is_signed_up(b_id) {
-                        let trust_a = self.network.trust(&a_id, b_id);
-                        let trust_b = self.network.trust(b_id, &a_id);
-                        platform.follow(&a_id, b_id, trust_a); // TODO what should this weight be?
-                        platform.follow(b_id, &a_id, trust_b); // TODO what should this weight be?
+                        platform.follow(&a_id, b_id);
+                        platform.follow(b_id, &a_id);
                     }
                 }
             }

@@ -1,37 +1,46 @@
 use super::agent::{Agent, AgentId};
-use fnv::FnvHashMap;
-use petgraph::visit::EdgeRef;
-use petgraph::stable_graph::{NodeIndex, EdgeIndex, StableGraph};
-use petgraph::{Directed, Incoming, Outgoing};
+use fnv::{FnvHashMap, FnvHashSet};
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::Rng;
 
 #[derive(Debug)]
 pub struct Network {
-    graph: StableGraph<usize, f32, Directed>,
-    pub lookup: FnvHashMap<AgentId, NodeIndex>,
+    incoming: FnvHashMap<AgentId, FnvHashSet<AgentId>>,
+    outgoing: FnvHashMap<AgentId, FnvHashSet<AgentId>>,
 }
 
 impl Network {
     pub fn new() -> Network {
         Network {
-            graph: StableGraph::<usize, f32, Directed, u32>::default(),
-            lookup: FnvHashMap::default(),
+            incoming: FnvHashMap::default(),
+            outgoing: FnvHashMap::default(),
         }
+    }
+
+    pub fn add_node(&mut self, id: usize) {
+        self.incoming.insert(id, FnvHashSet::default());
+        self.outgoing.insert(id, FnvHashSet::default());
+    }
+
+    pub fn add_edge(&mut self, a: &usize, b: &usize) {
+        let outgoing = self.outgoing.get_mut(a).unwrap();
+        outgoing.insert(*b);
+
+        let incoming = self.incoming.get_mut(b).unwrap();
+        incoming.insert(*a);
     }
 
     pub fn preferential_attachment(&mut self, agents: &Vec<Agent>, max_friends: usize, mut rng: &mut StdRng) {
         // Network of agents, with trust as weight
         for agent in agents.iter() {
-            let idx = self.graph.add_node(agent.id);
-            self.lookup.insert(agent.id, idx);
+            self.add_node(agent.id);
         }
 
         // Social network formation (preferential attachment)
         let mut total_edges = 1.;
         for agent in agents.iter() {
-            let idx = self.lookup[&agent.id];
+            let idx = &agent.id;
             let sample_size = (rng.gen::<f32>() * max_friends as f32).floor() as usize;
             let candidates = agents.choose_multiple(&mut rng, sample_size);
             for candidate in candidates {
@@ -40,13 +49,13 @@ impl Network {
                 // 1. their similarity
                 // 2. in-degree
                 // 3. if they are at the same location
-                let c_idx = self.lookup[&candidate.id];
+                let c_idx = &candidate.id;
                 let sim = agent.similarity(&candidate);
-                let pref = (self.graph.neighbors_directed(c_idx, Incoming).count() as f32) / total_edges;
+                let pref = (self.incoming[c_idx].len() as f32) / total_edges;
                 let same_location = if agent.location == candidate.location { 1. } else { 0. };
                 let p = (sim + pref + same_location) / 3.;
                 if rng.gen::<f32>() < p {
-                    self.graph.add_edge(idx, c_idx, sim);
+                    self.add_edge(idx, c_idx);
                     total_edges += 1.;
                 }
             }
@@ -54,66 +63,31 @@ impl Network {
 
     }
 
-    pub fn add(&mut self, a: AgentId) {
-        let idx = self.graph.add_node(a);
-        self.lookup.insert(a, idx);
-    }
-
     pub fn exists(&self, a: &AgentId) -> bool {
-        self.lookup.contains_key(a)
-    }
-
-    pub fn trust(&self, a: &AgentId, b: &AgentId) -> f32 {
-        // Edge from A->B
-        let idx_a = self.lookup[a];
-        let idx_b = self.lookup[b];
-
-        match self.graph.find_edge(idx_a, idx_b) {
-            Some(edge) => match self.graph.edge_weight(edge) {
-                Some(weight) => *weight,
-                None => 0.,
-            },
-            None => 0.,
-        }
+        // Added to both outgoing/incoming,
+        // only need to check one
+        self.incoming.contains_key(a)
     }
 
     pub fn n_nodes(&self) -> usize {
-        self.graph.node_count()
+        // Added to both outgoing/incoming,
+        // only need to check one
+        self.incoming.len()
     }
 
     pub fn n_followers(&self) -> Vec<usize> {
-        self.graph
-            .node_indices()
-            .map(|idx| self.graph.neighbors_directed(idx, Incoming).count())
-            .collect()
+        self.incoming.values().map(|v| v.len()).collect()
     }
 
-    pub fn following_ids(&self, a: &AgentId) -> Vec<&usize> { //impl Iterator<Item=&usize> {
-        let idx = self.lookup[&a];
-        self.graph
-            .neighbors_directed(idx, Outgoing)
-            .filter_map(|idx| self.graph.node_weight(idx))
-            .collect()
-    }
-
-    pub fn add_edge(&mut self, a: &AgentId, b: &AgentId, weight: f32) {
-        let idx_a = self.lookup[&a];
-        let idx_b = self.lookup[&b];
-        self.graph.add_edge(idx_a, idx_b, weight);
+    pub fn following_ids(&self, a: &AgentId) -> &FnvHashSet<usize> { //impl Iterator<Item=&usize> {
+        &self.outgoing[a]
     }
 
     pub fn remove_edges(&mut self, a: &AgentId, b: &AgentId) {
-        let idx_a = self.lookup[&a];
-        let idx_b = self.lookup[&b];
+        let outgoing = self.outgoing.get_mut(a).unwrap();
+        outgoing.remove(b);
 
-        // TODO is there a way to do this without
-        // creating a new vec?
-        let to_remove: Vec<EdgeIndex> = self.graph.edges_directed(idx_a, Outgoing)
-            .filter(|edge| edge.target() == idx_b)
-            .map(|edge| edge.id())
-            .collect();
-        for edge in to_remove {
-            self.graph.remove_edge(edge);
-        }
+        let incoming = self.incoming.get_mut(b).unwrap();
+        incoming.remove(a);
     }
 }
