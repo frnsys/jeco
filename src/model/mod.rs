@@ -572,11 +572,13 @@ mod tests {
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
 
-        let agent_a = Agent::new(0, &conf.agent, &mut rng);
+        let mut agent_a = Agent::new(0, &conf.agent, &mut rng);
         agent_a.values.set(Values::from_vec(vec![-1., -1.]));
+        agent_a.interests = Topics::from_vec(vec![1., 1.]);
 
-        let agent_b = Agent::new(1, &conf.agent, &mut rng);
+        let mut agent_b = Agent::new(1, &conf.agent, &mut rng);
         agent_b.values.set(Values::from_vec(vec![ 1.,  1.]));
+        agent_b.interests = Topics::from_vec(vec![1., 1.]);
 
         let producer_a = 2;
         let producer_b = 3;
@@ -614,14 +616,18 @@ mod tests {
         }
 
         let trust_a = agent_a.trust.borrow();
-        println!("a trust of p_a:{:?} p_b:{:?}", trust_a.get(&producer_a).unwrap(), trust_a.get(&producer_b).unwrap());
-        assert!(*trust_a.get(&producer_a).unwrap() > 0.8);
-        assert_eq!(*trust_a.get(&producer_b).unwrap(), 0.0);
+        let trust_a__a = trust_a.get(&producer_a).unwrap();
+        let trust_a__b = trust_a.get(&producer_b).unwrap();
+        println!("a trust of p_a:{:?} p_b:{:?}", trust_a__a, trust_a__b);
+        assert!(*trust_a__a > 0.8);
+        assert_eq!(*trust_a__b, 0.0);
 
         let trust_b = agent_b.trust.borrow();
-        println!("b trust of p_a:{:?} p_b:{:?}", trust_b.get(&producer_a).unwrap(), trust_b.get(&producer_b).unwrap());
-        assert_eq!(*trust_b.get(&producer_a).unwrap(), 0.0);
-        assert!(*trust_b.get(&producer_b).unwrap() > 0.8);
+        let trust_b__a = trust_b.get(&producer_a).unwrap();
+        let trust_b__b = trust_b.get(&producer_b).unwrap();
+        println!("b trust of p_a:{:?} p_b:{:?}", trust_b__a, trust_b__b);
+        assert_eq!(*trust_b__a, 0.0);
+        assert!(*trust_b__b > 0.8);
     }
 
     #[test]
@@ -829,7 +835,7 @@ mod tests {
         let (pub_b_trust, _) = trust.get(&pub_b_id).unwrap();
         println!("trust of p_a:{:?} p_b:{:?}", pub_a_trust, pub_b_trust);
         assert_eq!(*pub_a_trust, 1.0);
-        assert!(pub_b_trust - conf.default_trust < 0.05);
+        assert!(pub_b_trust - conf.default_trust <= 0.1);
     }
 
     #[test]
@@ -898,7 +904,7 @@ mod tests {
         let (pub_b_trust, _) = trust.get(&pub_b_id).unwrap();
         println!("trust of p_a:{:?} p_b:{:?}", pub_a_trust, pub_b_trust);
         assert_eq!(*pub_a_trust, 1.0);
-        assert!(pub_b_trust - conf.default_trust < 0.05);
+        assert!(pub_b_trust - conf.default_trust < 0.1);
     }
 
     #[test]
@@ -971,7 +977,7 @@ mod tests {
         let (pub_b_trust, _) = trust.get(&pub_b_id).unwrap();
         println!("trust of p_a:{:?} p_b:{:?}", pub_a_trust, pub_b_trust);
         assert_eq!(*pub_a_trust, 1.0);
-        assert!(*pub_b_trust < 0.1);
+        assert!(*pub_b_trust <= 0.5);
     }
 
     #[test]
