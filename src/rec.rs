@@ -89,7 +89,8 @@ impl Recorder {
                 "budget": p.budget,
                 "ads": p.ads,
                 "location": p.location,
-                "quality": p.quality,
+                "depth": p.depth,
+                "spectacle": p.spectacle,
                 "ads_sold": p.n_ads_sold,
                 "subscribers": p.subscribers
             }));
@@ -135,7 +136,8 @@ impl Recorder {
 
         let n_subscribers: Vec<usize> = sim.publishers.iter().map(|p| p.subscribers).collect();
         let n_published: Vec<usize> = sim.publishers.iter().map(|p| p.n_last_published).collect();
-        let quality: Vec<f32> = sim.publishers.iter().map(|p| p.quality).collect();
+        let depth: Vec<f32> = sim.publishers.iter().map(|p| p.depth).collect();
+        let spectacle: Vec<f32> = sim.publishers.iter().map(|p| p.spectacle).collect();
         let ads: Vec<f32> = sim.publishers.iter().map(|p| p.ads).collect();
         let reach: Vec<f32> = sim.publishers.iter().map(|p| p.reach).collect();
         let budget: Vec<f32> = sim.publishers.iter().map(|p| p.budget).collect();
@@ -188,10 +190,15 @@ impl Recorder {
                         "min": min_f32(&budget),
                         "mean": mean_f32(&budget),
                     },
-                    "quality": {
-                        "max": max_f32(&quality),
-                        "min": min_f32(&quality),
-                        "mean": mean_f32(&quality),
+                    "depth": {
+                        "max": max_f32(&depth),
+                        "min": min_f32(&depth),
+                        "mean": mean_f32(&depth),
+                    },
+                    "spectacle": {
+                        "max": max_f32(&spectacle),
+                        "min": min_f32(&spectacle),
+                        "mean": mean_f32(&spectacle),
                     },
                     "ads": {
                         "max": max_f32(&ads),

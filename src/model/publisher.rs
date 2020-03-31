@@ -36,7 +36,8 @@ pub struct Publisher {
     // The content quality the Publisher
     // aims for. Could be replaced with something
     // more sophisticated.
-    pub quality: f32,
+    pub depth: f32,
+    pub spectacle: f32,
 
     // How many ads the Publisher uses
     pub ads: f32,
@@ -87,9 +88,10 @@ impl Publisher {
             revenue_per_subscriber: conf.revenue_per_subscriber,
             reach: 0.,
 
-            ads: params.1,
-            quality: params.0,
-            attention: params.2,
+            depth: params[0],
+            spectacle: params[1],
+            ads: params[2],
+            attention: params[3],
             learner: learner,
             n_ads_sold: 0.,
 
@@ -106,7 +108,9 @@ impl Publisher {
     // of content to the publisher
     pub fn pitch(&mut self, body: &ContentBody, author: &mut Agent, conf: &SimulationConfig, rng: &mut StdRng) -> (Option<Content>, bool) {
         // TODO publisher takes into account author location?
-        let cost = (self.quality + body.quality) * conf.cost_per_quality;
+        let depth = self.depth + body.depth;
+        let spectacle = self.spectacle + body.spectacle;
+        let cost = (depth + spectacle) * conf.cost_per_quality;
         if self.budget < cost { return (None, false); }
 
         // TODO this doesn't necessarily need to be random?
@@ -115,11 +119,12 @@ impl Publisher {
         let accepted = rng.gen::<f32>() < p_accept;
         if accepted {
             // Pay author
-            author.resources += body.quality * conf.cost_per_quality;
+            author.resources += (body.depth + body.spectacle) * conf.cost_per_quality;
 
             // Publisher improves the quality
             let mut body_ = body.clone();
-            body_.quality += self.quality;
+            body_.depth += self.depth;
+            body_.spectacle += self.spectacle;
             let content = Content {
                 id: ContentId::new_v4(),
                 publisher: Some(self.id),
@@ -176,9 +181,10 @@ impl Publisher {
         if update {
             self.learner.decide(rng);
             let params = self.learner.get_params();
-            self.quality = params.0;
-            self.ads = params.1;
-            self.attention = params.2;
+            self.depth = params[0];
+            self.spectacle = params[1];
+            self.ads = params[2];
+            self.attention = params[3];
         }
     }
 }

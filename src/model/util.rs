@@ -186,68 +186,106 @@ impl<T: Eq + Hash + Clone> LimitedSet<T> {
 
 // Quality, Ads
 // ParamsKey is separate b/c f32s aren't hashable
-pub type Params = (f32, f32, f32);
-pub type ParamsKey = (usize, usize, usize);
+pub type Params = (f32, f32, f32, f32);
+pub type ParamsKey = (usize, usize, usize, usize);
 
 #[derive(Debug)]
 pub struct Learner {
-    params: ParamsKey,
-    history: FnvHashMap<ParamsKey, f32>,
+    learners: [SubLearner; 4]
 }
 
-static MIN_QUALITY: usize = 0;
-static MAX_QUALITY: usize = 1;
-static STEPS_QUALITY: usize = 10;
+#[derive(Debug)]
+pub struct SubLearner {
+    min: f32,
+    max: f32,
+    steps: usize,
+    param: usize,
+    history: FnvHashMap<usize, f32>,
+}
 
-static MIN_ADS: usize = 0;
-static MAX_ADS: usize = 10;
-static STEPS_ADS: usize = 10;
+impl SubLearner {
+    fn new(steps: usize, min: f32, max: f32, rng: &mut StdRng) -> SubLearner {
+        let mut history = FnvHashMap::default();
+        let keys: Vec<usize> = (0..steps+1).collect();
+        for k in &keys {
+            history.insert(*k, 0.);
+        }
+        let key = keys.choose(rng).unwrap();
+        SubLearner {
+            min: min,
+            max: max,
+            steps: steps,
+            param: *key,
+            history: history,
+        }
+    }
 
-static MIN_ATTENTION: usize = 0;
-static MAX_ATTENTION: usize = 10;
+    fn learn(&mut self, reward: f32) {
+        let v = self.history.get_mut(&self.param).unwrap();
+        *v = ewma(reward, *v);
+    }
+
+    fn decide(&mut self, rng: &mut StdRng) {
+        let keys: Vec<&usize> = self.history.keys().collect();
+        let key = keys.choose_weighted(rng, |k| f32::max(0., *self.history.get(k).unwrap()) + 1.).unwrap();
+        self.param = **key;
+    }
+
+    fn to_params(&self, key: &usize) -> f32 {
+        self.min + self.max/(self.steps as f32) * *key as f32
+    }
+
+    pub fn get_params(&self) -> f32 {
+        self.to_params(&self.param)
+    }
+}
+
+static MIN_DEPTH: f32 = 0.;
+static MAX_DEPTH: f32 = 1.;
+static STEPS_DEPTH: usize = 10;
+
+static MIN_SPECTACLE: f32 = 0.;
+static MAX_SPECTACLE: f32 = 1.;
+static STEPS_SPECTACLE: usize = 10;
+
+static MIN_ADS: f32 = 0.;
+static MAX_ADS: f32 = 10.;
+static STEPS_ADS: usize = 1;
+
+static MIN_ATTENTION: f32 = 0.;
+static MAX_ATTENTION: f32 = 10.;
 static STEPS_ATTENTION: usize = 10;
 
 
 impl Learner {
     pub fn new(rng: &mut StdRng) -> Learner {
-        let keys: Vec<ParamsKey> = (0..STEPS_QUALITY+1)
-            .flat_map(|i| (0..STEPS_ADS+1).map(move |j| (i, j)))
-            .flat_map(|(i, j)| (0..STEPS_ATTENTION+1).map(move |k| (i, j, k))).collect();
+        let learners = [
+            SubLearner::new(STEPS_DEPTH, MIN_DEPTH, MAX_DEPTH, rng),
+            SubLearner::new(STEPS_SPECTACLE, MIN_SPECTACLE, MAX_SPECTACLE, rng),
+            SubLearner::new(STEPS_ADS, MIN_ADS, MAX_ADS, rng),
+            SubLearner::new(STEPS_ATTENTION, MIN_ATTENTION, MAX_ATTENTION, rng),
+        ];
 
-        let mut history = FnvHashMap::default();
-        for k in &keys {
-            history.insert(*k, 0.);
-        }
-
-        let key = keys.choose(rng).unwrap();
         Learner {
-            params: *key,
-            history: history
+            learners: learners
         }
     }
 
     pub fn learn(&mut self, reward: f32) {
         // TODO ensure reward is revenue/cost, not just revenue
-        let v = self.history.get_mut(&self.params).unwrap();
-        *v = ewma(reward, *v);
+        for learner in &mut self.learners {
+            learner.learn(reward);
+        }
     }
 
     pub fn decide(&mut self, rng: &mut StdRng) {
-        let keys: Vec<&ParamsKey> = self.history.keys().collect();
-        let key = keys.choose_weighted(rng, |k| f32::max(0., *self.history.get(k).unwrap()) + 1.).unwrap();
-        self.params = **key;
+        for learner in &mut self.learners {
+            learner.decide(rng);
+        }
     }
 
-    pub fn get_params(&self) -> Params {
-        self.to_params(&self.params)
-    }
-
-    fn to_params(&self, key: &ParamsKey) -> Params {
-        let (i, j, k) = key;
-        let quality = MIN_QUALITY as f32 + (MAX_QUALITY as f32)/(STEPS_QUALITY as f32) * *i as f32;
-        let ads = MIN_ADS as f32 + (MAX_ADS as f32)/(STEPS_ADS as f32) * *j as f32;
-        let attention = MIN_ATTENTION as f32 + (MAX_ATTENTION as f32)/(STEPS_ATTENTION as f32) * *k as f32;
-        (quality, ads, attention)
+    pub fn get_params(&self) -> Vec<f32> {
+        self.learners.iter().map(|l| l.get_params()).collect()
     }
 }
 

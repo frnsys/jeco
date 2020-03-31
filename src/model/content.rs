@@ -23,7 +23,8 @@ pub struct Content {
 #[derive(Debug, Copy, Clone)]
 pub struct ContentBody {
     pub cost: f32,
-    pub quality: f32,
+    pub depth: f32,
+    pub spectacle: f32,
     pub topics: Topics,
     pub values: Values,
 }

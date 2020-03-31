@@ -50,7 +50,8 @@ pub struct Agent {
     // The content quality the Agent
     // aims for. Could be replaced with something
     // more sophisticated.
-    pub quality: f32,
+    pub depth: f32,
+    pub spectacle: f32,
 
     // How many ads the Agent uses
     pub ads: f32,
@@ -97,9 +98,10 @@ impl Agent {
             interests: random_topics(&mut rng),
             values: random_values(&mut rng),
             reach: 100.,
-            ads: params.1,
-            quality: params.0,
-            attention: params.2,
+            depth: params[0],
+            spectacle: params[1],
+            ads: params[2],
+            attention: params[3],
             learner: learner,
             attention_budget: conf.attention_budget,
             resources: resources * 100.,
@@ -127,7 +129,8 @@ impl Agent {
 
         ContentBody {
             cost: attn_cost,
-            quality: self.quality,
+            depth: self.depth,
+            spectacle: self.spectacle,
             topics: topics,
             values: values,
         }
@@ -135,7 +138,7 @@ impl Agent {
 
     // Return content they create
     pub fn try_produce(&mut self, population: usize, conf: &SimulationConfig, rng: &mut StdRng) -> Option<ContentBody> {
-        let cost = self.quality * conf.cost_per_quality;
+        let cost = (self.depth + self.spectacle) * conf.cost_per_quality;
         if self.resources < cost { return None }
 
         // Agent produces depending on expected reach
@@ -194,7 +197,8 @@ impl Agent {
 
             let affinity = similarity(&self.interests, &c.body.topics);
             let align = alignment(&self.values, &c.body.values);
-            let mut react = reactivity(affinity, align, c.body.quality);
+            let appeal = (self.media_literacy * c.body.depth) + ((1. - self.media_literacy) * c.body.spectacle);
+            let mut react = reactivity(affinity, align, appeal);
 
             // Update publisher feeling/reputation/trust
             // and collect ad revenue
@@ -372,9 +376,10 @@ impl Agent {
         if update {
             self.learner.decide(rng);
             let params = self.learner.get_params();
-            self.quality = params.0;
-            self.ads = params.1;
-            self.attention = params.2;
+            self.depth = params[0];
+            self.spectacle = params[1];
+            self.ads = params[2];
+            self.attention = params[3];
         }
     }
 }
