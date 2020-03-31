@@ -186,8 +186,8 @@ impl<T: Eq + Hash + Clone> LimitedSet<T> {
 
 // Quality, Ads
 // ParamsKey is separate b/c f32s aren't hashable
-pub type Params = (f32, f32);
-pub type ParamsKey = (usize, usize);
+pub type Params = (f32, f32, f32);
+pub type ParamsKey = (usize, usize, usize);
 
 #[derive(Debug)]
 pub struct Learner {
@@ -203,11 +203,16 @@ static MIN_ADS: usize = 0;
 static MAX_ADS: usize = 10;
 static STEPS_ADS: usize = 10;
 
+static MIN_ATTENTION: usize = 0;
+static MAX_ATTENTION: usize = 10;
+static STEPS_ATTENTION: usize = 10;
+
 
 impl Learner {
     pub fn new(rng: &mut StdRng) -> Learner {
         let keys: Vec<ParamsKey> = (0..STEPS_QUALITY+1)
-            .flat_map(|i| (0..STEPS_ADS+1).map(move |j| (i, j))).collect();
+            .flat_map(|i| (0..STEPS_ADS+1).map(move |j| (i, j)))
+            .flat_map(|(i, j)| (0..STEPS_ATTENTION+1).map(move |k| (i, j, k))).collect();
 
         let mut history = FnvHashMap::default();
         for k in &keys {
@@ -238,10 +243,11 @@ impl Learner {
     }
 
     fn to_params(&self, key: &ParamsKey) -> Params {
-        let (i, j) = key;
+        let (i, j, k) = key;
         let quality = MIN_QUALITY as f32 + (MAX_QUALITY as f32)/(STEPS_QUALITY as f32) * *i as f32;
         let ads = MIN_ADS as f32 + (MAX_ADS as f32)/(STEPS_ADS as f32) * *j as f32;
-        (quality, ads)
+        let attention = MIN_ATTENTION as f32 + (MAX_ATTENTION as f32)/(STEPS_ATTENTION as f32) * *k as f32;
+        (quality, ads, attention)
     }
 }
 

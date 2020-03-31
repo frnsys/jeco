@@ -41,6 +41,9 @@ pub struct Publisher {
     // How many ads the Publisher uses
     pub ads: f32,
 
+    // How long the Publishers' pieces are
+    pub attention: f32,
+
     // Params for estimating quality/ads mix
     learner: Learner,
 
@@ -86,6 +89,7 @@ impl Publisher {
 
             ads: params.1,
             quality: params.0,
+            attention: params.2,
             learner: learner,
             n_ads_sold: 0.,
 
@@ -107,7 +111,7 @@ impl Publisher {
 
         // TODO this doesn't necessarily need to be random?
         // Could just be based on a threshold
-        let p_accept = accept_prob(&body, &self.audience);
+        let p_accept = accept_prob(&body, &self.audience, &self.attention);
         let accepted = rng.gen::<f32>() < p_accept;
         if accepted {
             // Pay author
@@ -174,6 +178,7 @@ impl Publisher {
             let params = self.learner.get_params();
             self.quality = params.0;
             self.ads = params.1;
+            self.attention = params.2;
         }
     }
 }
@@ -232,9 +237,11 @@ pub fn reader_similarity(body: &ContentBody, audience: &Audience) -> f32 {
     (sim + align)/2.
 }
 
-pub fn accept_prob(body: &ContentBody, audience: &Audience) -> f32 {
+pub fn accept_prob(body: &ContentBody, audience: &Audience, attention: &f32) -> f32 {
     let sim = reader_similarity(body, audience);
-    sigmoid(8.*(sim-0.5))
+    let attention_diff = f32::min(1., (1. - (body.cost - attention).abs()) + 0.8); // if w/in 0.2, it's ok
+    let v = (2.*sim + attention_diff)/3.; // weigh sim more
+    sigmoid(8.*(v-0.5))
 }
 
 #[cfg(test)]

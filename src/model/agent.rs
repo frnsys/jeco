@@ -20,7 +20,7 @@ pub struct Agent {
     pub id: AgentId,
     pub interests: Topics,
     pub values: Values,
-    pub attention: f32,
+    pub attention_budget: f32,
     pub resources: f32,
     pub expenses: f32,
     pub media_literacy: f32,
@@ -54,6 +54,9 @@ pub struct Agent {
 
     // How many ads the Agent uses
     pub ads: f32,
+
+    // How long the Agent' pieces are
+    pub attention: f32,
 
     // Track most recent content
     pub content: util::LimitedQueue<Arc<Content>>,
@@ -96,8 +99,9 @@ impl Agent {
             reach: 100.,
             ads: params.1,
             quality: params.0,
+            attention: params.2,
             learner: learner,
-            attention: conf.attention_budget,
+            attention_budget: conf.attention_budget,
             resources: resources * 100.,
             expenses: 0.,
             media_literacy: util::normal_p(&mut rng),
@@ -118,7 +122,7 @@ impl Agent {
         let values = self.values.map(|v| util::normal_range_mu_tight(v, rng));
 
         // ENH: Take other factors into account
-        // Attention cost ranges from 0-100
+        // Attention cost ranges from 0-10
         let attn_cost = util::normal_p(rng) * max_attention;
 
         ContentBody {
@@ -155,7 +159,7 @@ impl Agent {
         conf: &SimulationConfig,
         rng: &mut StdRng
     ) -> (Vec<Arc<Content>>, (Vec<PublisherId>, Vec<PublisherId>), (FnvHashSet<AgentId>, FnvHashSet<AgentId>), FnvHashMap<PlatformId, f32>, FnvHashMap<(SharerType, usize), f32>) {
-        let mut attention = self.attention;
+        let mut attention = self.attention_budget;
         let mut to_share = Vec::new();
         let mut new_subs = Vec::new();
         let mut unsubs = Vec::new();
@@ -370,6 +374,7 @@ impl Agent {
             let params = self.learner.get_params();
             self.quality = params.0;
             self.ads = params.1;
+            self.attention = params.2;
         }
     }
 }

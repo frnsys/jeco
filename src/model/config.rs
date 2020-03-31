@@ -123,7 +123,7 @@ impl SimulationConfig {
                 base_budget: 50000.
             },
             agent: AgentConfig {
-                attention_budget: 100.
+                attention_budget: 20.
             }
         }
     }

@@ -39,7 +39,7 @@ mod tests {
             let mut agent = Agent::new(i, &conf.agent, rng);
             agent.values = Values::from_vec(vec![0., 0.]);
             agent.interests = Topics::from_vec(vec![1., 1.]);
-            agent.attention = 100.;
+            agent.attention = 20.;
             agent.location = (0, 0);
             agent
         }).collect()
@@ -52,7 +52,7 @@ mod tests {
         let gravity_stretch = 10.;
         let max_influence = 0.1;
         let conf = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
@@ -124,7 +124,7 @@ mod tests {
     fn polarization() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
         conf.gravity_stretch = 10.;
         conf.max_influence = 1.0;
@@ -206,7 +206,7 @@ mod tests {
     fn high_quality_shared_more() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
@@ -261,7 +261,7 @@ mod tests {
     fn low_attention_shared_more() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
@@ -316,7 +316,7 @@ mod tests {
     fn more_aligned_shared_more() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
@@ -370,7 +370,7 @@ mod tests {
     fn more_affinity_shared_more() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
@@ -424,7 +424,7 @@ mod tests {
     fn more_relevant_shared_more() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
         conf.publisher = PublisherConfig {
             revenue_per_subscriber: 10.,
@@ -520,7 +520,7 @@ mod tests {
         let mut conf = SimulationConfig::default();
         conf.cost_per_quality = 0.2;
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
@@ -573,7 +573,7 @@ mod tests {
         // Tests both trust of sharer and author
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
@@ -641,7 +641,7 @@ mod tests {
         // Tests both trust of sharer and author
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
@@ -702,7 +702,7 @@ mod tests {
     fn alignment_changes_publisher_trust() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
         conf.publisher = PublisherConfig {
             revenue_per_subscriber: 10.,
@@ -775,7 +775,7 @@ mod tests {
     fn affinity_changes_publisher_trust() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
         conf.publisher = PublisherConfig {
             revenue_per_subscriber: 10.,
@@ -848,7 +848,7 @@ mod tests {
     fn relevancy_changes_publisher_trust() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
         conf.publisher = PublisherConfig {
             revenue_per_subscriber: 10.,
@@ -917,7 +917,7 @@ mod tests {
     fn ads_change_publisher_trust() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
         conf.publisher = PublisherConfig {
             revenue_per_subscriber: 10.,
@@ -990,7 +990,7 @@ mod tests {
     fn publisher_publish_to_audience_tastes() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
         conf.publisher = PublisherConfig {
             revenue_per_subscriber: 10.,
@@ -1066,7 +1066,7 @@ mod tests {
     fn publisher_adjust_audience_understanding_by_shares() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
         conf.publisher = PublisherConfig {
             revenue_per_subscriber: 10.,
@@ -1144,7 +1144,7 @@ mod tests {
     fn subscribe_to_trusted_publishers() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
         conf.publisher = PublisherConfig {
             revenue_per_subscriber: 10.,
@@ -1282,7 +1282,7 @@ mod tests {
     fn unsubscribe_from_inactive_publishers() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
         conf.publisher = PublisherConfig {
             revenue_per_subscriber: 10.,
@@ -1357,7 +1357,7 @@ mod tests {
         let mut conf = SimulationConfig::default();
         conf.revenue_per_ad = 1.;
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
         conf.publisher = PublisherConfig {
             revenue_per_subscriber: 10.,
@@ -1416,7 +1416,7 @@ mod tests {
         conf.max_conversion_rate = 0.05;
         conf.base_conversion_rate = 0.01;
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
         conf.publisher = PublisherConfig {
             revenue_per_subscriber: 10.,
@@ -1530,7 +1530,7 @@ mod tests {
     fn follow_trusted() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
-            attention_budget: 100.
+            attention_budget: 20.
         };
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
