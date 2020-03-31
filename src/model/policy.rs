@@ -7,4 +7,5 @@ pub enum Policy {
     SubsidizeProduction(f32),
     TaxAdvertising(f32),
     FoundPlatforms(usize),
+    MediaLiteracy(f32),
 }

@@ -502,6 +502,12 @@ impl Simulation {
 
     pub fn apply_policy(&mut self, policy: &Policy, conf: &SimulationConfig, rng: &mut StdRng) {
         match policy {
+            Policy::MediaLiteracy(n) => {
+                for a in &mut self.agents {
+                    a.media_literacy = f32::min(1., a.media_literacy + n);
+                }
+            },
+
             Policy::FoundPlatforms(n) => {
                 for _ in 0..*n {
                     let platform = Platform::new(self.platforms.len());

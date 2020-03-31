@@ -162,5 +162,14 @@ const POLICY_SPEC = {
       name: 'amount',
       default: 5
     }]
+  },
+  'MediaLiteracy': {
+    desc: 'Improve media literacy',
+    args: [{
+      min: 0,
+      type: 'float',
+      name: 'amount',
+      default: 0.1
+    }]
   }
 };
