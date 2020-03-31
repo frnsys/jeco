@@ -23,6 +23,7 @@ pub struct Agent {
     pub attention: f32,
     pub resources: f32,
     pub expenses: f32,
+    pub media_literacy: f32,
     pub location: Position,
     pub relevancies: Vec<f32>, // Indexed by PublisherId
 
@@ -99,6 +100,7 @@ impl Agent {
             attention: conf.attention_budget,
             resources: resources * 100.,
             expenses: 0.,
+            media_literacy: util::normal_p(&mut rng),
             publishability: 1.,
             publishabilities: FnvHashMap::default(),
             publishers: FnvHashMap::default(),
