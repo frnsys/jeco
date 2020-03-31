@@ -6,6 +6,7 @@ Chart.defaults.global.tooltips.cornerRadius = 0;
 const POINT_RADIUS = 2;
 const stage = document.getElementById('charts');
 const space = document.getElementById('space');
+const publishers = document.getElementById('publishers');
 
 
 class Plotter {
@@ -135,6 +136,9 @@ class Plotter {
     });
     while (space.firstChild) {
       space.removeChild(space.firstChild);
+    }
+    while (publishers.firstChild) {
+      publishers.removeChild(publishers.firstChild);
     }
   }
 
@@ -323,5 +327,25 @@ class Plotter {
           .on('mouseout', mouseOut);
 
     space.appendChild(svg.node());
+  }
+
+  listPublishers(state) {
+    Object.keys(state.publishers.sample).forEach((id) => {
+      let p = state.publishers.sample[id];
+      let el = document.createElement('div');
+      el.classList.add('publisher');
+      let e = document.createElement('div');
+      e.innerText = `Publisher ${id}`;
+      e.style.fontWeight = 'bold';
+      el.appendChild(e);
+
+      Object.keys(p).forEach((k) => {
+        let v = p[k];
+        let e = document.createElement('div');
+        e.innerText = `${k}: ${v}`;
+        el.appendChild(e);
+      });
+      publishers.appendChild(el);
+    });
   }
 }

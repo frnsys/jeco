@@ -51,6 +51,7 @@ class Command {
             if (data.history.length > 0 && data.history[0].step == 0) {
               let initState = data['history'][0];
               this.plotter.createSpacePlot(initState, this.config.SIMULATION.GRID_SIZE);
+              this.plotter.listPublishers(initState);
             }
 
             data.history.forEach((s) => this.history.push(s));

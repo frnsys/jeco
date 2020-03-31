@@ -118,6 +118,18 @@ header {
   margin: 8em auto;
 }
 
+#publishers {
+  margin: 2em;
+}
+.publisher {
+  max-width: 180px;
+  display: inline-block;
+  background: #efefef;
+  margin: 1em;
+  padding: 1em;
+  vertical-align: top;
+}
+
 #charts {
   display: grid;
   grid-template-columns: repeat(auto-fit, 32%);
