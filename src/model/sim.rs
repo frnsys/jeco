@@ -14,6 +14,7 @@ use super::config::SimulationConfig;
 use itertools::Itertools;
 use rand_distr::{Distribution, Beta, Binomial};
 use std::sync::Arc;
+use std::cmp::max;
 
 static MAX_FRIENDS: usize = 120;
 
@@ -500,8 +501,17 @@ impl Simulation {
         self.content.iter().sorted_by(|a, b| Arc::strong_count(b).cmp(&Arc::strong_count(a)))
     }
 
-    pub fn apply_policy(&mut self, policy: &Policy, conf: &SimulationConfig, rng: &mut StdRng) {
+    pub fn apply_policy(&mut self, policy: &Policy, conf: &mut SimulationConfig, rng: &mut StdRng) {
         match policy {
+            Policy::Recession(n) => {
+                conf.economy = f32::max(0., conf.economy - n);
+                conf.unsubscribe_lag = max(0, conf.unsubscribe_lag as isize - (*n*10.) as isize) as usize;
+                conf.unsubscribe_trust = f32::min(1., conf.unsubscribe_trust + n/5.);
+                conf.subscribe_trust = f32::min(1., conf.subscribe_trust + n/5.);
+                conf.base_conversion_rate = f32::max(0., conf.base_conversion_rate - n/100.);
+                conf.revenue_per_ad = f32::max(0., conf.revenue_per_ad - n/100.);
+            },
+
             Policy::MediaLiteracy(n) => {
                 for a in &mut self.agents {
                     a.media_literacy = f32::min(1., a.media_literacy + n);
@@ -588,11 +598,12 @@ fn distribute_agents(agents: &mut Vec<Agent>, grid: &mut FnvHashMap<Position, Ve
 }
 
 pub fn ad_market(content: &mut FnvHashMap<(SharerType, usize), Vec<Content>>, agents: &Vec<Agent>, publishers: &Vec<Publisher>, platforms: &Vec<Platform>, conf: &SimulationConfig, rng: &mut StdRng) {
+    let econ = f32::min(conf.economy, 1.);
     let z = platforms.iter().fold(0., |acc, platform| acc + platform.conversion_rate);
     let max_p = 0.95; // Required to avoid beta of 0.0
     let min_p = 0.05; // Required to avoid alpha of 0.0
     for ((typ, id), ref mut contents) in &mut content.iter_mut() {
-        let (p, ad_slots) = match typ {
+        let (mut p, ad_slots) = match typ {
             SharerType::Publisher => {
                 // TODO take reach into account
                 let p = f32::max(min_p,
@@ -611,6 +622,7 @@ pub fn ad_market(content: &mut FnvHashMap<(SharerType, usize), Vec<Content>>, ag
             }
         };
         if ad_slots > 0. {
+            p *= econ;
             let alpha = p * ad_slots;
             let beta = (1.-p) * ad_slots;
             // println!("alpha {:?}, beta {:?}, ad slots {:?}", alpha, beta, ad_slots);

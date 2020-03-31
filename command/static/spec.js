@@ -164,12 +164,21 @@ const POLICY_SPEC = {
     }]
   },
   'MediaLiteracy': {
-    desc: 'Improve media literacy',
+    desc: 'Improve media literacy.',
     args: [{
       min: 0,
       type: 'float',
       name: 'amount',
       default: 0.1
+    }]
+  },
+  'Recession': {
+    desc: 'Trigger economic recession.',
+    args: [{
+      min: 0,
+      type: 'float',
+      name: 'amount',
+      default: 0.8
     }]
   }
 };

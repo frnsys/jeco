@@ -69,6 +69,9 @@ pub struct SimulationConfig {
     // How much it costs for 1 point of quality
     pub cost_per_quality: f32,
 
+    // General strength of the economy
+    pub economy: f32,
+
     // See below
     pub publisher: PublisherConfig,
     pub agent: AgentConfig
@@ -115,6 +118,7 @@ impl SimulationConfig {
             subscribe_trust: 0.9,
             unsubscribe_lag: 20,
             base_conversion_rate: 0.01,
+            economy: 1.,
             max_conversion_rate: 0.05,
             max_shared_content: 200,
             cost_per_quality: 0.5,

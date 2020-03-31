@@ -8,4 +8,5 @@ pub enum Policy {
     TaxAdvertising(f32),
     FoundPlatforms(usize),
     MediaLiteracy(f32),
+    Recession(f32),
 }
