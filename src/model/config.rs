@@ -117,10 +117,10 @@ impl SimulationConfig {
             base_conversion_rate: 0.01,
             max_conversion_rate: 0.05,
             max_shared_content: 200,
-            cost_per_quality: 10.,
+            cost_per_quality: 0.5,
             publisher: PublisherConfig {
-                revenue_per_subscriber: 1000.,
-                base_budget: 50000.
+                revenue_per_subscriber: 0.01,
+                base_budget: 2000.
             },
             agent: AgentConfig {
                 attention_budget: 20.

@@ -226,8 +226,9 @@ impl SubLearner {
     }
 
     fn decide(&mut self, rng: &mut StdRng) {
+        // Square weights to bias towards better-performing params
         let keys: Vec<&usize> = self.history.keys().collect();
-        let key = keys.choose_weighted(rng, |k| f32::max(0., *self.history.get(k).unwrap()) + 1.).unwrap();
+        let key = keys.choose_weighted(rng, |k| f32::max(0., *(self.history.get(k).unwrap()) + 1.).powi(2)).unwrap();
         self.param = **key;
     }
 
@@ -250,7 +251,7 @@ static STEPS_SPECTACLE: usize = 10;
 
 static MIN_ADS: f32 = 0.;
 static MAX_ADS: f32 = 10.;
-static STEPS_ADS: usize = 1;
+static STEPS_ADS: usize = 10;
 
 static MIN_ATTENTION: f32 = 0.;
 static MAX_ATTENTION: f32 = 10.;

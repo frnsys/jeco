@@ -5,6 +5,7 @@ use super::publisher::PublisherId;
 use super::platform::PlatformId;
 use super::content::{Content, ContentId, ContentBody, SharedContent, SharerType};
 use super::config::{SimulationConfig, AgentConfig};
+use super::motive::Motive;
 use rand::rngs::StdRng;
 use rand::Rng;
 use std::fmt::Debug;
@@ -20,6 +21,7 @@ pub struct Agent {
     pub id: AgentId,
     pub interests: Topics,
     pub values: Values,
+    pub motive: Motive,
     pub attention_budget: f32,
     pub resources: f32,
     pub expenses: f32,
@@ -97,6 +99,7 @@ impl Agent {
             location: (0, 0),
             interests: random_topics(&mut rng),
             values: random_values(&mut rng),
+            motive: rng.gen(),
             reach: 100.,
             depth: params[0],
             spectacle: params[1],
@@ -372,7 +375,12 @@ impl Agent {
         // Assume reach has been updated
         // Assume expenses are correct
         let profit = revenue - self.expenses;
-        self.learner.learn(profit);
+        let reward = match self.motive {
+            Motive::Profit => profit,
+            Motive::Civic => self.reach * self.depth + f32::min(0., profit),
+            Motive::Influence => self.reach + f32::min(0., profit),
+        };
+        self.learner.learn(reward);
         if update {
             self.learner.decide(rng);
             let params = self.learner.get_params();

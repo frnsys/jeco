@@ -143,6 +143,18 @@ const CHARTS = [{
     key: 'resources.mean'
   }]
 }, {
+  title: 'Media Literacy',
+  datasets: [{
+    label: 'max',
+    key: 'media_literacy.max'
+  }, {
+    label: 'min',
+    key: 'media_literacy.min'
+  }, {
+    label: 'mean',
+    key: 'media_literacy.mean'
+  }]
+}, {
   title: 'Publisher Reach',
   datasets: [...Array(PUBLISHER_SAMPLE).keys()].map((i) => ({
     label: `${i}`,
@@ -161,10 +173,22 @@ const CHARTS = [{
     key: `publishers.sample.${i}.ads`
   }))
 }, {
-  title: 'Publisher Quality',
+  title: 'Publisher Depth',
   datasets: [...Array(PUBLISHER_SAMPLE).keys()].map((i) => ({
     label: `${i}`,
-    key: `publishers.sample.${i}.quality`
+    key: `publishers.sample.${i}.depth`
+  }))
+}, {
+  title: 'Publisher Spectacle',
+  datasets: [...Array(PUBLISHER_SAMPLE).keys()].map((i) => ({
+    label: `${i}`,
+    key: `publishers.sample.${i}.spectacle`
+  }))
+}, {
+  title: 'Publisher Attention',
+  datasets: [...Array(PUBLISHER_SAMPLE).keys()].map((i) => ({
+    label: `${i}`,
+    key: `publishers.sample.${i}.attention`
   }))
 }, {
   title: 'Publisher Ads Sold',

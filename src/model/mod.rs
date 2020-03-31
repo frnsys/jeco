@@ -7,6 +7,7 @@ mod content;
 mod network;
 mod platform;
 mod publisher;
+mod motive;
 mod config;
 
 pub use self::policy::Policy;

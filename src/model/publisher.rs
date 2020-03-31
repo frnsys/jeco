@@ -2,6 +2,7 @@ use rand::Rng;
 use std::sync::Arc;
 use rand::rngs::StdRng;
 use itertools::Itertools;
+use super::motive::Motive;
 use super::agent::{Agent, similarity, alignment};
 use super::content::{Content, ContentId, ContentBody};
 use super::util::{Vector, Learner, Sample, SampleRow, ewma, bayes_update, sigmoid, LimitedQueue, normal_range};
@@ -25,6 +26,8 @@ pub struct Publisher {
 
     pub location: Position,
     pub radius: usize,
+
+    pub motive: Motive,
 
     // Budget determines how much content
     // can be published per step
@@ -83,6 +86,8 @@ impl Publisher {
             radius: 0,
             location: (0, 0),
 
+            motive: rng.gen(),
+
             expenses: 0.,
             budget: conf.base_budget,
             revenue_per_subscriber: conf.revenue_per_subscriber,
@@ -115,7 +120,7 @@ impl Publisher {
 
         // TODO this doesn't necessarily need to be random?
         // Could just be based on a threshold
-        let p_accept = accept_prob(&body, &self.audience, &self.attention);
+        let p_accept = accept_prob(&body, &self.audience);
         let accepted = rng.gen::<f32>() < p_accept;
         if accepted {
             // Pay author
@@ -125,6 +130,7 @@ impl Publisher {
             let mut body_ = body.clone();
             body_.depth += self.depth;
             body_.spectacle += self.spectacle;
+            body_.cost = self.attention;
             let content = Content {
                 id: ContentId::new_v4(),
                 publisher: Some(self.id),
@@ -176,8 +182,12 @@ impl Publisher {
     pub fn learn(&mut self, revenue: f32, update: bool, rng: &mut StdRng) {
         // Assume reach has been updated
         // Assume expenses are correct
-        let profit = revenue - self.expenses;
-        self.learner.learn(profit);
+        let reward = match self.motive {
+            Motive::Profit => revenue - self.expenses,
+            Motive::Civic => self.reach * self.depth + f32::max(0., revenue - self.expenses),
+            Motive::Influence => self.reach + f32::max(0., revenue - self.expenses),
+        };
+        self.learner.learn(reward);
         if update {
             self.learner.decide(rng);
             let params = self.learner.get_params();
@@ -243,11 +253,9 @@ pub fn reader_similarity(body: &ContentBody, audience: &Audience) -> f32 {
     (sim + align)/2.
 }
 
-pub fn accept_prob(body: &ContentBody, audience: &Audience, attention: &f32) -> f32 {
+pub fn accept_prob(body: &ContentBody, audience: &Audience) -> f32 {
     let sim = reader_similarity(body, audience);
-    let attention_diff = f32::min(1., (1. - (body.cost - attention).abs()) + 0.8); // if w/in 0.2, it's ok
-    let v = (2.*sim + attention_diff)/3.; // weigh sim more
-    sigmoid(8.*(v-0.5))
+    sigmoid(8.*(sim-0.5))
 }
 
 #[cfg(test)]

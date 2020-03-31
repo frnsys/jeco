@@ -88,8 +88,10 @@ impl Recorder {
                 "radius": p.radius,
                 "budget": p.budget,
                 "ads": p.ads,
+                "attention": p.attention,
                 "location": p.location,
                 "depth": p.depth,
+                "motive": p.motive,
                 "spectacle": p.spectacle,
                 "ads_sold": p.n_ads_sold,
                 "subscribers": p.subscribers
@@ -142,6 +144,7 @@ impl Recorder {
         let reach: Vec<f32> = sim.publishers.iter().map(|p| p.reach).collect();
         let budget: Vec<f32> = sim.publishers.iter().map(|p| p.budget).collect();
         let publishability: Vec<f32> = agents.iter().map(|a| a.publishability).collect();
+        let media_literacy: Vec<f32> = agents.iter().map(|a| a.media_literacy).collect();
         let resources: Vec<f32> = agents.iter().map(|a| a.resources).collect();
         let agent_reach: Vec<f32> = agents.iter().map(|a| a.reach).collect();
 
@@ -169,6 +172,11 @@ impl Recorder {
                 "max": max_f32(&publishability),
                 "min": min_f32(&publishability),
                 "mean": mean_f32(&publishability),
+            },
+            "media_literacy": {
+                "max": max_f32(&media_literacy),
+                "min": min_f32(&media_literacy),
+                "mean": mean_f32(&media_literacy),
             },
             "resources": {
                 "max": max_f32(&resources),
