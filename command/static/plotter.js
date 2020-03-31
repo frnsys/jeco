@@ -5,6 +5,7 @@ Chart.defaults.global.tooltips.cornerRadius = 0;
 
 const POINT_RADIUS = 2;
 const stage = document.getElementById('charts');
+const space = document.getElementById('space');
 
 
 class Plotter {
@@ -132,6 +133,9 @@ class Plotter {
       });
       c.chart.update();
     });
+    while (space.firstChild) {
+      space.removeChild(space.firstChild);
+    }
   }
 
   color(i, alpha) {
@@ -227,5 +231,97 @@ class Plotter {
       panel: spec.panel,
       chart: chart
     };
+  }
+
+  createSpacePlot(state, gridSize) {
+    const height = 200;
+    const width = 200;
+    const margin = {
+      top: 20, right: 30,
+      bottom: 30, left: 40
+    };
+    let agents = state.agents.map((a) => ({x: a.location[0], y: a.location[1]}));
+    let publishers = Object.values(state.publishers.sample).map((p) => ({
+      x: p.location[0] + (Math.random() - 0.5) * 0.2, // jitter
+      y: p.location[1] + (Math.random() - 0.5) * 0.2,
+      radius: p.radius
+    }));
+
+    let x = d3.scaleLinear()
+        .domain(d3.extent(agents, d => d.x)).nice()
+        .rangeRound([margin.left, width - margin.right])
+
+    let y = d3.scaleLinear()
+        .domain(d3.extent(agents, d => d.y)).nice()
+        .rangeRound([height - margin.bottom, margin.top])
+
+    let contours = d3.contourDensity()
+        .x(d => x(d.x))
+        .y(d => y(d.y))
+        .size([width, height])
+        .bandwidth(30)
+        .thresholds(15)
+      (agents)
+
+    const colors = d3.scaleLinear()
+      .domain([0, 0.1])
+      .range(["#fff", "#888"]);
+
+    const xScale = d3.scaleLinear()
+        .domain([0, d3.max(publishers, function (d) { return d.x; })])
+        .range([margin.left, width - margin.right]);
+    const yScale = d3.scaleLinear()
+        .domain([d3.max(publishers, function (d) { return d.y; }), 0])
+        .range([margin.top, height - margin.bottom]);
+
+    const r = 4;
+    const mouseEnter = (d, i) => {
+      svg.append('text')
+        .attr('id', `t${i}`)
+        .attr('font-size', '0.8em')
+        .attr('x', xScale(d.x) + r)
+        .attr('y', yScale(d.y) + r)
+        .text(`Publisher ${i}`);
+    };
+    const mouseOut = (d, i) => {
+      d3.select(`#t${i}`).remove();
+    };
+
+    const svg = d3.create('svg')
+      .attr('viewBox', [0, 0, width, height]);
+
+      svg.append('g')
+          .attr('stroke-linejoin', 'round')
+        .selectAll('path')
+        .data(contours)
+        .enter().append('path')
+          .attr('fill', (d, i) => colors(d.value))
+          .attr('stroke', (d, i) => colors(d.value))
+          .attr('stroke-width', (d, i) => i % 5 ? 0.25 : 1)
+          .attr('d', d3.geoPath());
+
+      svg.append('g')
+          .attr('stroke', 'none')
+        .selectAll('circle')
+        .data(publishers)
+        .enter().append('circle')
+          .attr('cx', d => x(d.x))
+          .attr('cy', d => y(d.y))
+          .attr('fill', (d, i) => this.color(i, 0.08))
+          .attr('r', d => (d.radius+1)*(width/(gridSize*2)));
+
+      svg.append('g')
+          .attr('stroke', 'black')
+        .selectAll('circle')
+        .data(publishers)
+        .enter().append('circle')
+          .attr('fill', (d, i) => this.color(i))
+          .attr('cx', d => x(d.x))
+          .attr('cy', d => y(d.y))
+          .attr('r', r)
+          .on('mouseenter', mouseEnter)
+          .on('mouseout', mouseOut);
+
+    space.appendChild(svg.node());
   }
 }

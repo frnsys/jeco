@@ -245,3 +245,4 @@ const command = new Command({
   policies: '#policy ul',
   policyHistory: '#policy-history div'
 }, plotter);
+

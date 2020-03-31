@@ -106,15 +106,23 @@ header {
   text-align: right;
 }
 
-#charts {
+#board {
   flex: 1;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: none;
+}
+
+#space {
+  max-width: 300px;
+  margin: 8em auto;
+}
+
+#charts {
   display: grid;
   grid-template-columns: repeat(auto-fit, 32%);
   grid-template-rows:auto 1fr;
   grid-gap: 0;
-  height: 100vh;
-  overflow-y: auto;
-  overflow-x: none;
 }
 .chart {
   max-width: 320px;
@@ -212,4 +220,8 @@ header {
 
 input[type=range] {
   width: 100%;
+}
+
+svg {
+  overflow: visible;
 }

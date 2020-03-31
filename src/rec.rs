@@ -66,6 +66,7 @@ impl Recorder {
                     "id": a.id,
                     "values": a.values,
                     "interests": a.interests,
+                    "location": a.location,
                 })
             })
             .collect();
@@ -84,8 +85,10 @@ impl Recorder {
         let publishers = sim.publishers.iter().fold(FnvHashMap::default(), |mut acc, p| {
             acc.insert(p.id, json!({
                 "reach": p.reach,
+                "radius": p.radius,
                 "budget": p.budget,
                 "ads": p.ads,
+                "location": p.location,
                 "quality": p.quality,
                 "ads_sold": p.n_ads_sold,
                 "subscribers": p.subscribers
