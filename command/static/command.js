@@ -224,14 +224,39 @@ class Command {
       let resetButton = this.elements['configReset']
       resetButton.style.display = 'none';
 
+      this.config = JSON.parse(JSON.stringify(config));
+
       // Display only config items specified
       // in the spec
       console.log(config);
+      let html = `<li id="publishers-config">
+        <h3>Publishers</h3>
+        <ul></ul>
+        <button class="add-publisher">Add Publisher</button>
+      </li>`;
+      let publishersConfig = htmlToElement(html);
+      let publishersConfigUl = publishersConfig.querySelector('ul');
+      let addButton = publishersConfig.querySelector('.add-publisher');
+      addButton.addEventListener('click', () => {
+        let publisher = Object.keys(PUBLISHER_SPEC).reduce((acc, k) => {
+          acc[k] = PUBLISHER_SPEC[k].default;
+          return acc;
+        }, {});
+        renderPublisherConfig(publisher, this.config.SIMULATION.PUBLISHERS.length,
+          publishersConfigUl, changed, resetButton, this.config);
+        this.config.SIMULATION.PUBLISHERS.push(publisher);
+        resetButton.style.display = 'block';
+      });
+
+      this.config.SIMULATION.PUBLISHERS.forEach((p, i) => {
+        renderPublisherConfig(p, i, publishersConfigUl, changed, resetButton, this.config);
+      });
+      el.appendChild(publishersConfig);
+
       Object.keys(CONFIG_SPEC).forEach((name) => {
         let spec = CONFIG_SPEC[name];
         let k = spec.key ? `${spec.key}.${name}` : name;
         let val = valueFromKeyPath(config, k);
-        this.config = JSON.parse(JSON.stringify(config));
 
         let html = `<li class="config-item">
           <div class="config-item--info">
@@ -244,49 +269,101 @@ class Command {
 
         // Setup editable inputs
         let child = htmlToElement(html);
-        let valEl = child.querySelector('.config-item--val');
-        let inputEl = child.querySelector('input');
-        valEl.addEventListener('click', () => {
-          inputEl.style.display = 'block';
-          valEl.style.display = 'none';
-          inputEl.select();
-        });
-        inputEl.addEventListener('blur', () => {
-          let customVal;
-          if (spec.type == 'int') {
-            customVal = parseInt(inputEl.value);
-          } else if (spec.type == 'float') {
-            customVal = parseFloat(inputEl.value);
-          }
-
-          // Reset if not valid number
-          if (isNaN(customVal)) {
-            inputEl.value = val;
-            customVal = val;
-          }
-
-          // Show original value if changed
-          if (customVal !== val) {
-            valEl.innerHTML = `
-              <span class="config-item--val-original">${val}</span>
-              <span class="config-item--val-new">${customVal}</span>`;
-            changed.add(k);
-          } else {
-            valEl.innerText = val;
-            changed.delete(k);
-          }
-          inputEl.style.display = 'none';
-          valEl.style.display = 'block';
+        makeEditableInput(child, k, val, spec, changed, resetButton, (k, customVal) => {
           setValueFromKeyPath(this.config, k, customVal);
-
-          if (changed.size > 0) {
-            resetButton.style.display = 'block';
-          } else {
-            resetButton.style.display = 'none';
-          }
         });
         el.appendChild(child);
       });
     });
   }
+}
+
+function makeEditableInput(el, k, val, spec, changed, resetButton, onChange) {
+  let valEl = el.querySelector('.config-item--val');
+  let inputEl = el.querySelector('input');
+  valEl.addEventListener('click', () => {
+    inputEl.style.display = 'block';
+    valEl.style.display = 'none';
+    inputEl.select();
+  });
+  inputEl.addEventListener('blur', () => {
+    let customVal;
+    if (['int', 'float'].includes(spec.type)) {
+      if (spec.type == 'int') {
+        customVal = parseInt(inputEl.value);
+      } else if (spec.type == 'float') {
+        customVal = parseFloat(inputEl.value);
+      }
+
+      // Reset if not valid number
+      if (isNaN(customVal)) {
+        inputEl.value = val;
+        customVal = val;
+      }
+    } else {
+      if (spec.type == 'enum') {
+        customVal = inputEl.value;
+        if (!spec.choices.includes(customVal)) {
+          inputEl.value = val;
+          customVal = val;
+        }
+      }
+    }
+
+    // Show original value if changed
+    if (customVal !== val) {
+      valEl.innerHTML = `
+        <span class="config-item--val-original">${val}</span>
+        <span class="config-item--val-new">${customVal}</span>`;
+      changed.add(k);
+    } else {
+      valEl.innerText = val;
+      changed.delete(k);
+    }
+    inputEl.style.display = 'none';
+    valEl.style.display = 'block';
+    onChange(k, customVal);
+
+    if (changed.size > 0) {
+      resetButton.style.display = 'block';
+    } else {
+      resetButton.style.display = 'none';
+    }
+  });
+}
+
+function renderPublisherConfig(p, i, parentUl, changed, resetButton, config) {
+  let html = `<li class="publisher-config">
+    <h4><div>Publisher ${i}</div> <button class="del-publisher">Delete</button></h4>
+    <ul></ul>
+  </li>`;
+  let child = htmlToElement(html);
+  let ul = child.querySelector('ul');
+  let delButton = child.querySelector('.del-publisher');
+  delButton.addEventListener('click', () => {
+    config.SIMULATION.PUBLISHERS.splice(i, 1);
+    parentUl.removeChild(child);
+    [...document.body.querySelectorAll('.publisher-config')].forEach((el, i) => {
+      el.querySelector('h4 div').innerText = `Publisher ${i}`;
+    });
+    resetButton.style.display = 'block';
+  });
+
+  Object.keys(PUBLISHER_SPEC).forEach((k) => {
+    let html = `<li class="config-item">
+      <div class="config-item--info">
+        <div class="config-item--key">${k}</div>
+        <div class="config-item--val">${p[k]}</div>
+        <input class="config-item--input" type="text" value="${p[k]}">
+      </div>
+      <div class="config-item--desc">${PUBLISHER_SPEC[k].desc}</div>
+    </li>`;
+
+    let child = htmlToElement(html);
+    makeEditableInput(child, k, p[k], PUBLISHER_SPEC[k], changed, resetButton, (k, customVal) => {
+      p[k] = customVal;
+    });
+    ul.appendChild(child);
+  });
+  parentUl.appendChild(child);
 }

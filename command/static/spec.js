@@ -126,6 +126,20 @@ const CONFIG_SPEC = {
   }
 };
 
+const PUBLISHER_SPEC = {
+  'BASE_BUDGET': {
+    type: 'float',
+    desc: 'Base budget for the publisher.',
+    default: 2000
+  },
+  'MOTIVE': {
+    type: 'enum',
+    choices: ['Profit', 'Influence', 'Civic'],
+    desc: 'Publisher\'s motivation, which influences their decisions. One of "Profit", "Influence", or "Civic".',
+    default: 'Civic'
+  }
+};
+
 const POLICY_SPEC = {
   'PopulationChange': {
     desc: 'Change the population by the specified amount.',

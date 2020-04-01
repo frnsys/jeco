@@ -237,3 +237,35 @@ input[type=range] {
 svg {
   overflow: visible;
 }
+
+#publishers-config h3 {
+  background: none;
+  border: none;
+  border-bottom: 1px solid #aaa;
+  color: #000;
+  margin: 1em;
+  padding: 0;
+  font-size: 1em;
+}
+#publishers-config h4 {
+  border-bottom: 1px solid #ddd;
+  margin: 1em;
+  display: flex;
+}
+#publishers-config h4 > div {
+  flex: 1;
+}
+.add-publisher {
+  font-size: 0.8em;
+  margin: 0 auto;
+  display: block;
+}
+.del-publisher {
+  font-size: 0.8em;
+  color: #E60000;
+  background: none;
+  padding: 0 0.25em;
+}
+.del-publisher:hover {
+  background: none;
+}
