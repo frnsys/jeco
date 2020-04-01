@@ -6,7 +6,7 @@ use super::motive::Motive;
 use super::agent::{Agent, similarity, alignment};
 use super::content::{Content, ContentId, ContentBody};
 use super::util::{Vector, Learner, Sample, SampleRow, ewma, bayes_update, sigmoid, LimitedQueue, normal_range};
-use super::config::PublisherConfig;
+use super::config::{PublisherConfig, SinglePublisherConfig};
 use super::config::SimulationConfig;
 use super::grid::Position;
 
@@ -107,6 +107,13 @@ impl Publisher {
             // Priors
             audience: Audience::new(&mut rng),
         }
+    }
+
+    pub fn from_config(id: PublisherId, sconf: &SinglePublisherConfig, conf: &PublisherConfig, rng: &mut StdRng) -> Publisher {
+        let mut publisher = Publisher::new(id, conf, rng);
+        publisher.budget = sconf.base_budget;
+        publisher.motive = sconf.motive;
+        publisher
     }
 
     // An Agent pitches a piece

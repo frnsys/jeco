@@ -1,3 +1,4 @@
+use super::motive::Motive;
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
@@ -74,7 +75,9 @@ pub struct SimulationConfig {
 
     // See below
     pub publisher: PublisherConfig,
-    pub agent: AgentConfig
+    pub agent: AgentConfig,
+
+    pub publishers: Vec<SinglePublisherConfig>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
@@ -88,6 +91,13 @@ pub struct PublisherConfig {
     pub base_budget: f32,
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[serde(rename_all = "UPPERCASE")]
+pub struct SinglePublisherConfig {
+    // Base budget for Publisher
+    pub base_budget: f32,
+    pub motive: Motive
+}
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 #[serde(rename_all = "UPPERCASE")]
@@ -128,7 +138,8 @@ impl SimulationConfig {
             },
             agent: AgentConfig {
                 attention_budget: 20.
-            }
+            },
+            publishers: Vec::new()
         }
     }
 }

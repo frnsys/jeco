@@ -63,9 +63,15 @@ impl Simulation {
             share_queues.push(Vec::new());
         }
 
-        let mut publishers: Vec<Publisher> = (0..conf.n_publishers)
-            .map(|i| Publisher::new(i, &conf.publisher, &mut rng))
+        let mut publishers: Vec<Publisher> = conf.publishers.iter()
+            .enumerate()
+            .map(|(i, sconf)| Publisher::from_config(i, &sconf, &conf.publisher, &mut rng))
             .collect();
+
+        let more_publishers: Vec<Publisher> = (0..(conf.n_publishers - publishers.len()).max(0))
+            .map(|i| Publisher::new(i+publishers.len(), &conf.publisher, &mut rng))
+            .collect();
+        publishers.extend(more_publishers);
 
         let mut outboxes = Vec::new();
         for _ in &publishers {

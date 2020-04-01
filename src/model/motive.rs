@@ -5,7 +5,7 @@ use rand::{
     Rng,
 };
 
-#[derive(Display, EnumIter, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Display, EnumIter, PartialEq, Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum Motive {
     Profit,
     Civic,

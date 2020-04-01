@@ -28,3 +28,6 @@ SIMULATION:
         BASE_BUDGET: 2000
     AGENT:
         ATTENTION_BUDGET: 20
+    PUBLISHERS:
+        - BASE_BUDGET: 5000
+          MOTIVE: Profit
