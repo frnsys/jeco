@@ -323,13 +323,19 @@ mod tests {
     fn test_learner() {
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let mut learner = Learner::new(&mut rng);
-        for i in 0..2000 {
-            let (x, y) = learner.get_params();
+        for i in 0..100 {
+            let params = learner.get_params();
+            let x = params[0]/MAX_DEPTH;
+            let y = params[1]/MAX_SPECTACLE;
+            let z = params[2]/MAX_ADS;
+            let q = params[3]/MAX_ATTENTION;
 
             // Mock reward function
-            let x_r = (-(4.*x-2.).powf(2.)+4.); // Peak should be at x=0.5
-            let y_r = (-(4.*y/MAX_ADS as f32-2.).powf(2.)+4.); // Peak should be at y=5.0
-            let reward = x_r + y_r;
+            let x_r = -(4.*x-2.).powf(2.)+4.; // Peak should be at x=0.5
+            let y_r = -(4.*y-2.).powf(2.)+4.;
+            let z_r = -(4.*z-2.).powf(2.)+4.;
+            let q_r = -(4.*q-2.).powf(2.)+4.;
+            let reward = x_r + y_r + z_r + q_r;
 
             learner.learn(reward);
             if i % 2 == 0 {
@@ -338,17 +344,20 @@ mod tests {
         }
 
         // Hack to get around f32 comparisons
-        let best = learner.history.keys()
-            .max_by_key(|k| (learner.history.get(k).unwrap() * 1000.) as isize)
-            .unwrap();
+        for (i, l) in learner.learners.iter().enumerate()  {
+            let best = l.history.keys()
+                .max_by_key(|k| (l.history.get(k).unwrap() * 1000.) as isize)
+                .unwrap();
 
-        // for (k, v) in learner.history.iter() {
-        //     println!("{:?}: {:?}", learner.to_params(k), v);
-        // }
-
-        let best = learner.to_params(best);
-        println!("best:{:?}", best);
-        assert_eq!(best, (0.5, 5.0));
+            let mut best = l.to_params(best);
+            if i == 2 || i == 3 {
+                best /= 10.;
+            }
+            println!("{:?}:best:{:?}", i, best);
+            println!("history:{:?}", l.history);
+            let range = [0.4, 0.5, 0.6, 0.7];
+            assert!(range.contains(&best));
+        }
     }
 
     #[test]

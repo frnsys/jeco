@@ -282,7 +282,8 @@ mod tests {
                     publisher: Some(0),
                     body: ContentBody {
                         cost: 0.,
-                        quality: 0.,
+                        depth: 0.,
+                        spectacle: 0.,
                         topics: Topics::from_vec(vec![ 0., 1.]),
                         values: Values::from_vec(vec![-1., 1.]),
                     },
@@ -300,7 +301,8 @@ mod tests {
     fn test_reader_similarity() {
         let mut body = ContentBody {
             cost: 0.,
-            quality: 0.,
+            depth: 0.,
+            spectacle: 0.,
             topics: Topics::from_vec(vec![ 0., 1.]),
             values: Values::from_vec(vec![-1., 1.]),
         };
@@ -321,7 +323,8 @@ mod tests {
 
         body = ContentBody {
             cost: 0.,
-            quality: 0.,
+            depth: 0.,
+            spectacle: 0.,
             topics: Topics::from_vec(vec![ 0., 0.]),
             values: Values::from_vec(vec![-1., 1.]),
         };
@@ -332,7 +335,8 @@ mod tests {
 
         body = ContentBody {
             cost: 0.,
-            quality: 0.,
+            depth: 0.,
+            spectacle: 0.,
             topics: Topics::from_vec(vec![ 1., 0.]),
             values: Values::from_vec(vec![ 1.,-1.]),
         };

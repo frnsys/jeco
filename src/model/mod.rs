@@ -42,6 +42,7 @@ mod tests {
             agent.interests = Topics::from_vec(vec![1., 1.]);
             agent.attention = 20.;
             agent.location = (0, 0);
+            agent.media_literacy = 0.5;
             agent
         }).collect()
     }
@@ -168,7 +169,9 @@ mod tests {
                 // Control for cost & quality
                 // Topic allowed to vary
                 body.cost = 10.;
-                body.quality = 1.;
+                // body.quality = 1.;
+                body.depth = 1.;
+                body.spectacle = 1.;
 
                 let content = Content {
                     id: ContentId::new_v4(),
@@ -204,7 +207,7 @@ mod tests {
     }
 
     #[test]
-    fn high_quality_shared_more() {
+    fn high_depth_high_media_literacy_shared_more() {
         let mut conf = SimulationConfig::default();
         conf.agent = AgentConfig {
             attention_budget: 20.
@@ -212,6 +215,9 @@ mod tests {
 
         let mut rng: StdRng = SeedableRng::seed_from_u64(0);
         let mut consumers = standard_agents(&conf, &mut rng);
+        for a in &mut consumers {
+            a.media_literacy = 1.;
+        }
 
         let low = 0.1;
         let high = 1.0;
@@ -227,10 +233,11 @@ mod tests {
                     author: author_id,
                     body: ContentBody {
                         // High quality vs low quality
-                        quality: if i < 50 {low} else {high},
+                        depth: if i < 50 {low} else {high},
+                        spectacle: 1.,
                         topics: Topics::from_vec(vec![1., 1.]),
                         values: Values::from_vec(vec![0., 0.]),
-                        cost: 10.,
+                        cost: 1.,
                     },
                     ads: 0.
                 };
@@ -246,7 +253,184 @@ mod tests {
                 shared.shuffle(&mut rng);
                 let (will_share, _, _, _, _) = a.consume(&shared, &conf, &mut rng);
                 for shared in will_share {
-                    if shared.body.quality == high {
+                    if shared.body.depth == high {
+                        high_quality_shares += 1;
+                    } else {
+                        low_quality_shares += 1;
+                    }
+                }
+            }
+        }
+        println!("high:{:?} low:{:?}", high_quality_shares, low_quality_shares);
+        assert!(high_quality_shares > low_quality_shares);
+    }
+
+    #[test]
+    fn high_depth_low_media_literacy_not_shared_more() {
+        let mut conf = SimulationConfig::default();
+        conf.agent = AgentConfig {
+            attention_budget: 20.
+        };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let mut consumers = standard_agents(&conf, &mut rng);
+        for a in &mut consumers {
+            a.media_literacy = 0.;
+        }
+
+        let low = 0.1;
+        let high = 1.0;
+        let mut high_quality_shares = 0;
+        let mut low_quality_shares = 0;
+
+        let author_id = consumers.len();
+        for _ in 0..10 {
+            let content: Vec<SharedContent> = (0..100).map(|i| {
+                let content = Content {
+                    id: ContentId::new_v4(),
+                    publisher: None,
+                    author: author_id,
+                    body: ContentBody {
+                        // High quality vs low quality
+                        depth: if i < 50 {low} else {high},
+                        spectacle: 1.,
+                        topics: Topics::from_vec(vec![1., 1.]),
+                        values: Values::from_vec(vec![0., 0.]),
+                        cost: 1.,
+                    },
+                    ads: 0.
+                };
+                SharedContent {
+                    content: Arc::new(content),
+                    sharer: (SharerType::Agent, author_id)
+                }
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
+                .map(|c| (None, c)).collect();
+            for a in &mut consumers {
+                shared.shuffle(&mut rng);
+                let (will_share, _, _, _, _) = a.consume(&shared, &conf, &mut rng);
+                for shared in will_share {
+                    if shared.body.depth == high {
+                        high_quality_shares += 1;
+                    } else {
+                        low_quality_shares += 1;
+                    }
+                }
+            }
+        }
+        println!("high:{:?} low:{:?}", high_quality_shares, low_quality_shares);
+        assert!(high_quality_shares <= low_quality_shares);
+    }
+
+    #[test]
+    fn high_spectacle_high_media_literacy_not_shared_more() {
+        let mut conf = SimulationConfig::default();
+        conf.agent = AgentConfig {
+            attention_budget: 20.
+        };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let mut consumers = standard_agents(&conf, &mut rng);
+        for a in &mut consumers {
+            a.media_literacy = 1.;
+        }
+
+        let low = 0.1;
+        let high = 1.0;
+        let mut high_quality_shares = 0;
+        let mut low_quality_shares = 0;
+
+        let author_id = consumers.len();
+        for _ in 0..10 {
+            let content: Vec<SharedContent> = (0..100).map(|i| {
+                let content = Content {
+                    id: ContentId::new_v4(),
+                    publisher: None,
+                    author: author_id,
+                    body: ContentBody {
+                        // High quality vs low quality
+                        spectacle: if i < 50 {low} else {high},
+                        depth: 1.,
+                        topics: Topics::from_vec(vec![1., 1.]),
+                        values: Values::from_vec(vec![0., 0.]),
+                        cost: 1.,
+                    },
+                    ads: 0.
+                };
+                SharedContent {
+                    content: Arc::new(content),
+                    sharer: (SharerType::Agent, author_id)
+                }
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
+                .map(|c| (None, c)).collect();
+            for a in &mut consumers {
+                shared.shuffle(&mut rng);
+                let (will_share, _, _, _, _) = a.consume(&shared, &conf, &mut rng);
+                for shared in will_share {
+                    if shared.body.spectacle == high {
+                        high_quality_shares += 1;
+                    } else {
+                        low_quality_shares += 1;
+                    }
+                }
+            }
+        }
+        println!("high:{:?} low:{:?}", high_quality_shares, low_quality_shares);
+        assert!(high_quality_shares <= low_quality_shares);
+    }
+
+    #[test]
+    fn high_spectacle_low_media_literacy_shared_more() {
+        let mut conf = SimulationConfig::default();
+        conf.agent = AgentConfig {
+            attention_budget: 20.
+        };
+
+        let mut rng: StdRng = SeedableRng::seed_from_u64(0);
+        let mut consumers = standard_agents(&conf, &mut rng);
+        for a in &mut consumers {
+            a.media_literacy = 0.;
+        }
+
+        let low = 0.1;
+        let high = 1.0;
+        let mut high_quality_shares = 0;
+        let mut low_quality_shares = 0;
+
+        let author_id = consumers.len();
+        for _ in 0..10 {
+            let content: Vec<SharedContent> = (0..100).map(|i| {
+                let content = Content {
+                    id: ContentId::new_v4(),
+                    publisher: None,
+                    author: author_id,
+                    body: ContentBody {
+                        // High quality vs low quality
+                        spectacle: if i < 50 {low} else {high},
+                        depth: 1.,
+                        topics: Topics::from_vec(vec![1., 1.]),
+                        values: Values::from_vec(vec![0., 0.]),
+                        cost: 1.,
+                    },
+                    ads: 0.
+                };
+                SharedContent {
+                    content: Arc::new(content),
+                    sharer: (SharerType::Agent, author_id)
+                }
+            }).collect();
+
+            let mut shared: Vec<(Option<&PlatformId>, &SharedContent)> = content.iter()
+                .map(|c| (None, c)).collect();
+            for a in &mut consumers {
+                shared.shuffle(&mut rng);
+                let (will_share, _, _, _, _) = a.consume(&shared, &conf, &mut rng);
+                for shared in will_share {
+                    if shared.body.spectacle == high {
                         high_quality_shares += 1;
                     } else {
                         low_quality_shares += 1;
@@ -285,7 +469,9 @@ mod tests {
                         cost: if i < 50 {low} else {high},
                         topics: Topics::from_vec(vec![1., 1.]),
                         values: Values::from_vec(vec![0., 0.]),
-                        quality: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
@@ -338,8 +524,10 @@ mod tests {
                     body: ContentBody {
                         topics: Topics::from_vec(vec![1., 1.]),
                         values: if i < 50 {aligned.clone()} else {not_aligned.clone()},
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
@@ -392,8 +580,10 @@ mod tests {
                     body: ContentBody {
                         topics: if i < 50 {aligned.clone()} else {not_aligned.clone()},
                         values: Values::from_vec(vec![0., 0.]),
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
@@ -479,8 +669,10 @@ mod tests {
                     body: ContentBody {
                         topics: Topics::from_vec(vec![1., 1.]),
                         values: Values::from_vec(vec![0., 0.]),
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
@@ -530,7 +722,9 @@ mod tests {
             agent.resources = 100.;
 
             // Control for quality and reach
-            agent.quality = 10.;
+            // agent.quality = 10.;
+            agent.depth = 10.;
+            agent.spectacle = 10.;
             agent.reach = 1.;
 
             agent
@@ -540,7 +734,9 @@ mod tests {
             agent.resources = 5.;
 
             // Control for quality
-            agent.quality = 10.;
+            // agent.quality = 10.;
+            agent.depth = 10.;
+            agent.spectacle = 10.;
             agent.reach = 1.;
 
             agent
@@ -603,8 +799,10 @@ mod tests {
                         } else {
                             Values::from_vec(vec![ 1.,  1.])
                         },
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
@@ -669,8 +867,10 @@ mod tests {
                             Topics::from_vec(vec![ 1., 0.])
                         },
                         values: Values::from_vec(vec![0., 0.]),
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
@@ -747,8 +947,10 @@ mod tests {
                         } else {
                             Values::from_vec(vec![-1., -1.])
                         },
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
@@ -820,8 +1022,10 @@ mod tests {
                             Topics::from_vec(vec![0., 0.])
                         },
                         values: Values::from_vec(vec![0., 0.]),
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
@@ -889,8 +1093,10 @@ mod tests {
                     body: ContentBody {
                         topics: Topics::from_vec(vec![1., 1.]),
                         values: Values::from_vec(vec![0., 0.]),
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
@@ -958,8 +1164,10 @@ mod tests {
                     body: ContentBody {
                         topics: Topics::from_vec(vec![1., 1.]),
                         values: Values::from_vec(vec![0., 0.]),
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: if i < 50 {
                         0.
@@ -1016,26 +1224,32 @@ mod tests {
         let mut pitches: Vec<(usize, ContentBody)> = (0..120).map(|i| {
             if i < 40 {
                 let body = ContentBody {
-                    quality: 0., // So it costs nothing
+                    // quality: 0., // So it costs nothing
+                    depth: 0.,
+                    spectacle: 0.,
                     topics: Topics::from_vec(vec![0., 1.]),
                     values: Values::from_vec(vec![1., 1.]),
-                    cost: 10.,
+                    cost: 1.,
                 };
                 (0, body)
             } else if i < 80 {
                 let body = ContentBody {
-                    quality: 0., // So it costs nothing
+                    // quality: 0., // So it costs nothing
+                    depth: 0.,
+                    spectacle: 0.,
                     topics: Topics::from_vec(vec![0.5, 0.5]),
                     values: Values::from_vec(vec![0., 0.]),
-                    cost: 10.,
+                    cost: 1.,
                 };
                 (1, body)
             } else {
                 let body = ContentBody {
-                    quality: 0., // So it costs nothing
+                    // quality: 0., // So it costs nothing
+                    depth: 0.,
+                    spectacle: 0.,
                     topics: Topics::from_vec(vec![ 1.,  0.]),
                     values: Values::from_vec(vec![-1., -1.]),
-                    cost: 10.,
+                    cost: 1.,
                 };
                 (2, body)
             }
@@ -1101,8 +1315,10 @@ mod tests {
                     body: ContentBody {
                         topics: ints_expected.clone(),
                         values: vals_expected.clone(),
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
@@ -1194,8 +1410,10 @@ mod tests {
                         } else {
                             Values::from_vec(vec![-1., -1.])
                         },
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
@@ -1247,8 +1465,10 @@ mod tests {
                         } else {
                             Values::from_vec(vec![0., 0.])
                         },
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
@@ -1312,8 +1532,10 @@ mod tests {
                     body: ContentBody {
                         topics: Topics::from_vec(vec![1., 1.]),
                         values: Values::from_vec(vec![0., 0.]),
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
@@ -1387,8 +1609,10 @@ mod tests {
                     body: ContentBody {
                         topics: Topics::from_vec(vec![1., 1.]),
                         values: Values::from_vec(vec![0., 0.]),
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 1.
                 };
@@ -1451,8 +1675,10 @@ mod tests {
                     body: ContentBody {
                         topics: Topics::from_vec(vec![1., 1.]),
                         values: Values::from_vec(vec![0., 0.]),
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 }
@@ -1496,8 +1722,10 @@ mod tests {
                     body: ContentBody {
                         topics: Topics::from_vec(vec![1., 1.]),
                         values: Values::from_vec(vec![0., 0.]),
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 }
@@ -1554,8 +1782,10 @@ mod tests {
                     body: ContentBody {
                         topics: Topics::from_vec(vec![1., 1.]),
                         values: Values::from_vec(vec![0., 0.]),
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
@@ -1600,8 +1830,10 @@ mod tests {
                     body: ContentBody {
                         topics: Topics::from_vec(vec![ 0., 0.]),
                         values: Values::from_vec(vec![-1., -1.]),
-                        cost: 10.,
-                        quality: 1.,
+                        cost: 1.,
+                        // quality: 1.,
+                        depth: 1.,
+                        spectacle: 1.,
                     },
                     ads: 0.
                 };
