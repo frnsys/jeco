@@ -89,6 +89,8 @@ impl Simulation {
 
         // Randomly assign publishers by density
         let mut already_occupied: Vec<Position> = Vec::new();
+        let radii: Vec<usize> = (0..ref_grid.rows.max(ref_grid.cols)).collect();
+        let max_pop = grid.iter().fold(0, |acc, (_, agents)| agents.len().max(acc)) as f32;
         for publisher in &mut publishers {
             // If all locations have a Publisher,
             // reset to allow for multiple Publishers per location.
@@ -96,15 +98,32 @@ impl Simulation {
                 already_occupied.clear();
             }
             let weights: Vec<(Position, usize)> = grid.iter()
-                .filter(|(pos, _)| !already_occupied.contains(pos))
-                .map(|(pos, agents)| (*pos, agents.len() + 1))
+                .filter(|(pos, agents)| !already_occupied.contains(pos) && agents.len() > 0)
+                .map(|(pos, agents)| (*pos, agents.len().pow(2)))
                 .collect();
+            // println!("weights {:?}", weights);
             let pos = weights.choose_weighted(&mut rng, |item| item.1).unwrap().0;
             publisher.location = pos;
             already_occupied.push(pos);
 
-            let radius = (rng.gen::<f32>() * (ref_grid.rows.max(ref_grid.cols) + 1) as f32).floor() as usize;
+            // So that larger populations are more
+            // likely to have larger radii
+            let pop = grid[&pos].len() as f32;
+            let radius_weights: Vec<(usize, f32)> = radii.iter().map(|r| {
+                let v = pop/max_pop;
+                let t = radii.len();
+                if v >= (*r as f32/t as f32) {
+                    let d = (t - r).pow(3) + 1;
+                    (*r, v/d as f32)
+                } else {
+                    (*r, 0.)
+                }
+            }).collect();
+            // println!("pop {:?}", pop);
+            // println!("radius_weights {:?}", radius_weights);
+            let radius = radius_weights.choose_weighted(&mut rng, |item| item.1).unwrap().0;
             publisher.radius = radius;
+            // println!("radius {:?}", radius);
         }
 
         // Distance to a Publisher is
